@@ -9,12 +9,13 @@
 <meta property="og:site_name" content="BASURA Y MÁS">
 <meta property="og:title" content="BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán">
 <meta property="og:description" content="Rutas de recolección reales, reportes ciudadanos con foto y comunidad ecológica. Proyecto FILOSOFARTE · CBTis 226.">
-<meta property="og:image" content="./icon.svg">
+<meta property="og:url" content="https://basura-y-mas.vercel.app/">
+<meta property="og:image" content="https://basura-y-mas.vercel.app/icon.svg">
 <meta property="og:locale" content="es_MX">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán">
 <meta name="twitter:description" content="Rutas de recolección reales, reportes ciudadanos con foto y comunidad ecológica.">
-<meta name="twitter:image" content="./icon.svg">
+<meta name="twitter:image" content="https://basura-y-mas.vercel.app/icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BASURA Y MÁS">
@@ -1802,6 +1803,7 @@ function polilineaAPuntos(way){
 // Espejos públicos de Overpass: si uno falla se intenta el siguiente.
 const SERVIDORES_OVERPASS = [
   'https://overpass-api.de/api/interpreter?data=',
+  'https://overpass.osm.ch/api/interpreter?data=',
   'https://overpass.kumi.systems/api/interpreter?data=',
   'https://overpass.private.coffee/api/interpreter?data='
 ];

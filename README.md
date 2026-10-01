@@ -32,6 +32,10 @@ App web cívica y ecológica que conecta a la ciudadanía con la información de
 - [Supabase](https://supabase.com) (PostgreSQL con seguridad RLS) para sincronizar reportes y publicaciones.
 - Esquema de base de datos con políticas RLS: [`supabase-schema.sql`](supabase-schema.sql)
 
+## 🌐 En línea
+
+**https://basura-y-mas.vercel.app** — desplegada con Vercel desde este repositorio; cada push se redespliega automáticamente.
+
 ## 🚀 Uso
 
 1. Abre `index.html` en el navegador o visita la versión desplegada (Vercel).
