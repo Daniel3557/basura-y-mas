@@ -1,7 +1,7 @@
 /* BASURA Y MÁS · Service worker (PWA instalable y uso offline básico)
    Estrategia: precache del app shell + caché-first para mismos orígenes.
    Las APIs externas (OSM, OSRM, Nominatim, Supabase) pasan directo a la red. */
-const CACHE = 'bym-v3';
+const CACHE = 'bym-v4';
 const PRECACHE = [
   './',
   './index.html',

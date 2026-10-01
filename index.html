@@ -426,6 +426,8 @@ main{padding:calc(var(--header-h) + 1rem) .9rem calc(var(--nav-h) + 1.6rem);max-
 .logro-item:last-child{border-bottom:none}
 .logro-item .icono{color:var(--primary);width:17px;height:17px}
 .logro-item small{color:var(--muted);margin-left:auto;flex:none}
+.btn-icono.activo{color:var(--primary);background:color-mix(in srgb,var(--primary) 14%,transparent)}
+.campo input[readonly]{background:color-mix(in srgb,var(--mist) 28%,var(--card));color:var(--text);cursor:default;border-style:dashed}
 
 #confetti{position:fixed;inset:0;z-index:320;pointer-events:none}
 
@@ -584,6 +586,9 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
   <div class="header-espacio"></div>
   <span class="chip-header" id="chipDemo" hidden>▶ Modo demostración</span>
   <span class="chip-header"><span class="punto" aria-hidden="true"></span>Ciudad Guzmán</span>
+  <button type="button" class="btn-icono" id="btnCuenta" aria-label="Mi cuenta" title="Mi cuenta">
+    <svg class="icono" aria-hidden="true"><use href="#i-usuario"/></svg>
+  </button>
   <button type="button" class="btn-icono" id="btnConfig" aria-label="Abrir configuración" title="Configuración">
     <svg class="icono" aria-hidden="true"><use href="#i-config"/></svg>
   </button>
@@ -1005,13 +1010,15 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
 
     <div class="tarjeta" style="margin-top:1rem">
       <div class="perfil-cab">
-        <div class="perfil-avatar" id="perfilAvatar">DA</div>
+        <div class="perfil-avatar" id="perfilAvatar">👤</div>
         <div style="min-width:0">
-          <strong style="font-size:1.15rem;display:block" id="perfilNombreTxt">Daniel Alvarez</strong>
+          <strong style="font-size:1.15rem;display:block" id="perfilNombreTxt">Invitado</strong>
           <small style="color:var(--muted)" id="perfilColoniaTxt">Centro · Ciudad Guzmán</small>
           <div style="margin-top:.4rem"><span class="nivel-num" id="perfilNivelNum">Nivel 1 · Vecino consciente</span></div>
         </div>
       </div>
+      <p style="font-size:.78rem;color:var(--muted);margin:.7rem 0 0" id="perfilCuentaEtq">Sin cuenta: participas como invitado.</p>
+      <button type="button" class="btn btn-secundario" id="btnAbrirCuentaPerfil" style="margin-top:.55rem"><svg class="icono"><use href="#i-estrella"/></svg>Crear cuenta / Iniciar sesión</button>
       <div style="margin-top:1rem">
         <div style="display:flex;justify-content:space-between;align-items:baseline">
           <span class="puntos-num" id="perfilPuntosTxt">0</span>
@@ -1096,10 +1103,100 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
     <p style="margin-top:.5rem">La tecnología no sustituye la responsabilidad de las personas; puede ayudarnos a ejercerla mejor.</p>
   </div>
   <p class="footer-frase">“El progreso sin conciencia no es progresión.”</p>
-  <p class="footer-privacidad">Datos cartográficos © colaboradores de OpenStreetMap · Rutas: OSRM · Esta aplicación guarda tus datos localmente en tu navegador.</p>
+  <p class="footer-privacidad">Datos cartográficos © colaboradores de OpenStreetMap · Rutas: OSRM · Tus datos se sincronizan en Supabase y también se guardan en tu navegador.</p>
 </footer>
 
 <!-- ============ MODALES ============ -->
+<div class="modal-overlay" id="modalCuenta" role="dialog" aria-modal="true" aria-labelledby="tCuenta">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-cab">
+      <h3 id="tCuenta">Mi cuenta</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+
+    <!-- Sin sesión: entrar o crear cuenta -->
+    <div id="cuentaSinSesion">
+      <p style="font-size:.85rem;color:var(--muted)">Crea tu cuenta para firmar con tu nombre en reportes y publicaciones, y conservar tu perfil en cualquier dispositivo.</p>
+      <div class="cta-cuenta" style="display:flex;gap:.5rem;margin:.8rem 0 .4rem">
+        <button type="button" class="btn btn-primario" id="btnVerLogin" style="flex:1">Iniciar sesión</button>
+        <button type="button" class="btn btn-secundario" id="btnVerRegistro" style="flex:1">Crear cuenta</button>
+      </div>
+
+      <form id="formLogin" hidden novalidate>
+        <div class="campo"><label for="cLoginEmail">Correo electrónico</label>
+          <input type="email" id="cLoginEmail" autocomplete="email" placeholder="tucorreo@ejemplo.com" required>
+          <p class="error-msg" id="errLoginEmail" role="alert"></p>
+        </div>
+        <div class="campo"><label for="cLoginPass">Contraseña</label>
+          <input type="password" id="cLoginPass" autocomplete="current-password" minlength="6" placeholder="Tu contraseña" required>
+          <p class="error-msg" id="errLoginPass" role="alert"></p>
+        </div>
+        <p class="error-msg" id="errLoginGeneral" role="alert" style="margin-top:.2rem"></p>
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btnLogin">Entrar</button>
+        </div>
+      </form>
+
+      <form id="formRegistro" hidden novalidate>
+        <div class="campo"><label for="cRegNombre">Tu nombre</label>
+          <input type="text" id="cRegNombre" maxlength="40" autocomplete="name" placeholder="Ej. María González">
+          <p class="error-msg" id="errRegNombre" role="alert"></p>
+        </div>
+        <div class="campo"><label for="cRegEmail">Correo electrónico</label>
+          <input type="email" id="cRegEmail" autocomplete="email" placeholder="tucorreo@ejemplo.com" required>
+          <p class="error-msg" id="errRegEmail" role="alert"></p>
+        </div>
+        <div class="campo"><label for="cRegPass">Contraseña <small style="color:var(--muted);font-weight:500">(mínimo 6 caracteres)</small></label>
+          <input type="password" id="cRegPass" autocomplete="new-password" minlength="6" placeholder="Crea una contraseña" required>
+          <p class="error-msg" id="errRegPass" role="alert"></p>
+        </div>
+        <p class="error-msg" id="errRegGeneral" role="alert" style="margin-top:.2rem"></p>
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btnRegistro">Crear mi cuenta</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Con sesión activa -->
+    <div id="cuentaConSesion" hidden>
+      <div style="display:flex;gap:.7rem;align-items:center;margin:.2rem 0 .8rem">
+        <div class="perfil-avatar" id="cuentaAvatar" style="width:46px;height:46px;font-size:1.05rem">👤</div>
+        <div style="min-width:0">
+          <strong style="display:block" id="cuentaNombreTxt">Vecino</strong>
+          <small style="color:var(--muted);display:block;overflow-wrap:anywhere" id="cuentaEmailTxt"></small>
+        </div>
+      </div>
+      <div class="chip gris" id="cuentaChipSesion" style="margin-bottom:.8rem">Sesión activa</div>
+      <form id="formCuentaNombre" novalidate>
+        <div class="campo"><label for="cuentaNuevoNombre">Nombre que aparece en tus publicaciones</label>
+          <input type="text" id="cuentaNuevoNombre" maxlength="40" placeholder="Tu nombre">
+          <p class="error-msg" id="errCuentaNombre" role="alert"></p>
+        </div>
+        <button type="submit" class="btn btn-secundario" style="width:100%">Guardar nombre</button>
+      </form>
+      <div class="modal-acciones" style="margin-top:.9rem">
+        <button type="button" class="btn btn-peligro" id="btnCerrarSesion">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalBienvenida" role="dialog" aria-modal="true" aria-labelledby="tBienvenida">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-cab">
+      <h3 id="tBienvenida">🌿 Bienvenido a BASURA Y MÁS</h3>
+    </div>
+    <p style="font-size:.88rem;color:var(--text)">Esta app es de <strong>todos los vecinos de Ciudad Guzmán</strong>. Crea tu cuenta para participar con tu propio nombre, o entra como invitado si lo prefieres.</p>
+    <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:1rem">
+      <button type="button" class="btn btn-primario" id="btnBienvenidaCrear">✨ Crear mi cuenta</button>
+      <button type="button" class="btn btn-secundario" id="btnBienvenidaLogin">Ya tengo cuenta: iniciar sesión</button>
+      <button type="button" class="btn btn-borde" id="btnBienvenidaInvitado">Explorar como invitado</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalConfig" role="dialog" aria-modal="true" aria-labelledby="tConfig">
   <div class="modal">
     <div class="modal-cab">
@@ -1276,7 +1373,7 @@ const estado = {
   vista: 'inicio',
   tema: almacen.datos.tema || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   coloniaId: almacen.datos.coloniaId || 'centro',
-  nombrePerfil: almacen.datos.nombrePerfil || 'Daniel Alvarez',
+  nombrePerfil: almacen.datos.nombrePerfil || 'Invitado',  // identidad propia del dispositivo (sin cuenta se es invitado)
   notif: !!almacen.datos.notif,
   demo: !!almacen.datos.demo,
   puntos: almacen.datos.puntos || 0,
@@ -1355,19 +1452,176 @@ const NUBE = {
   key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbm5xZ2dhc3F4bHBudGNmZnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MDAzMzUsImV4cCI6MjEwNjM3NjMzNX0.89g4vlDGldKazqO8o1MFSPcnvNbIL5D486r1lKrUKto'
 };
 let nubeCargadaPost = false, nubeCargadaRep = false;
-function cabecerasNube(extra){
+
+/* ============================================================
+   MÓDULO 3b · CUENTAS DE USUARIO (Supabase Auth)
+   ------------------------------------------------------------
+   Cada visitante puede crear su cuenta (correo + contraseña) para
+   tener identidad propia. Sin cuenta se participa como invitado.
+   La sesión se guarda en localStorage y se restaura al abrir la app.
+   ============================================================ */
+const NUBE_AUTH = 'https://rmnnqggasqxlpntcffrz.supabase.co/auth/v1/';
+const CLAVE_SESION = 'bym.sesion.v1';
+const sesion = { usuario: null };               // { id, email, nombre }
+function obtenerSesion(){
+  if (!almacen.ok) return null;
+  try { return JSON.parse(localStorage.getItem(CLAVE_SESION)) || null; } catch(e){ return null; }
+}
+function guardarSesion(s){
+  try {
+    if (s) localStorage.setItem(CLAVE_SESION, JSON.stringify(s));
+    else localStorage.removeItem(CLAVE_SESION);
+  } catch(e){}
+  sesion.usuario = s;
+}
+function restaurarSesion(){
+  const s = obtenerSesion();
+  if (!s || !s.id || !s.token) { sesion.usuario = null; return Promise.resolve(); }
+  // Renueva el access_token con el refresh_token (los JWT de Supabase caducan en ~1 h)
+  return fetch(NUBE_AUTH + 'token?grant_type=refresh_token', {
+    method: 'POST', headers: cabecerasAnon(), body: JSON.stringify({ refresh_token: s.refresh })
+  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    if (d && d.access_token){
+      guardarSesion({ id: d.user.id, email: d.user.email, token: d.access_token, refresh: d.refresh_token });
+      return cargarPerfilRemoto();
+    }
+    guardarSesion(null); // sesión irrecuperable: sigue como invitado
+  }).catch(function(){
+    sesion.usuario = s; // sin internet: usa la sesión guardada tal cual
+  });
+}
+function cargarPerfilRemoto(){
+  if (!sesion.usuario) return Promise.resolve();
+  const uid = sesion.usuario.id;
+  return fetch(NUBE.url + 'perfiles?id=eq.' + uid + '&select=nombre&limit=1', { headers: cabecerasAnon() })
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(rows){
+      const n = (rows && rows[0] && rows[0].nombre) || '';
+      sesion.usuario.nombre = n || (sesion.usuario.email || 'Vecino').split('@')[0];
+      estado.nombrePerfil = sesion.usuario.nombre;
+      almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
+      aplicarIdentidad();
+    }).catch(function(){});
+}
+function cabecerasAnon(extra){
   const h = { 'apikey': NUBE.key, 'Authorization': 'Bearer ' + NUBE.key, 'Content-Type': 'application/json' };
   if (extra) for (const k in extra) h[k] = extra[k];
   return h;
 }
+function cabecerasNube(extra){
+  const h = { 'apikey': NUBE.key, 'Content-Type': 'application/json' };
+  h['Authorization'] = 'Bearer ' + (sesion.usuario && sesion.usuario.token ? sesion.usuario.token : NUBE.key);
+  if (extra) for (const k in extra) h[k] = extra[k];
+  return h;
+}
+function crearCuenta(nombre, email, pass){
+  return fetch(NUBE_AUTH + 'signup', {
+    method: 'POST', headers: cabecerasAnon(), body: JSON.stringify({ email: email, password: pass })
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){ return { ok: r.ok, d: d }; });
+  }).then(function(res){
+    if (!res.ok){
+      const m = (res.d && (res.d.msg || res.d.message || res.d.error_description || res.d.error)) || 'No se pudo crear la cuenta. Revisa los datos e intenta de nuevo.';
+      return { ok: false, error: m };
+    }
+    const d = res.d;
+    if (!d || !d.access_token || !d.user) return { ok: false, error: 'La cuenta se creó, pero el servidor pidió confirmar el correo. Pide a Daniel desactivar "Confirm email" en Supabase.' };
+    guardarSesion({ id: d.user.id, email: d.user.email, token: d.access_token, refresh: d.refresh_token });
+    const n = (nombre || '').trim() || (d.user.email || 'Vecino').split('@')[0];
+    sesion.usuario.nombre = n;
+    return fetch(NUBE.url + 'perfiles', {
+      method: 'POST', headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
+      body: JSON.stringify([{ id: sesion.usuario.id, nombre: n }])
+    }).then(function(){ return { ok: true }; }).catch(function(){ return { ok: true }; });
+  }).catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo crear la cuenta. Intenta de nuevo con internet.' }; });
+}
+function iniciarSesion(email, pass){
+  return fetch(NUBE_AUTH + 'token?grant_type=password', {
+    method: 'POST', headers: cabecerasAnon(), body: JSON.stringify({ email: email, password: pass })
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){ return { ok: r.ok, d: d }; });
+  }).then(function(res){
+    if (!res.ok || !res.d.access_token){
+      const m = (res.d && (res.d.msg || res.d.message || res.d.error_description || res.d.error)) || 'Correo o contraseña incorrectos.';
+      return { ok: false, error: m };
+    }
+    guardarSesion({ id: res.d.user.id, email: res.d.user.email, token: res.d.access_token, refresh: res.d.refresh_token });
+    return cargarPerfilRemoto().then(function(){ return { ok: true }; });
+  }).catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo iniciar sesión. Intenta de nuevo.' }; });
+}
+function cerrarSesion(){
+  if (sesion.usuario && sesion.usuario.token){
+    fetch(NUBE_AUTH + 'logout', { method: 'POST', headers: cabecerasNube() }).catch(function(){});
+  }
+  guardarSesion(null);
+  estado.nombrePerfil = 'Invitado';
+  almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
+  $('#repNombre').value = ''; $('#postNombre').value = '';
+  aplicarIdentidad();
+  ssyncPublicaciones(); ssyncReportes();
+  toast('Sesión cerrada. Ahora participas como invitado.', 'info');
+}
 function upsertNube(tabla, obj){
   if (!estado._nube) return Promise.resolve(false);
   const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube;
-  return fetch(NUBE.url + tabla, {
+  if (sesion.usuario && sesion.usuario.id) copia.usuario_id = sesion.usuario.id;
+  const envio = fetch(NUBE.url + tabla, {
     method: 'POST',
     headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
     body: JSON.stringify([copia])
-  }).then(function(r){ return r.ok; }).catch(function(){ return false; });
+  });
+  return envio.then(function(r){
+    // Token caducado: renovarlo con el refresh_token y reintentar una vez
+    if (r.status === 401 && sesion.usuario && sesion.usuario.refresh){
+      return restaurarSesion().then(function(){
+        return fetch(NUBE.url + tabla, {
+          method: 'POST',
+          headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
+          body: JSON.stringify([copia])
+        }).then(function(r2){ return r2.ok; });
+      });
+    }
+    return r.ok;
+  }).catch(function(){ return false; });
+}
+function actualizarBotonCuenta(){
+  const b = $('#btnCuenta');
+  if (!b) return;
+  b.classList.toggle('activo', !!sesion.usuario);
+  b.title = sesion.usuario ? 'Mi cuenta (' + sesion.usuario.nombre + ')' : 'Mi cuenta';
+}
+/** Nombre con el que se firman reportes, publicaciones y comentarios. */
+function nombreFirma(){
+  if (sesion.usuario && sesion.usuario.nombre) return sesion.usuario.nombre;
+  const n = (estado.nombrePerfil || '').trim();
+  return (n && n !== 'Invitado') ? n : 'Anónimo';
+}
+/** Nombre que se muestra en el perfil (invitado si no hay nada). */
+function nombreMostrado(){
+  if (sesion.usuario && sesion.usuario.nombre) return sesion.usuario.nombre;
+  return (estado.nombrePerfil || '').trim() || 'Invitado';
+}
+/** Sincroniza la identidad con la interfaz (perfil, formularios, botones). */
+function aplicarIdentidad(){
+  if (sesion.usuario){ estado.nombrePerfil = sesion.usuario.nombre; almacen.datos.nombrePerfil = estado.nombrePerfil; guardar(); }
+  const nombre = nombreMostrado();
+  const txt = $('#perfilNombreTxt'); if (txt) txt.textContent = nombre;
+  const av = $('#perfilAvatar'); if (av) av.textContent = iniciales(nombre);
+  const etq = $('#perfilCuentaEtq');
+  if (etq) etq.textContent = sesion.usuario ? 'Sesión activa · ' + sesion.usuario.email : 'Sin cuenta: participas como invitado y puedes crear una gratis.';
+  const repIn = $('#repNombre'), postIn = $('#postNombre');
+  if (sesion.usuario){
+    // Con cuenta el nombre es fijo: no se puede publicar suplantando a nadie
+    if (repIn){ repIn.value = nombreFirma(); repIn.readOnly = true; repIn.placeholder = 'Firmas como ' + nombreFirma(); }
+    if (postIn){ postIn.value = nombreFirma(); postIn.readOnly = true; postIn.placeholder = 'Publicas como ' + nombreFirma(); }
+  } else {
+    if (repIn && repIn.readOnly){ repIn.value = ''; repIn.readOnly = false; repIn.placeholder = 'Puedes reportar como Anónimo'; }
+    if (postIn && postIn.readOnly){ postIn.value = ''; postIn.readOnly = false; postIn.placeholder = 'Publica como Anónimo'; }
+  }
+  const ln = $('#cuentaNuevoNombre'); if (ln && sesion.usuario) ln.value = sesion.usuario.nombre;
+  const bp = $('#btnAbrirCuentaPerfil');
+  if (bp) bp.innerHTML = sesion.usuario ? '<svg class="icono"><use href="#i-usuario"/></svg>Mi cuenta' : '<svg class="icono"><use href="#i-estrella"/></svg>Crear cuenta / Iniciar sesión';
+  actualizarBotonCuenta();
 }
 function nubeEstado(v){
   estado._nube = (v === 'ok');
@@ -1379,17 +1633,21 @@ function nubeEstado(v){
 }
 function mapearReporteNube(r){
   return { id: r.id, nombre: r.nombre, colonia: r.colonia, tipo: r.tipo, texto: r.texto,
-    foto: r.foto || null, ubicacion: r.ubicacion || null, estado: 'Sincronizado con la nube', ts: Number(r.ts) };
+    foto: r.foto || null, ubicacion: r.ubicacion || null, estado: 'Sincronizado con la nube', ts: Number(r.ts), usuario_id: r.usuario_id || null };
 }
 function mapearPostNube(p){
   return { id: p.id, nombre: p.nombre, colonia: p.colonia, tipo: p.tipo, texto: p.texto,
-    likes: p.likes || 0, votado: false, comentarios: Array.isArray(p.comentarios) ? p.comentarios : [], ts: Number(p.ts), ejemplo: false };
+    likes: p.likes || 0, votado: false, comentarios: Array.isArray(p.comentarios) ? p.comentarios : [], ts: Number(p.ts), ejemplo: false, usuario_id: p.usuario_id || null };
 }
 function ssyncPublicaciones(){
   return fetch(NUBE.url + 'publicaciones?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(rows){
-      const remotas = (rows || []).map(mapearPostNube);
+      const remotas = (rows || []).map(mapearPostNube).map(function(p){
+        // Con sesión activa, lo mío siempre muestra el nombre actual de MI cuenta
+        if (sesion.usuario && p.usuario_id === sesion.usuario.id) p.nombre = sesion.usuario.nombre;
+        return p;
+      });
       const vistos = {}; remotas.forEach(function(p){ vistos[p.id] = true; });
       const localesNuevas = publicaciones.filter(function(p){ return !p.ejemplo && !vistos[p.id]; });
       return Promise.all(localesNuevas.map(function(p){ return upsertNube('publicaciones', p); }))
@@ -1410,7 +1668,10 @@ function ssyncReportes(){
   return fetch(NUBE.url + 'reportes?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(rows){
-      const remotas = (rows || []).map(mapearReporteNube).filter(function(x){ return estado.eliminadosRep.indexOf(x.id) === -1; });
+      const remotas = (rows || []).map(mapearReporteNube).map(function(x){
+        if (sesion.usuario && x.usuario_id === sesion.usuario.id) x.nombre = sesion.usuario.nombre;
+        return x;
+      }).filter(function(x){ return estado.eliminadosRep.indexOf(x.id) === -1; });
       const vistos = {}; remotas.forEach(function(x){ vistos[x.id] = true; });
       const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id]; });
       return Promise.all(localesNuevas.map(function(x){ return upsertNube('reportes', x); }))
@@ -1429,9 +1690,14 @@ function ssyncComments(post){
 }
 function initNube(){
   nubeEstado('conectando');
-  fetch(NUBE.url + 'publicaciones?select=id&limit=1', { headers: cabecerasNube() })
-    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); nubeEstado('ok'); return Promise.all([ssyncPublicaciones(), ssyncReportes()]); })
-    .catch(function(){ nubeEstado('sin'); });
+  restaurarSesion().then(function(){
+    actualizarBotonCuenta();
+    return fetch(NUBE.url + 'publicaciones?select=id&limit=1', { headers: cabecerasNube() });
+  }).then(function(r){
+    if (!r || !r.ok) throw new Error('HTTP ' + (r ? r.status : 0));
+    nubeEstado('ok');
+    return Promise.all([ssyncPublicaciones(), ssyncReportes()]);
+  }).catch(function(){ nubeEstado('sin'); });
 }
 
 /* ============================================================
@@ -1673,8 +1939,8 @@ function renderInsignias(recien){
 }
 function renderPerfil(){
   const n = nivelDe(estado.puntos);
-  $('#perfilNombreTxt').textContent = estado.nombrePerfil;
-  $('#perfilAvatar').textContent = iniciales(estado.nombrePerfil);
+  $('#perfilNombreTxt').textContent = nombreMostrado();
+  $('#perfilAvatar').textContent = iniciales(nombreMostrado());
   const nombresCol = { centro:'Centro', floresta:'La Floresta', villas:'Villas del Padre', estanzuela:'La Estanzuela', agustin:'El Agustín', rafael:'San Rafael' };
   $('#perfilColoniaTxt').textContent = (nombresCol[estado.coloniaId] || 'Ciudad Guzmán') + ' · Ciudad Guzmán';
   $('#perfilNivelNum').textContent = 'Nivel ' + n.nivel + ' · ' + n.nombre;
@@ -2621,9 +2887,9 @@ estado.publicaciones = publicaciones;
 function semillasPublicaciones(){
   const ahora = Date.now();
   return [
-    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'Centro', tipo: 'Duda', texto: '¿A qué hora pasa la recolección los sábados? En la app puedo revisar la ruta de mi colonia.', ts: ahora - 35*60000, likes: 5, votado: false, comentarios: [] },
-    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'La Floresta', tipo: 'Propuesta', texto: 'Propongo una jornada de limpieza el próximo fin de semana. ¿Quién se apunta?', ts: ahora - 90*60000, likes: 11, votado: false, comentarios: [{autor: 'Comentario de ejemplo', texto: '¡Yo me apunto!', ts: ahora - 60*60000}] },
-    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'El Agustín', tipo: 'Aviso', texto: 'Recuerda separar orgánicos e inorgánicos la noche antes del paso del camión.', ts: ahora - 200*60000, likes: 8, votado: false, comentarios: [] }
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'Centro', tipo: 'Duda', texto: '¿A qué hora pasa la recolección los sábados? En la app puedo revisar la ruta de mi colonia.', ts: ahora - 35*60000, likes: 5, votado: false, comentarios: [] },
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'La Floresta', tipo: 'Propuesta', texto: 'Propongo una jornada de limpieza el próximo fin de semana. ¿Quién se apunta?', ts: ahora - 90*60000, likes: 11, votado: false, comentarios: [{autor: 'Comentario de ejemplo', texto: '¡Yo me apunto!', ts: ahora - 60*60000}] },
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'El Agustín', tipo: 'Aviso', texto: 'Recuerda separar orgánicos e inorgánicos la noche antes del paso del camión.', ts: ahora - 200*60000, likes: 8, votado: false, comentarios: [] }
   ];
 }
 
@@ -2727,7 +2993,7 @@ $('#formReporte').addEventListener('submit', function(e){
     id: uid(), nombre: nombre || 'Anónimo', colonia: $('#repColonia').value, tipo: tipo,
     texto: desc, ts: Date.now(), foto: estado.fotoData || null,
     ubicacion: estado.ubicacionReporte ? { lat: estado.ubicacionReporte.lat, lng: estado.ubicacionReporte.lng } : null,
-    estado: 'Registrado localmente'
+    estado: 'Registrado localmente', usuario_id: sesion.usuario ? sesion.usuario.id : null
   };
   dataLayer.createReport(reporte).then(function(){
     registrarAccion('reporte', 'Envió un reporte: ' + tipo, PTS.reporte);
@@ -2808,7 +3074,7 @@ $('#formPost').addEventListener('submit', function(e){
   else limpiarError('errPostTexto');
   if (!ok){ toast('Revisa el formulario antes de publicar.', 'error'); return; }
 
-  const post = { id: uid(), ejemplo: false, nombre: nombre || 'Anónimo', colonia: (ZONAS[estado.coloniaId] || {}).nombre || 'Ciudad Guzmán', tipo: tipo, texto: texto, ts: Date.now(), likes: 0, votado: false, comentarios: [] };
+  const post = { id: uid(), ejemplo: false, nombre: nombre || 'Anónimo', colonia: (ZONAS[estado.coloniaId] || {}).nombre || 'Ciudad Guzmán', tipo: tipo, texto: texto, ts: Date.now(), likes: 0, votado: false, comentarios: [], usuario_id: sesion.usuario ? sesion.usuario.id : null };
   dataLayer.createPost(post).then(function(){
     registrarAccion('participacion', 'Publicó en la comunidad', PTS.participacion);
     toast('✓ Publicación realizada' + (post._nube ? ' y compartida en la nube.' : ' (guardada en este dispositivo).') + ' ¡Gracias por participar!', 'exito');
@@ -2879,7 +3145,7 @@ function nodoPost(p){
     const t = inC.value.trim();
     if (t.length < 2){ toast('Escribe un comentario más largo.', 'error', 2400); return; }
     p.comentarios = p.comentarios || [];
-    p.comentarios.push({ autor: estado.nombrePerfil || 'Anónimo', texto: t, ts: Date.now() });
+    p.comentarios.push({ autor: nombreFirma(), texto: t, ts: Date.now() });
     ssyncComments(p);
     estado._numComentarios = (estado._numComentarios || 0) + 1;
     registrarAccion('participacion', 'Comentó en una publicación', PTS.ayuda);
@@ -2929,8 +3195,125 @@ $('#formPerfil').addEventListener('submit', function(e){
   limpiarError('errPNombre');
   estado.nombrePerfil = n || 'Anónimo';
   almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
+  if (!sesion.usuario) aplicarIdentidad(); // con sesión activa el nombre lo manda la cuenta
   renderPerfil();
   toast('✓ Perfil actualizado.', 'exito');
+});
+
+/* ============================================================
+   MÓDULO 20b · CUENTA: EVENTOS DE INTERFAZ
+   ============================================================ */
+$('#btnCuenta').addEventListener('click', function(){ pintarModalCuenta(); abrirModal('modalCuenta'); });
+function pintarModalCuenta(){
+  const con = !!sesion.usuario;
+  $('#cuentaSinSesion').hidden = con;
+  $('#cuentaConSesion').hidden = !con;
+  $('#formLogin').hidden = true; $('#formRegistro').hidden = true;
+  limpiarError('errLoginEmail'); limpiarError('errLoginPass'); limpiarError('errLoginGeneral');
+  limpiarError('errRegNombre'); limpiarError('errRegEmail'); limpiarError('errRegPass'); limpiarError('errRegGeneral');
+  if (con){
+    $('#cuentaNombreTxt').textContent = sesion.usuario.nombre || 'Vecino';
+    $('#cuentaEmailTxt').textContent = sesion.usuario.email || '';
+    $('#cuentaAvatar').textContent = iniciales(sesion.usuario.nombre || 'V');
+    $('#cuentaChipSesion').textContent = 'Sesión activa';
+    $('#cuentaNuevoNombre').value = sesion.usuario.nombre || '';
+  }
+}
+$('#btnVerLogin').addEventListener('click', function(){ $('#formLogin').hidden = false; $('#formRegistro').hidden = true; $('#cLoginEmail').focus(); });
+$('#btnVerRegistro').addEventListener('click', function(){ $('#formRegistro').hidden = false; $('#formLogin').hidden = true; $('#cRegNombre').focus(); });
+
+$('#formLogin').addEventListener('submit', function(e){
+  e.preventDefault();
+  const email = $('#cLoginEmail').value.trim(), pass = $('#cLoginPass').value;
+  if (!email){ marcarError('errLoginEmail','Escribe tu correo.'); return; } limpiarError('errLoginEmail');
+  if (!pass){ marcarError('errLoginPass','Escribe tu contraseña.'); return; } limpiarError('errLoginPass');
+  const btn = $('#btnLogin'); btn.disabled = true; btn.textContent = 'Entrando…';
+  iniciarSesion(email, pass).then(function(res){
+    btn.disabled = false; btn.textContent = 'Entrar';
+    if (!res.ok){ marcarError('errLoginGeneral', res.error); return; }
+    aplicarIdentidad(); pintarModalCuenta(); renderPerfil();
+    cerrarModal('modalCuenta');
+    toast('👋 ¡Bienvenido de vuelta, ' + nombreFirma() + '!', 'exito', 4200);
+  });
+});
+
+$('#formRegistro').addEventListener('submit', function(e){
+  e.preventDefault();
+  const nombre = $('#cRegNombre').value.trim(), email = $('#cRegEmail').value.trim(), pass = $('#cRegPass').value;
+  if (nombre.length > 40){ marcarError('errRegNombre','Máximo 40 caracteres.'); return; } limpiarError('errRegNombre');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ marcarError('errRegEmail','Escribe un correo válido.'); return; } limpiarError('errRegEmail');
+  if (pass.length < 6){ marcarError('errRegPass','La contraseña necesita al menos 6 caracteres.'); return; } limpiarError('errRegPass');
+  const btn = $('#btnRegistro'); btn.disabled = true; btn.textContent = 'Creando…';
+  crearCuenta(nombre, email, pass).then(function(res){
+    btn.disabled = false; btn.textContent = 'Crear mi cuenta';
+    if (!res.ok){ marcarError('errRegGeneral', res.error); return; }
+    marcarOnboardingVisto();
+    aplicarIdentidad(); pintarModalCuenta(); renderPerfil();
+    cerrarModal('modalCuenta');
+    lanzarConfeti();
+    toast('🎉 ¡Cuenta creada! Ahora participas como ' + nombreFirma() + '.', 'logro', 5200);
+  });
+});
+
+$('#formCuentaNombre').addEventListener('submit', function(e){
+  e.preventDefault();
+  if (!sesion.usuario) return;
+  const n = $('#cuentaNuevoNombre').value.trim();
+  if (n.length > 40){ marcarError('errCuentaNombre','Máximo 40 caracteres.'); return; }
+  if (!n){ marcarError('errCuentaNombre','Escribe un nombre.'); return; }
+  limpiarError('errCuentaNombre');
+  sesion.usuario.nombre = n;
+  estado.nombrePerfil = n; almacen.datos.nombrePerfil = n; guardar();
+  fetch(NUBE.url + 'perfiles?id=eq.' + sesion.usuario.id, {
+    method: 'PATCH', headers: cabecerasNube({ 'Prefer': 'return=minimal' }), body: JSON.stringify({ nombre: n })
+  }).catch(function(){});
+  aplicarIdentidad(); pintarModalCuenta(); renderPerfil();
+  toast('✓ Nombre actualizado: ' + n, 'exito');
+});
+
+$('#btnCerrarSesion').addEventListener('click', function(){
+  confirmarAccion('¿Cerrar sesión?', 'Dejarás de firmar con tu cuenta y volverás a participar como invitado. Tus publicaciones anteriores conservan tu nombre.', 'Sí, cerrar sesión').then(function(ok){
+    if (!ok) return;
+    cerrarSesion(); pintarModalCuenta(); renderPerfil();
+  });
+});
+
+/* --- Bienvenida de primera visita (onboarding) --- */
+function verOnboarding(){
+  if (!almacen.ok) return false;
+  try { return localStorage.getItem('bym.onboarding.v1') === 'visto'; } catch(e){ return true; }
+}
+function marcarOnboardingVisto(){
+  try { localStorage.setItem('bym.onboarding.v1', 'visto'); } catch(e){}
+}
+$('#btnBienvenidaCrear').addEventListener('click', function(){
+  marcarOnboardingVisto();
+  cerrarModal('modalBienvenida');
+  pintarModalCuenta(); $('#formRegistro').hidden = false;
+  abrirModal('modalCuenta');
+  setTimeout(function(){ $('#cRegNombre').focus(); }, 60);
+});
+$('#btnBienvenidaLogin').addEventListener('click', function(){
+  marcarOnboardingVisto();
+  cerrarModal('modalBienvenida');
+  pintarModalCuenta(); $('#formLogin').hidden = false;
+  abrirModal('modalCuenta');
+  setTimeout(function(){ $('#cLoginEmail').focus(); }, 60);
+});
+$('#btnBienvenidaInvitado').addEventListener('click', function(){
+  marcarOnboardingVisto();
+  cerrarModal('modalBienvenida');
+  toast('Exploras como invitado. Cuando quieras, crea tu cuenta desde 👤 arriba.', 'info', 4200);
+});
+$('#btnAbrirCuentaPerfil').addEventListener('click', function(){
+  pintarModalCuenta();
+  if (!sesion.usuario) $('#formRegistro').hidden = false;
+  abrirModal('modalCuenta');
+});
+// Si la bienvenida se cierra con Escape o clic en el fondo, no molestar de nuevo
+$('#modalBienvenida').addEventListener('click', function(e){ if (e.target === this) marcarOnboardingVisto(); });
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && $('#modalBienvenida').classList.contains('abierto')) marcarOnboardingVisto();
 });
 $('#cfgColonia').addEventListener('change', function(){ seleccionarColonia(this.value, true); });
 
@@ -2955,7 +3338,7 @@ $('#btnPrivacidad').addEventListener('click', function(){
   mostrarInfo('Privacidad', [
     '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros.',
     '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte (dispositivo y nube).',
-    '<strong>Datos personales:</strong> tu nombre aparece solo si tú lo escribes. Reportes y publicaciones se guardan en el navegador y se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
+    '<strong>Datos personales:</strong> puedes crear una cuenta con tu correo (Supabase Auth) para firmar con tu nombre, o participar como invitado o anónimo. Tu sesión se guarda en este navegador. Reportes y publicaciones se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
     '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas.'
   ]);
 });
@@ -3000,6 +3383,14 @@ function iniciar(){
   $('#pNombre').value = estado.nombrePerfil;
   $('#pColonia').value = estado.coloniaId;
   setDemoUI(estado.demo);
+  aplicarIdentidad();
+  actualizarBotonCuenta();
+
+  // Onboarding de primera visita: invita a crear cuenta (o entrar como invitado).
+  // Se omite si ya hay una sesión guardada (aunque aún se esté restaurando).
+  if (!verOnboarding() && !obtenerSesion()){
+    setTimeout(function(){ abrirModal('modalBienvenida'); }, 900);
+  }
 
   if (typeof L === 'undefined'){
     // Leaflet no cargó (sin internet): la app sigue funcionando sin mapa
