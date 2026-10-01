@@ -1803,7 +1803,6 @@ function polilineaAPuntos(way){
 // Espejos públicos de Overpass: si uno falla se intenta el siguiente.
 const SERVIDORES_OVERPASS = [
   'https://overpass-api.de/api/interpreter?data=',
-  'https://overpass.osm.ch/api/interpreter?data=',
   'https://overpass.kumi.systems/api/interpreter?data=',
   'https://overpass.private.coffee/api/interpreter?data='
 ];
@@ -1833,6 +1832,7 @@ async function overpassVialidades(zona, zonaId){
       if (!r.ok) throw new Error('Overpass no respondió (' + r.status + ')');
       const j = await r.json();
       const ways = (j.elements || []).filter(function(e){ return e.type === 'way' && e.geometry && e.geometry.length > 1; });
+      if (!ways.length) throw new Error('El espejo respondió sin vialidades; probando otro servidor…');
       guardarCacheOSM(zonaId, ways);
       return { ways: ways, desdeCache: false };
     } catch (err){
