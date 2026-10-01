@@ -741,7 +741,7 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
             </button>
           </div>
           <div class="aviso-fuente" id="fuenteDatosTexto">
-            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong> sobre la ruta (cada 400 m aprox.). GPS de vehículo municipal: <strong>no conectado</strong>.
+            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong> sobre la ruta (cada 400 m aprox.). GPS de vehículo municipal: <strong>no conectado</strong>.
           </div>
         </div>
 
@@ -1916,22 +1916,91 @@ function simplificar(puntos, umbralM){
   return salida;
 }
 
+/* ---------- Mapbox (opcional): teselas y rutas sobre calles reales ----------
+   Con un token público configurado, el mapa usa teselas de Mapbox y las
+   rutas se calculan con su Directions API, sin depender de Overpass.
+   Sin token todo funciona igual con OpenStreetMap + OSRM. */
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiZGFuaWJveTEyMSIsImEiOiJjbXVwMXVxN3cwMndxMnpvcTNuOXc5Zm5vIn0.UXCBv-CguAQlOZUDjla1kA'; // token público de Mapbox (restringido por URL en el panel de Mapbox)
+const CLAVE_CACHE_RUTAS = 'bym.rutas.v1';
+function leerCacheRutas(){
+  try { return JSON.parse(localStorage.getItem(CLAVE_CACHE_RUTAS)) || {}; } catch(e){ return {}; }
+}
+function guardarCacheRutas(coloniaId, ruta){
+  try {
+    const c = leerCacheRutas();
+    c[coloniaId] = { geometria: ruta.geometria, distanciaM: ruta.distanciaM, callePrincipal: ruta.callePrincipal, zona: ruta.zona, fuente: ruta.fuente };
+    localStorage.setItem(CLAVE_CACHE_RUTAS, JSON.stringify(c));
+  } catch(e){ /* la caché es opcional */ }
+}
+/** Puntos serpenteantes dentro de la poligonal de la zona (máx. 24). */
+function waypointsZona(zona){
+  const lats = zona.poly.map(function(p){ return p[0]; });
+  const lngs = zona.poly.map(function(p){ return p[1]; });
+  const minLat = Math.min.apply(null, lats), maxLat = Math.max.apply(null, lats);
+  const minLng = Math.min.apply(null, lngs), maxLng = Math.max.apply(null, lngs);
+  const filas = 5, cols = 5, pts = [];
+  for (let f = 0; f < filas; f++){
+    const fila = [];
+    for (let c = 0; c < cols; c++){
+      const lat = minLat + (maxLat - minLat) * ((f + 0.5) / filas);
+      const lng = minLng + (maxLng - minLng) * ((c + 0.5) / cols);
+      if (puntoDentro({ lat: lat, lng: lng }, zona.poly)) fila.push({ lat: lat, lng: lng });
+    }
+    if (f % 2 === 1) fila.reverse();
+    pts.push.apply(pts, fila);
+  }
+  return pts.slice(0, 24);
+}
+async function mapboxRutaZona(coloniaId, zona){
+  const wps = waypointsZona(zona);
+  if (wps.length < 2) throw new Error('La zona es demasiado pequeña para trazar una ruta.');
+  const coords = wps.map(function(p){ return p.lng.toFixed(6) + ',' + p.lat.toFixed(6); }).join(';');
+  const url = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + coords + '?overview=full&geometries=geojson&access_token=' + encodeURIComponent(MAPBOX_TOKEN);
+  const r = await fetchConTimeout(url, 15000);
+  if (!r.ok) throw new Error('Mapbox Directions no respondió (' + r.status + ')');
+  const j = await r.json();
+  const ruta = j.routes && j.routes[0];
+  if (!ruta || !ruta.geometry || ruta.geometry.coordinates.length < 2) throw new Error('Mapbox no devolvió una ruta útil.');
+  const geometria = ruta.geometry.coordinates.map(function(c){ return { lat: c[1], lng: c[0] }; });
+  const salida = { geometria: geometria, distanciaM: Math.round(ruta.distance || 0), callePrincipal: 'Calles de ' + zona.nombre, zona: zona.nombre, fuente: 'Mapbox Directions sobre calles de OpenStreetMap' };
+  guardarCacheRutas(coloniaId, salida);
+  return salida;
+}
+
 const rutas = {}; // rutas[coloniaId] = {geometria, distanciaM, callePrincipal, fuente}
 async function construirRutaZona(coloniaId){
   if (rutas[coloniaId]) return rutas[coloniaId];
   const zona = ZONAS[coloniaId];
   if (!zona) throw new Error('Zona desconocida');
-  const resultado = await overpassVialidades(zona, coloniaId);
-  const ways = resultado.ways;
-  if (!ways.length) throw new Error('No se encontraron vialidades de OpenStreetMap en esta zona.');
-  let geometria = await encadenarVialidades(ways, zona);
-  if (!geometria || geometria.length < 10) throw new Error('No se pudo formar un recorrido continuo en esta zona.');
-  geometria = simplificar(geometria, 12);
-  let distanciaM = 0;
-  for (let i = 1; i < geometria.length; i++) distanciaM += haversine(geometria[i-1], geometria[i]);
-  const nombreSeed = ways[0].tags && ways[0].tags.name ? ways[0].tags.name : 'Vialidades de ' + zona.nombre;
-  rutas[coloniaId] = { geometria: geometria, distanciaM: distanciaM, callePrincipal: nombreSeed, zona: zona.nombre, fuente: 'vialidades de OpenStreetMap' + (resultado.desdeCache ? ' (copia local)' : '') };
-  return rutas[coloniaId];
+  // Vía rápida y confiable: Mapbox Directions (si hay token) con caché local.
+  if (MAPBOX_TOKEN && navigator.onLine){
+    try { return await mapboxRutaZona(coloniaId, zona); }
+    catch(e){ console.warn('Mapbox no disponible; usando OpenStreetMap:', e.message); }
+  }
+  try {
+    const resultado = await overpassVialidades(zona, coloniaId);
+    const ways = resultado.ways;
+    if (!ways.length) throw new Error('No se encontraron vialidades de OpenStreetMap en esta zona.');
+    let geometria = await encadenarVialidades(ways, zona);
+    if (!geometria || geometria.length < 10) throw new Error('No se pudo formar un recorrido continuo en esta zona.');
+    geometria = simplificar(geometria, 12);
+    let distanciaM = 0;
+    for (let i = 1; i < geometria.length; i++) distanciaM += haversine(geometria[i-1], geometria[i]);
+    const nombreSeed = ways[0].tags && ways[0].tags.name ? ways[0].tags.name : 'Vialidades de ' + zona.nombre;
+    const salida = { geometria: geometria, distanciaM: distanciaM, callePrincipal: nombreSeed, zona: zona.nombre, fuente: 'vialidades de OpenStreetMap' + (resultado.desdeCache ? ' (copia local)' : '') };
+    guardarCacheRutas(coloniaId, salida);
+    rutas[coloniaId] = salida;
+    return salida;
+  } catch (err) {
+    // Último respaldo honesto: una ruta ya calculada antes, etiquetada como copia local.
+    const cr = leerCacheRutas()[coloniaId];
+    if (cr && cr.geometria && cr.geometria.length > 1){
+      const salida = Object.assign({}, cr, { fuente: cr.fuente + ' (copia local)' });
+      rutas[coloniaId] = salida;
+      return salida;
+    }
+    throw err;
+  }
 }
 
 /** Distribuye puntos cada INTERVALO_PUNTOS metros sobre la geometría real. */
@@ -1996,10 +2065,16 @@ function iconoCamion(){
 function initMapa(){
   if (mapa || typeof L === 'undefined') return;
   mapa = L.map('mapa', { zoomControl: true, attributionControl: true }).setView(CENTRO_CIUZ, 14);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(mapa);
+  const capaBase = MAPBOX_TOKEN
+    ? L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}?access_token=' + MAPBOX_TOKEN, {
+        tileSize: 512, zoomOffset: -1, maxZoom: 19,
+        attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> <a href="https://www.mapbox.com/map-feedback/">Mejorar este mapa</a>'
+      })
+    : L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      });
+  capaBase.addTo(mapa);
 
   // Delimitaciones aproximadas de colonias (visibles pero no bloquean clics)
   capaZonas = L.layerGroup();
@@ -2874,7 +2949,7 @@ $('#btnAcerca').addEventListener('click', function(){
 $('#btnPrivacidad').addEventListener('click', function(){
   cerrarModal('modalConfig');
   mostrarInfo('Privacidad', [
-    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/OSRM para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros.',
+    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros.',
     '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte (dispositivo y nube).',
     '<strong>Datos personales:</strong> tu nombre aparece solo si tú lo escribes. Reportes y publicaciones se guardan en el navegador y se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
     '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas.'

@@ -20,7 +20,7 @@ App web cívica y ecológica que conecta a la ciudadanía con la información de
 ## 🧭 Honestidad de los datos
 
 - Vialidades y mapa: **OpenStreetMap** (datos reales).
-- Rutas y tiempos: **OSRM** (cálculo real sobre vialidades).
+- Rutas y tiempos: **Mapbox Directions** sobre calles reales, con respaldo en **OSRM**; si la nube de mapas no responde, la última ruta calculada se muestra etiquetada **“(copia local)”**.
 - Puntos de recolección: **generados por el sistema** cada 400 m (etiquetados).
 - GPS de camiones: **no conectado**; el modo demo está etiquetado como simulación.
 - Si la nube no está disponible, los datos se guardan en el dispositivo con la etiqueta **“(copia local)”**.
@@ -28,7 +28,7 @@ App web cívica y ecológica que conecta a la ciudadanía con la información de
 ## 🛠️ Tecnologías
 
 - HTML + CSS + JavaScript en un solo `index.html` (sin frameworks ni proceso de build).
-- [Leaflet](https://leafletjs.com/) · [OpenStreetMap](https://www.openstreetmap.org) · [OSRM](http://project-osrm.org/) · [Nominatim](https://nominatim.openstreetmap.org)
+- [Leaflet](https://leafletjs.com/) · [OpenStreetMap](https://www.openstreetmap.org) · [Mapbox](https://www.mapbox.com/) (teselas y Directions API) · [OSRM](http://project-osrm.org/) · [Nominatim](https://nominatim.openstreetmap.org)
 - [Supabase](https://supabase.com) (PostgreSQL con seguridad RLS) para sincronizar reportes y publicaciones.
 - Esquema de base de datos con políticas RLS: [`supabase-schema.sql`](supabase-schema.sql)
 
@@ -48,4 +48,4 @@ Video de demostración: [`video-demo-basura-y-mas.mp4`](video-demo-basura-y-mas.
 
 ## 📜 Créditos
 
-Proyecto escolar con fines educativos. Datos de mapa © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright).
+Proyecto escolar con fines educativos. Datos de mapa © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright), teselas y rutas © [Mapbox](https://www.mapbox.com/about/maps/).
