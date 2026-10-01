@@ -1,0 +1,2964 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="BASURA Y MÁS — Información, participación y conciencia para una comunidad más limpia. Proyecto FILOSOFARTE · Filosofía II · CBTis 226.">
+<meta name="theme-color" content="#2E7D32">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BASURA Y MÁS">
+<meta property="og:title" content="BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán">
+<meta property="og:description" content="Rutas de recolección reales, reportes ciudadanos con foto y comunidad ecológica. Proyecto FILOSOFARTE · CBTis 226.">
+<meta property="og:image" content="./icon.svg">
+<meta property="og:locale" content="es_MX">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán">
+<meta name="twitter:description" content="Rutas de recolección reales, reportes ciudadanos con foto y comunidad ecológica.">
+<meta name="twitter:image" content="./icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BASURA Y MÁS">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<title>BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+/* ============================================================
+   1. VARIABLES
+   ============================================================ */
+:root{
+  --primary:#2E7D32;
+  --primary-dark:#1B5E20;
+  --secondary:#4CAF50;
+  --sage:#81C784;
+  --mist:#A5D6A7;
+  --background:#F4F9F5;
+  --card:#FFFFFF;
+  --text:#212121;
+  --muted:#5F6B62;
+  --success:#4CAF50;
+  --warning:#FF9800;
+  --info:#2196F3;
+  --danger:#D32F2F;
+  --border:#DCE7DE;
+  --border-strong:#C4D6C8;
+  --shadow-sm:0 1px 3px rgba(27,94,32,.10);
+  --shadow-md:0 6px 20px rgba(27,94,32,.12);
+  --shadow-lg:0 18px 44px rgba(27,94,32,.18);
+  --radius:14px;
+  --radius-lg:20px;
+  --radius-sm:9px;
+  --sidebar-w:238px;
+  --header-h:62px;
+  --nav-h:64px;
+  --font:'Poppins',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+[data-theme="dark"]{
+  --primary:#66BB6A;
+  --primary-dark:#2E7D32;
+  --secondary:#66BB6A;
+  --sage:#81C784;
+  --mist:#2E4A36;
+  --background:#0D1410;
+  --card:#16211A;
+  --text:#E7F0E9;
+  --muted:#9DB3A6;
+  --border:#26362C;
+  --border-strong:#34493B;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.45);
+  --shadow-md:0 6px 20px rgba(0,0,0,.5);
+  --shadow-lg:0 18px 44px rgba(0,0,0,.6);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--font);background:var(--background);color:var(--text);line-height:1.6;min-height:100vh;overflow-x:hidden;transition:background .3s ease,color .3s ease}
+img,svg{max-width:100%}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:.95rem;color:var(--text)}
+h1,h2,h3,h4{line-height:1.25;font-weight:700}
+:focus-visible{outline:3px solid var(--info);outline-offset:2px;border-radius:6px}
+::selection{background:var(--mist);color:var(--primary-dark)}
+
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:-999px;top:6px;z-index:400;background:var(--primary);color:#fff;padding:.6rem 1rem;border-radius:var(--radius-sm);font-weight:600}
+.skip-link:focus{left:6px}
+.icono{width:1.2em;height:1.2em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.22em}
+
+/* ============================================================
+   2. LOADER
+   ============================================================ */
+#loader{position:fixed;inset:0;z-index:500;background:var(--background);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;transition:opacity .45s ease,visibility .45s ease}
+#loader.oculto{opacity:0;visibility:hidden;pointer-events:none}
+.loader-logo{width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,var(--primary),var(--sage));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);animation:latido 1.5s ease-in-out infinite}
+.loader-logo svg{width:44px;height:44px;color:#fff}
+.loader-nombre{font-weight:800;font-size:1.25rem;letter-spacing:.02em;color:var(--primary)}
+.loader-barra{width:160px;height:5px;border-radius:99px;background:var(--border);overflow:hidden}
+.loader-barra span{display:block;height:100%;width:40%;background:var(--primary);border-radius:99px;animation:desliza 1.1s ease-in-out infinite}
+@keyframes latido{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes desliza{0%{transform:translateX(-110%)}100%{transform:translateX(330%)}}
+
+/* ============================================================
+   3. HEADER
+   ============================================================ */
+.app-header{position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:130;display:flex;align-items:center;gap:.7rem;padding:0 .9rem;background:var(--card);border-bottom:1px solid var(--border);transition:box-shadow .25s ease}
+.app-header.con-sombra{box-shadow:var(--shadow-sm)}
+.marca{display:flex;align-items:center;gap:.55rem;min-width:0}
+.marca-logo{width:40px;height:40px;flex:none;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--sage));display:flex;align-items:center;justify-content:center;color:#fff}
+.marca-logo svg{width:22px;height:22px}
+.marca h1{font-size:1.02rem;font-weight:800;letter-spacing:.02em;color:var(--primary);white-space:nowrap}
+.marca small{display:block;font-size:.66rem;color:var(--muted);font-weight:600;white-space:nowrap;max-width:44vw;overflow:hidden;text-overflow:ellipsis}
+.header-espacio{flex:1}
+.chip-header{display:none;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary)}
+.chip-header .punto{width:7px;height:7px;border-radius:50%;background:var(--success)}
+.btn-icono{width:42px;height:42px;flex:none;border-radius:12px;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--text);transition:transform .2s ease,box-shadow .2s ease}
+.btn-icono:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.btn-icono:active{transform:scale(.94)}
+.btn-icono .icono{width:20px;height:20px}
+
+/* ============================================================
+   4. NAVEGACIÓN LATERAL (ESCRITORIO) E INFERIOR (MÓVIL)
+   ============================================================ */
+.nav-lateral{position:fixed;top:var(--header-h);bottom:0;left:0;width:var(--sidebar-w);z-index:120;background:var(--card);border-right:1px solid var(--border);display:none;flex-direction:column;gap:.2rem;padding:1rem .7rem;overflow-y:auto}
+.nav-lateral button{display:flex;align-items:center;gap:.7rem;width:100%;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:.92rem;padding:.7rem .85rem;border-radius:12px;transition:background .2s ease,color .2s ease;text-align:left}
+.nav-lateral button .icono{width:19px;height:19px}
+.nav-lateral button:hover{background:color-mix(in srgb,var(--primary) 8%,transparent);color:var(--primary)}
+.nav-lateral button[aria-current="true"]{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm)}
+.nav-lateral .nav-separador{margin:.6rem .85rem;border:none;border-top:1px solid var(--border)}
+.nav-lateral .nav-nota{margin:.4rem .85rem;font-size:.68rem;color:var(--muted)}
+.nav-lateral .demo-zona{margin-top:auto;padding:.8rem;border:1px dashed var(--border-strong);border-radius:var(--radius);font-size:.72rem;color:var(--muted)}
+.demo-zona .interruptor{margin:.4rem auto 0}
+
+.nav-inferior{position:fixed;left:0;right:0;bottom:0;z-index:130;display:grid;grid-template-columns:repeat(6,1fr);height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--card);border-top:1px solid var(--border)}
+.nav-inferior button{border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.6rem;font-weight:600}
+.nav-inferior button .icono{width:21px;height:21px;padding:3px 12px;border-radius:11px;box-sizing:content-box;transition:background .2s ease,transform .2s ease}
+.nav-inferior button[aria-current="true"]{color:var(--primary)}
+.nav-inferior button[aria-current="true"] .icono{background:color-mix(in srgb,var(--primary) 14%,transparent);transform:translateY(-2px)}
+.nav-inferior button:active .icono{transform:scale(.9)}
+
+/* ============================================================
+   5. LAYOUT Y VISTAS
+   ============================================================ */
+main{padding:calc(var(--header-h) + 1rem) .9rem calc(var(--nav-h) + 1.6rem);max-width:860px;margin:0 auto}
+.view{display:none}
+.view.activa{display:block;animation:verEntrada .35s ease both}
+@keyframes verEntrada{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+.tarjeta{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:1.15rem;transition:box-shadow .25s ease,transform .25s ease}
+.tarjeta + .tarjeta{margin-top:1rem}
+.seccion-titulo{font-size:1.2rem;color:var(--primary);letter-spacing:-.01em}
+.seccion-sub{color:var(--muted);font-size:.86rem;margin-top:.1rem}
+.aviso-fuente{
+  display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-start;font-size:.72rem;color:var(--muted);overflow-wrap:anywhere;
+  background:color-mix(in srgb,var(--info) 7%,var(--card));border:1px dashed var(--border-strong);
+  border-radius:var(--radius-sm);padding:.55rem .7rem;margin-top:.7rem;
+}
+.chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:99px;background:color-mix(in srgb,var(--info) 12%,transparent);color:var(--info);white-space:nowrap}
+.chip.verde{background:color-mix(in srgb,var(--success) 15%,transparent);color:var(--success)}
+.chip.ambar{background:color-mix(in srgb,var(--warning) 16%,transparent);color:#9a5b00}
+.chip.gris{background:color-mix(in srgb,var(--muted) 12%,transparent);color:var(--muted)}
+[data-theme="dark"] .chip.ambar{color:var(--warning)}
+
+/* ============================================================
+   6. BOTONES
+   ============================================================ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;border:none;border-radius:12px;padding:.7rem 1.15rem;font-weight:700;font-size:.9rem;min-height:46px;transition:transform .18s ease,box-shadow .2s ease,background .2s ease,opacity .2s ease;text-decoration:none}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.btn-primario{background:var(--primary);color:#fff;box-shadow:0 5px 14px color-mix(in srgb,var(--primary) 32%,transparent)}
+.btn-primario:hover:not(:disabled){background:var(--primary-dark);transform:translateY(-2px)}
+.btn-secundario{background:var(--card);color:var(--primary);border:2px solid var(--mist)}
+.btn-secundario:hover:not(:disabled){background:color-mix(in srgb,var(--primary) 7%,transparent);transform:translateY(-2px)}
+.btn-fantasma{background:transparent;color:var(--muted);border:1.5px dashed var(--border-strong)}
+.btn-fantasma:hover:not(:disabled){color:var(--primary);border-color:var(--primary)}
+.btn-peligro{background:var(--danger);color:#fff}
+.btn-peligro:hover:not(:disabled){filter:brightness(.92)}
+.btn-chico{padding:.42rem .8rem;min-height:36px;font-size:.78rem;border-radius:10px}
+.btn-bloque{width:100%}
+
+.interruptor{position:relative;width:50px;height:29px;flex:none;display:inline-block}
+.interruptor input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
+.interruptor .pista{position:absolute;inset:0;background:var(--border-strong);border-radius:99px;transition:background .25s ease}
+.interruptor .pista::after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:transform .25s cubic-bezier(.2,1,.3,1)}
+.interruptor input:checked + .pista{background:var(--primary)}
+.interruptor input:checked + .pista::after{transform:translateX(21px)}
+.interruptor input:focus-visible + .pista{outline:3px solid var(--info);outline-offset:2px}
+
+/* ============================================================
+   7. INICIO
+   ============================================================ */
+.hero{background:linear-gradient(140deg,var(--primary-dark),var(--primary) 60%,#3E9142);color:#fff;border-radius:var(--radius-lg);padding:1.7rem 1.3rem;position:relative;overflow:hidden;box-shadow:var(--shadow-md)}
+.hero::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);top:-80px;right:-50px}
+.hero::after{content:"";position:absolute;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.07);bottom:-60px;left:-30px}
+.hero-int{position:relative;z-index:1;max-width:560px}
+.hero-kicker{display:inline-flex;align-items:center;gap:.4rem;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.16);padding:.32rem .75rem;border-radius:99px;margin-bottom:.8rem}
+.hero h2{font-size:clamp(1.55rem,5vw,2.2rem);font-weight:800;letter-spacing:-.02em}
+.hero .hero-frase{margin-top:.4rem;font-weight:600;color:#E4F3E5}
+.hero .hero-texto{margin-top:.55rem;font-size:.92rem;color:#DCEEDD}
+.hero-acciones{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:1.2rem}
+.hero .btn{min-height:50px}
+.hero .btn-claro{background:#fff;color:var(--primary-dark)}
+.hero .btn-claro:hover{transform:translateY(-2px)}
+.hero .btn-borde{background:rgba(255,255,255,.12);color:#fff;border:2px solid rgba(255,255,255,.55)}
+.hero .btn-borde:hover{background:rgba(255,255,255,.22);transform:translateY(-2px)}
+
+.pensamiento{margin-top:1rem}
+.pensamiento-cab{display:flex;gap:.9rem;align-items:flex-start}
+.pensamiento-icono{width:52px;height:52px;flex:none;border-radius:16px;background:linear-gradient(135deg,var(--mist),var(--sage));display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+.pensamiento blockquote{font-size:1.02rem;font-weight:700;color:var(--primary);font-style:italic;border-left:4px solid var(--sage);padding-left:.7rem}
+.pensamiento-pregunta{margin-top:1rem;font-weight:700}
+.pensamiento-respuesta{margin-top:.7rem;border-radius:var(--radius);padding:.8rem .9rem;font-weight:600;display:none;animation:verEntrada .3s ease both}
+.pensamiento-respuesta.visible{display:block}
+.pensamiento-respuesta.ok{background:color-mix(in srgb,var(--success) 13%,var(--card));color:var(--primary)}
+.pensamiento-respuesta.pend{background:color-mix(in srgb,var(--info) 10%,var(--card));color:var(--info)}
+.contador-local{margin-top:.7rem;text-align:center;font-size:.8rem;color:var(--muted)}
+.contador-local strong{font-size:1.5rem;color:var(--primary);display:block;line-height:1.2}
+
+.accion-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.8rem}
+.accion-card{border:1px solid var(--border);background:var(--card);border-radius:var(--radius-lg);padding:1rem .8rem;display:flex;flex-direction:column;align-items:center;gap:.45rem;text-align:center;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.accion-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--sage)}
+.accion-card:active{transform:scale(.97)}
+.accion-icono{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--mist) 45%,var(--card));color:var(--primary)}
+.accion-icono .icono{width:24px;height:24px}
+.accion-card strong{font-size:.88rem}
+.accion-card span{font-size:.72rem;color:var(--muted)}
+
+.evento{display:flex;gap:.8rem;align-items:center;border:1px solid var(--border);background:var(--card);border-radius:var(--radius);padding:.75rem .9rem;margin-top:.6rem}
+.evento-icono{width:42px;height:42px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--mist) 45%,var(--card));color:var(--primary)}
+.evento-info{flex:1;min-width:0}
+.evento-info strong{font-size:.88rem;display:block}
+.evento-info small{color:var(--muted);font-size:.74rem}
+
+/* ============================================================
+   8. MAPA
+   ============================================================ */
+.mapa-bloque{position:relative;border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow-sm);background:var(--background)}
+#mapa{height:min(52vh,430px);z-index:1}
+[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.92) contrast(.92)}
+.mapa-controles{position:absolute;top:.7rem;right:.7rem;z-index:600;display:flex;flex-direction:column;gap:.45rem}
+.mapa-ctrl{width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);transition:transform .15s ease}
+.mapa-ctrl:hover{transform:translateY(-2px)}
+.mapa-ctrl:active{transform:scale(.92)}
+.mapa-ctrl.activo{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mapa-ctrl .icono{width:20px;height:20px}
+.mapa-leyenda{position:absolute;left:.7rem;bottom:.7rem;z-index:600;background:color-mix(in srgb,var(--card) 94%,transparent);border:1px solid var(--border);border-radius:12px;padding:.5rem .65rem;font-size:.66rem;font-weight:600;color:var(--muted);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:.15rem;max-width:60vw}
+.mapa-leyenda span{display:flex;align-items:center;gap:.4rem}
+.lg-punto{width:10px;height:10px;border-radius:50%;background:var(--primary);flex:none}
+.lg-usuario{width:10px;height:10px;border-radius:50%;background:var(--info);flex:none}
+.lg-ruta{width:14px;height:4px;border-radius:2px;background:var(--primary);flex:none}
+
+.panel-seguimiento{margin-top:1rem}
+.panel-fila{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem}
+.campo{display:flex;flex-direction:column;gap:.3rem}
+.campo label{font-weight:600;font-size:.82rem}
+.campo select,.campo input,.campo textarea{background:var(--card);border:2px solid var(--border-strong);border-radius:var(--radius-sm);padding:.65rem .8rem;width:100%;transition:border-color .2s ease,box-shadow .2s ease}
+.campo select:focus,.campo input:focus,.campo textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 14%,transparent)}
+.campo textarea{resize:vertical;min-height:110px}
+.campo.invalido input,.campo.invalido select,.campo.invalido textarea{border-color:var(--danger);box-shadow:0 0 0 4px color-mix(in srgb,var(--danger) 10%,transparent)}
+.error-msg{display:none;color:var(--danger);font-size:.75rem;font-weight:600}
+.error-msg.visible{display:flex;gap:.3rem;align-items:center;animation:verEntrada .25s ease both}
+.select-ruta{min-width:210px}
+
+.estado-ruta{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.2rem 0 .8rem}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.info-caja{background:var(--background);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.55rem .7rem}
+.info-caja small{display:block;font-size:.64rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.info-caja strong{font-size:.92rem;overflow-wrap:anywhere}
+.banner-demo{display:none;margin-top:.8rem;background:color-mix(in srgb,var(--warning) 14%,var(--card));border:1.5px solid var(--warning);border-radius:var(--radius);padding:.6rem .8rem;font-size:.76rem;font-weight:600;color:#8a5200}
+[data-theme="dark"] .banner-demo{color:var(--warning)}
+.banner-demo.visible{display:flex;gap:.5rem;align-items:center}
+
+.lista-puntos{margin-top:.9rem;display:flex;flex-direction:column;gap:.45rem;max-height:300px;overflow-y:auto;padding-right:.2rem}
+.fila-punto{display:flex;align-items:center;gap:.7rem;border:1px solid var(--border);background:var(--card);border-radius:var(--radius);padding:.55rem .7rem;width:100%;text-align:left;transition:border-color .2s ease,transform .15s ease}
+.fila-punto:hover{border-color:var(--primary);transform:translateX(3px)}
+.num-punto{width:34px;height:34px;flex:none;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:.78rem;display:flex;align-items:center;justify-content:center}
+.fila-punto .fp-info{flex:1;min-width:0}
+.fila-punto .fp-info strong{display:block;font-size:.84rem}
+.fila-punto .fp-info small{color:var(--muted);font-size:.7rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila-punto .fp-dist{font-size:.74rem;font-weight:700;color:var(--muted);flex:none}
+
+/* Marcadores Leaflet */
+.mk-usuario{width:22px;height:22px;border-radius:50%;background:var(--info);border:3px solid #fff;box-shadow:0 0 0 3px color-mix(in srgb,var(--info) 35%,transparent),var(--shadow-sm)}
+.mk-pulso{position:absolute;inset:-8px;border-radius:50%;background:var(--info);opacity:.25;animation:pulso 2s ease-out infinite}
+@keyframes pulso{0%{transform:scale(.5);opacity:.5}100%{transform:scale(1.6);opacity:0}}
+.mk-punto{width:30px;height:30px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--primary);border:2.5px solid #fff;box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center}
+.mk-punto span{transform:rotate(45deg);color:#fff;font-size:.62rem;font-weight:800}
+.mk-punto-seleccion{background:var(--info)}
+.mk-camion{width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+.mk-camion .camion-circulo{width:40px;height:40px;border-radius:50%;background:var(--primary);border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);animation:reboteCamion 1.6s ease-in-out infinite}
+.mk-camion .camion-circulo svg{width:22px;height:22px;color:#fff}
+@keyframes reboteCamion{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.pz-popup .leaflet-popup-content-wrapper{border-radius:14px;background:var(--card);color:var(--text);box-shadow:var(--shadow-lg)}
+.pz-popup .leaflet-popup-tip{background:var(--card)}
+.pz-popup .leaflet-popup-content{margin:.8rem .9rem;font-family:var(--font);font-size:.85rem}
+
+/* ============================================================
+   9. GUÍA DE RESIDUOS
+   ============================================================ */
+.tabs{display:flex;gap:.35rem;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:.35rem;margin-top:.9rem}
+.tab-btn{flex:1;border:none;background:transparent;border-radius:12px;min-height:54px;display:flex;flex-direction:column;align-items:center;gap:.1rem;font-weight:700;font-size:.74rem;color:var(--muted);transition:background .2s ease,color .2s ease}
+.tab-btn .icono{width:19px;height:19px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn[aria-selected="true"]{background:var(--primary);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 30%,transparent)}
+.panel-cat{display:none;margin-top:.9rem}
+.panel-cat.activa{display:block;animation:verEntrada .3s ease both}
+.cat-cab{display:flex;align-items:center;gap:.8rem;border-radius:var(--radius-lg);padding:.95rem 1.05rem;color:#fff}
+.cat-cab.org{background:linear-gradient(135deg,#2E7D32,#66BB6A)}
+.cat-cab.rec{background:linear-gradient(135deg,#1565C0,#42A5F5)}
+.cat-cab.norec{background:linear-gradient(135deg,#424242,#757575)}
+.cat-cab.esp{background:linear-gradient(135deg,#B71C1C,#EF5350)}
+.cat-icono{width:46px;height:46px;flex:none;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+.cat-icono .icono{width:23px;height:23px}
+.cat-cab h3{font-size:1.02rem;text-transform:uppercase;letter-spacing:.03em}
+.cat-cab p{font-size:.75rem;opacity:.92}
+.items-lista{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.9rem}
+.item-chip{background:var(--card);border:1px solid var(--border-strong);border-radius:99px;padding:.38rem .8rem;font-size:.8rem;font-weight:600;display:inline-flex;align-items:center;gap:.35rem}
+.consejos{margin-top:.9rem;background:color-mix(in srgb,var(--warning) 8%,var(--card));border:1px dashed var(--warning);border-radius:var(--radius);padding:.85rem .95rem}
+.consejos h4{font-size:.85rem;color:#8a5200}
+[data-theme="dark"] .consejos h4{color:var(--warning)}
+.consejos ul{margin:.4rem 0 0 1.1rem;font-size:.8rem;color:var(--muted)}
+.consejos li{margin-bottom:.2rem}
+
+.buscador-caja{position:relative;margin-top:.9rem}
+.buscador-caja .icono{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--muted);width:18px;height:18px}
+.buscador-caja input{width:100%;padding:.85rem .9rem .85rem 2.6rem;border:2px solid var(--border-strong);border-radius:14px;background:var(--card)}
+.buscador-caja input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 12%,transparent)}
+.resultado-residuo{display:flex;gap:.8rem;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem .9rem;margin-top:.6rem;animation:verEntrada .3s ease both}
+.rr-emoji{font-size:1.5rem;flex:none;line-height:1.2}
+.rr-info strong{display:block;font-size:.92rem}
+.sin-resultados{margin-top:.6rem;text-align:center;border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:1.3rem .9rem;color:var(--muted);font-size:.85rem}
+.pista-buscador{margin-top:.7rem;text-align:center;color:var(--muted);font-size:.8rem;border:1px dashed var(--border-strong);border-radius:var(--radius);padding:.9rem}
+
+/* ============================================================
+   10. FORMULARIOS / REPORTES
+   ============================================================ */
+.form-grid{display:grid;gap:.85rem}
+.ubicacion-caja{border:1px solid var(--border);border-radius:var(--radius);padding:.8rem .9rem;background:var(--background)}
+.ubicacion-caja .ub-fila{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.coord-texto{font-size:.76rem;color:var(--muted);margin-top:.5rem;font-family:monospace}
+.foto-zona{border:2px dashed var(--border-strong);border-radius:var(--radius);padding:.9rem;text-align:center;background:var(--background)}
+.foto-zona input[type="file"]{display:none}
+.foto-preview{position:relative;margin-top:.6rem;display:none}
+.foto-preview.visible{display:block}
+.foto-preview img{width:100%;max-height:230px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--border)}
+.foto-quitar{position:absolute;top:.4rem;right:.4rem;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:.95rem;display:flex;align-items:center;justify-content:center}
+.foto-quitar:hover{background:rgba(0,0,0,.85)}
+
+.lista-reportes{display:flex;flex-direction:column;gap:.7rem;margin-top:1rem}
+.tarjeta-reporte{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1rem}
+.cab-reporte{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.avatar{width:38px;height:38px;flex:none;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center}
+.cab-reporte .meta{flex:1;min-width:0}
+.cab-reporte .meta strong{display:block;font-size:.88rem}
+.cab-reporte .meta small{color:var(--muted);font-size:.72rem}
+.txt-reporte{margin:.6rem 0 .4rem;font-size:.9rem;overflow-wrap:anywhere;white-space:pre-line}
+.foto-reporte{border-radius:var(--radius-sm);border:1px solid var(--border);max-height:220px;object-fit:cover;width:100%;margin-bottom:.5rem}
+.pie-reporte{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.btn-eliminar{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border-strong);background:var(--card);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);transition:border-color .2s ease,color .2s ease,transform .15s ease}
+.btn-eliminar:hover{border-color:var(--danger);color:var(--danger);transform:translateY(-2px)}
+.btn-eliminar .icono{width:16px;height:16px}
+
+/* ============================================================
+   11. COMUNIDAD
+   ============================================================ */
+.comunidad-grid{display:grid;gap:1rem}
+.muro{display:flex;flex-direction:column;gap:.8rem;margin-top:1rem}
+.publicacion{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.95rem 1.05rem;animation:verEntrada .35s ease both}
+.pub-cab{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.pub-cab .meta{flex:1;min-width:0}
+.pub-cab .meta strong{display:block;font-size:.9rem}
+.pub-cab .meta small{color:var(--muted);font-size:.72rem}
+.txt-post{margin:.65rem 0;font-size:.92rem;overflow-wrap:anywhere;white-space:pre-line}
+.foto-post{border-radius:var(--radius-sm);border:1px solid var(--border);width:100%;max-height:260px;object-fit:cover;margin-bottom:.6rem}
+.pub-pie{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+.btn-accion{display:inline-flex;align-items:center;gap:.35rem;border:1.5px solid var(--border-strong);background:var(--card);color:var(--text);border-radius:99px;padding:.4rem .8rem;font-weight:700;font-size:.76rem;transition:border-color .2s ease,transform .15s ease,background .2s ease}
+.btn-accion:hover:not(:disabled){border-color:var(--primary);transform:translateY(-2px)}
+.btn-accion:active{transform:scale(.94)}
+.btn-accion:disabled{opacity:.55;cursor:default}
+.btn-accion.votado{background:color-mix(in srgb,var(--primary) 12%,var(--card));border-color:var(--primary);color:var(--primary)}
+.btn-accion .icono{width:15px;height:15px}
+.comentarios{margin-top:.7rem;border-top:1px solid var(--border);padding-top:.7rem;display:none}
+.comentarios.abiertos{display:block;animation:verEntrada .25s ease both}
+.comentario{display:flex;gap:.5rem;font-size:.8rem;margin-bottom:.45rem}
+.comentario strong{color:var(--primary)}
+.comentario .c-txt{overflow-wrap:anywhere}
+.comentario-form{display:flex;gap:.45rem;margin-top:.5rem}
+.comentario-form input{flex:1;border:2px solid var(--border-strong);border-radius:10px;padding:.45rem .7rem;background:var(--card);font-size:.8rem}
+.comentario-form input:focus{outline:none;border-color:var(--primary)}
+.vacio{display:none;text-align:center;border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);padding:2rem 1rem;color:var(--muted)}
+.vacio.visible{display:block;animation:verEntrada .3s ease both}
+.vacio .icono{width:34px;height:34px;color:var(--border-strong)}
+
+/* ============================================================
+   12. PERFIL Y GAMIFICACIÓN
+   ============================================================ */
+.perfil-cab{display:flex;align-items:center;gap:.95rem}
+.perfil-avatar{width:72px;height:72px;flex:none;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--sage));color:#fff;font-weight:800;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)}
+.nivel-num{font-size:.72rem;font-weight:800;background:var(--primary);color:#fff;border-radius:99px;padding:.18rem .6rem;display:inline-block}
+.puntos-num{font-size:1.7rem;font-weight:800;color:var(--primary);line-height:1.1}
+.barra-progreso{height:16px;border-radius:99px;background:color-mix(in srgb,var(--primary) 10%,var(--background));border:1px solid var(--border);overflow:hidden;margin-top:.6rem}
+.barra-progreso > div{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--primary),var(--sage));transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.progreso-texto{display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted);font-weight:600;margin-top:.3rem}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-top:.9rem}
+.stat-caja{background:var(--background);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem;text-align:center}
+.stat-caja strong{font-size:1.3rem;color:var(--primary);display:block;line-height:1.2}
+.stat-caja small{font-size:.7rem;color:var(--muted);font-weight:600}
+.insignias-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-top:.9rem}
+.insignia{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .6rem;text-align:center;opacity:.45;filter:grayscale(1);transition:opacity .4s ease,filter .4s ease,transform .3s ease}
+.insignia.desbloqueada{opacity:1;filter:none;border-color:var(--sage);background:color-mix(in srgb,var(--mist) 22%,var(--card))}
+.insignia.recien{animation:popInsignia .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes popInsignia{0%{transform:scale(.6)}55%{transform:scale(1.12)}100%{transform:scale(1)}}
+.insignia .ins-icono{font-size:1.6rem;display:block}
+.insignia strong{font-size:.74rem;display:block;margin-top:.2rem}
+.insignia small{font-size:.62rem;color:var(--muted)}
+.logro-item{display:flex;gap:.6rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.logro-item:last-child{border-bottom:none}
+.logro-item .icono{color:var(--primary);width:17px;height:17px}
+.logro-item small{color:var(--muted);margin-left:auto;flex:none}
+
+#confetti{position:fixed;inset:0;z-index:320;pointer-events:none}
+
+/* ============================================================
+   13. TOASTS
+   ============================================================ */
+#toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + .9rem);z-index:340;display:flex;flex-direction:column;gap:.5rem;width:min(420px,calc(100vw - 1.6rem));pointer-events:none}
+.toast{pointer-events:auto;background:var(--card);color:var(--text);border:1px solid var(--border);border-left:5px solid var(--info);border-radius:13px;box-shadow:var(--shadow-lg);padding:.7rem .8rem;display:flex;align-items:center;gap:.6rem;font-size:.84rem;font-weight:500;animation:toastEntra .35s cubic-bezier(.2,1,.3,1) both}
+.toast.exito{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.alerta{border-left-color:var(--warning)}
+.toast-logro{border-left-color:var(--primary);background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 12%,var(--card)),var(--card))}
+.toast .t-icono{font-size:1.1rem;flex:none}
+.toast .t-texto{flex:1;min-width:0;overflow-wrap:anywhere}
+.toast .t-cerrar{border:none;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:8px;flex:none}
+.toast .t-cerrar:hover{background:var(--background);color:var(--text)}
+@keyframes toastEntra{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+.toast.salida{animation:toastSale .3s ease both}
+@keyframes toastSale{to{opacity:0;transform:translateY(10px) scale(.95)}}
+
+/* ============================================================
+   14. MODALES
+   ============================================================ */
+.modal-overlay{position:fixed;inset:0;z-index:350;background:rgba(8,22,12,.55);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.abierto{display:flex;animation:overlayIn .22s ease both}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--card);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:1.3rem 1.2rem 1.7rem;animation:modalInM .32s cubic-bezier(.2,1,.3,1) both}
+@keyframes modalInM{from{transform:translateY(50px);opacity:0}to{transform:none;opacity:1}}
+.modal-cab{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem}
+.modal-cab h3{flex:1;font-size:1.08rem}
+.modal-cerrar{width:38px;height:38px;flex:none;border:none;border-radius:11px;background:var(--background);color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .2s ease,transform .2s ease}
+.modal-cerrar:hover{background:var(--border);color:var(--text);transform:rotate(90deg)}
+.modal-cerrar .icono{width:17px;height:17px}
+.modal-acciones{display:flex;gap:.6rem;margin-top:1.2rem}
+.modal-acciones .btn{flex:1}
+.fila-config{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem 0;border-bottom:1px solid var(--border)}
+.fila-config:last-of-type{border-bottom:none}
+.fila-config strong{font-size:.9rem;display:block}
+.fila-config small{color:var(--muted);font-size:.74rem}
+.info-bloque{background:var(--background);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem;font-size:.82rem;color:var(--muted);margin-top:.8rem}
+.info-bloque strong{color:var(--text)}
+.info-bloque p{margin-bottom:.45rem}
+.info-bloque p:last-child{margin-bottom:0}
+
+/* ============================================================
+   15. FOOTER
+   ============================================================ */
+footer.app-footer{margin-top:2.2rem;padding:1.9rem 1.3rem calc(var(--nav-h) + 2rem);background:linear-gradient(160deg,var(--primary-dark),#123D15);color:#DCEDDD;text-align:center}
+[data-theme="dark"] footer.app-footer{background:linear-gradient(160deg,#0B2410,#0D1410);border-top:1px solid var(--border)}
+footer .footer-proy{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mist);font-weight:700}
+footer h3{color:#fff;margin-top:.3rem}
+footer .autores{font-size:.88rem;margin:.4rem 0}
+footer .institucion{font-size:.78rem;color:#B9D8BC}
+.footer-filo{margin-top:1.2rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius-lg);padding:1rem 1.1rem;text-align:left}
+.footer-filo p{font-size:.82rem;color:#CFE5D1}
+.footer-filo strong{color:#fff}
+.footer-frase{margin-top:1.1rem;font-weight:700;font-style:italic;color:#fff}
+.footer-privacidad{margin-top:1rem;font-size:.7rem;color:#9FC3A3}
+
+/* ============================================================
+   16. RESPONSIVE
+   ============================================================ */
+@media (min-width:640px){
+  .chip-header{display:inline-flex}
+  .stat-grid,.insignias-grid{grid-template-columns:repeat(4,1fr)}
+  .info-grid{grid-template-columns:repeat(4,1fr)}
+  .hero-acciones{grid-template-columns:repeat(4,1fr)}
+  #toasts{left:auto;right:1.1rem;transform:none;bottom:1.1rem}
+  .modal-overlay{align-items:center;padding:1.2rem}
+  .modal{border-radius:22px;animation:modalInE .32s cubic-bezier(.2,1,.3,1) both}
+  @keyframes modalInE{from{transform:translateY(24px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+  #mapa{height:460px}
+}
+@media (min-width:1024px){
+  :root{--header-h:66px}
+  .nav-lateral{display:flex}
+  .nav-inferior{display:none}
+  main{margin-left:var(--sidebar-w);max-width:none;padding:calc(var(--header-h) + 1.2rem) 2rem 2.5rem}
+  .contenedor-vistas{max-width:1180px;margin:0 auto}
+  .mapa-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:1rem;align-items:start}
+  .panel-seguimiento{margin-top:0;position:sticky;top:calc(var(--header-h) + 1rem)}
+  #mapa{height:540px}
+  .comunidad-grid{grid-template-columns:380px minmax(0,1fr);align-items:start}
+  .comunidad-form{position:sticky;top:calc(var(--header-h) + 1rem)}
+  footer.app-footer{margin-left:var(--sidebar-w);padding-bottom:2.4rem}
+}
+@media (min-width:1440px){
+  .contenedor-vistas{max-width:1280px}
+}
+@media (max-width:360px){
+  .hero-acciones{grid-template-columns:1fr}
+  .tabs{flex-wrap:wrap}
+  .tab-btn{min-width:44%}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+.leaflet-container{font-family:var(--font)}
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#contenido">Saltar al contenido principal</a>
+
+<!-- ============ SPRITE DE ICONOS SVG ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-hoja" viewBox="0 0 24 24"><path d="M6 21c0-6 3-13 13-15 1 9-3 15-10 15-1.5 0-3-.5-3-.5z"/><path d="M6 21c2-5 5-8 9-10"/></symbol>
+    <symbol id="i-inicio" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+    <symbol id="i-mapa" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></symbol>
+    <symbol id="i-reciclar" viewBox="0 0 24 24"><path d="M7 19a2 2 0 1 1-2-2h3l-2.5-4.5a2 2 0 0 1 .3-2.4L8 8"/><path d="m8 8-2 6M17 19a2 2 0 1 0 2-2l-1.7-3h5l-2-3.5"/><path d="M14.5 4.5a2 2 0 0 1 3.4 1.4L16 10l4.5.1"/><path d="m16 10 4.5.1M9.5 19h5"/></symbol>
+    <symbol id="i-altavoz" viewBox="0 0 24 24"><path d="M3 11v3l4 1 8 5V4L7 9l-4 2z"/><path d="M18 8a5 5 0 0 1 0 8"/></symbol>
+    <symbol id="i-usuarios" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 15.2c2.7.3 4.8 1.9 5.5 4.8"/></symbol>
+    <symbol id="i-usuario" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-3.8 4-6 7.5-6s6.5 2.2 7.5 6"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+    <symbol id="i-camion" viewBox="0 0 24 24"><path d="M1.5 6h12v10h-12z"/><path d="M13.5 9h4l3 3.5V16h-7"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/><path d="M5 9.5h5M5 12.5h3"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9z"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></symbol>
+    <symbol id="i-config" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.07-.4.1-.8.1-1.2z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></symbol>
+    <symbol id="i-capas" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.5-4.5"/></symbol>
+    <symbol id="i-camara" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
+    <symbol id="i-like" viewBox="0 0 24 24"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-8a2.5 2.5 0 0 1 2.5 2.5V9H19a2 2 0 0 1 2 2.4l-1.3 6.5a2 2 0 0 1-2 1.6H7"/></symbol>
+    <symbol id="i-comentar" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></symbol>
+    <symbol id="i-compartir" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.3 10.8 7.4-3.6M8.3 13.2l7.4 3.6"/></symbol>
+    <symbol id="i-basura" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/><path d="M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.5"/></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 2.5 4.5 6v6c0 5 3.2 8 7.5 9.5 4.3-1.5 7.5-4.5 7.5-9.5V6L12 2.5z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-estrella" viewBox="0 0 24 24"><path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.9 6.4 20l1.3-6.2L3 9.5l6.3-.7L12 3z"/></symbol>
+    <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 3v5h-5"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ LOADER ============ -->
+<div id="loader" role="status" aria-label="Cargando Basura y Más">
+  <div class="loader-logo"><svg><use href="#i-hoja"/></svg></div>
+  <div class="loader-nombre">BASURA Y MÁS</div>
+  <div class="loader-barra" aria-hidden="true"><span></span></div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="app-header" id="appHeader">
+  <div class="marca">
+    <div class="marca-logo"><svg aria-hidden="true"><use href="#i-hoja"/></svg></div>
+    <div>
+      <h1>BASURA Y MÁS</h1>
+      <small><span id="headerColonia">Ciudad Guzmán, Jalisco</span> · <span id="headerNivel">Nivel 1</span></small>
+    </div>
+  </div>
+  <div class="header-espacio"></div>
+  <span class="chip-header" id="chipDemo" hidden>▶ Modo demostración</span>
+  <span class="chip-header"><span class="punto" aria-hidden="true"></span>Ciudad Guzmán</span>
+  <button type="button" class="btn-icono" id="btnConfig" aria-label="Abrir configuración" title="Configuración">
+    <svg class="icono" aria-hidden="true"><use href="#i-config"/></svg>
+  </button>
+</header>
+
+<!-- ============ NAV LATERAL (ESCRITORIO) ============ -->
+<nav class="nav-lateral" aria-label="Navegación principal">
+  <button type="button" data-nav="inicio" aria-current="true"><svg class="icono"><use href="#i-inicio"/></svg>Inicio</button>
+  <button type="button" data-nav="mapa"><svg class="icono"><use href="#i-mapa"/></svg>Mapa y rutas</button>
+  <button type="button" data-nav="guia"><svg class="icono"><use href="#i-reciclar"/></svg>Guía de separación</button>
+  <button type="button" data-nav="reportes"><svg class="icono"><use href="#i-altavoz"/></svg>Reportes</button>
+  <button type="button" data-nav="comunidad"><svg class="icono"><use href="#i-usuarios"/></svg>Comunidad</button>
+  <button type="button" data-nav="perfil"><svg class="icono"><use href="#i-usuario"/></svg>Mi perfil</button>
+  <hr class="nav-separador">
+  <p class="nav-nota">Datos de mapa: OpenStreetMap. Rutas calculadas con OSRM. Puntos de recolección: generados por el sistema.</p>
+  <div class="demo-zona">
+    <strong style="font-size:.78rem;color:var(--text)">Modo demostración</strong><br>
+    Simula el recorrido del camión para presentar el proyecto.
+    <label class="interruptor"><input type="checkbox" id="swDemoNav" aria-label="Activar modo demostración"><span class="pista" aria-hidden="true"></span></label>
+  </div>
+</nav>
+
+<!-- ============ CONTENIDO ============ -->
+<main id="contenido"><div class="contenedor-vistas">
+
+  <!-- ================= VISTA INICIO ================= -->
+  <section class="view activa" id="view-inicio" aria-labelledby="t-inicio">
+    <div class="hero">
+      <div class="hero-int">
+        <span class="hero-kicker">🌿 Proyecto FILOSOFARTE · Filosofía II</span>
+        <h2 id="t-inicio">Una comunidad informada también cuida su entorno.</h2>
+        <p class="hero-frase">“La tecnología también puede cuidar nuestro hogar.”</p>
+        <p class="hero-texto">BASURA Y MÁS te ayuda a saber cuándo pasa la recolección en Ciudad Guzmán, dónde separar tus residuos y cómo reportar lo que no funciona. Con información y participación, el cambio lo hacemos entre todos.</p>
+        <div class="hero-acciones">
+          <button type="button" class="btn btn-claro" data-nav="mapa"><svg class="icono"><use href="#i-pin"/></svg>Ver mi ruta</button>
+          <button type="button" class="btn btn-borde" data-nav="guia"><svg class="icono"><use href="#i-reciclar"/></svg>Separar residuos</button>
+          <button type="button" class="btn btn-borde" data-nav="reportes"><svg class="icono"><use href="#i-altavoz"/></svg>Reportar problema</button>
+          <button type="button" class="btn btn-borde" data-nav="comunidad"><svg class="icono"><use href="#i-usuarios"/></svg>Comunidad</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tarjeta pensamiento">
+      <div class="pensamiento-cab">
+        <div class="pensamiento-icono" aria-hidden="true">🍃</div>
+        <div>
+          <h3 class="seccion-titulo" style="font-size:1.08rem">PENSAMIENTO VERDE</h3>
+          <blockquote>“El progreso sin conciencia no es progresión.”</blockquote>
+        </div>
+      </div>
+      <p class="pensamiento-pregunta">¿Ya preparaste tus residuos para la recolección?</p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.7rem">
+        <button type="button" class="btn btn-primario" id="btnAccionSi">Sí, ya lo hice 🌿</button>
+        <button type="button" class="btn btn-secundario" id="btnAccionNo">Todavía no ♻️</button>
+      </div>
+      <div class="pensamiento-respuesta" id="respuestaAccion" role="status"></div>
+      <div class="contador-local">
+        <strong id="contadorAcciones">0</strong>
+        Acciones registradas en este dispositivo
+        <div class="aviso-fuente" style="text-align:left">📊 Este contador es personal y local: solo registra tus propias acciones en este navegador, no datos de la comunidad.</div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 class="seccion-titulo" style="font-size:1.08rem">¿Qué puedes hacer hoy?</h3>
+      <div class="accion-grid">
+        <button type="button" class="accion-card" data-nav="mapa">
+          <span class="accion-icono"><svg class="icono"><use href="#i-mapa"/></svg></span>
+          <strong>Ver mi ruta</strong>
+          <span>Encuentra la recolección más cercana</span>
+        </button>
+        <button type="button" class="accion-card" data-nav="guia">
+          <span class="accion-icono"><svg class="icono"><use href="#i-reciclar"/></svg></span>
+          <strong>Aprender a separar</strong>
+          <span>Guía rápida por categoría</span>
+        </button>
+        <button type="button" class="accion-card" data-nav="reportes">
+          <span class="accion-icono"><svg class="icono"><use href="#i-altavoz"/></svg></span>
+          <strong>Reportar</strong>
+          <span>Contenedor lleno, camión que no pasó…</span>
+        </button>
+        <button type="button" class="accion-card" data-nav="perfil">
+          <span class="accion-icono"><svg class="icono"><use href="#i-estrella"/></svg></span>
+          <strong>Mi perfil</strong>
+          <span>Puntos, nivel e insignias</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 class="seccion-titulo" style="font-size:1.08rem">Actividades comunitarias</h3>
+      <p class="seccion-sub">Ejemplos de actividades que la app podría coordinar con tu colonia.</p>
+      <div class="aviso-fuente">ℹ️ Estas actividades son propuestas de ejemplo para demostrar la plataforma; no son eventos oficiales del municipio.</div>
+      <div class="evento">
+        <span class="evento-icono"><svg class="icono"><use href="#i-calendario"/></svg></span>
+        <div class="evento-info"><strong>Jornada de limpieza</strong><small>Actividad propuesta · sábado por la mañana</small></div>
+        <span class="chip gris">Propuesta</span>
+      </div>
+      <div class="evento">
+        <span class="evento-icono"><svg class="icono"><use href="#i-calendario"/></svg></span>
+        <div class="evento-info"><strong>Taller de compostaje</strong><small>Actividad propuesta · sesión de 1 hora</small></div>
+        <span class="chip gris">Propuesta</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VISTA MAPA ================= -->
+  <section class="view" id="view-mapa" aria-labelledby="t-mapa">
+    <h2 class="seccion-titulo" id="t-mapa">Seguimiento de recolección</h2>
+    <p class="seccion-sub">Elige tu colonia, usa tu ubicación o toca el mapa para encontrar el punto de recolección más cercano.</p>
+
+    <div class="mapa-layout" style="margin-top:1rem">
+      <div class="mapa-bloque">
+        <div id="mapa" role="application" aria-label="Mapa de Ciudad Guzmán con rutas y puntos de recolección"></div>
+        <div class="mapa-controles">
+          <button type="button" class="mapa-ctrl" id="btnGPS" aria-label="Usar mi ubicación" title="Usar mi ubicación"><svg class="icono"><use href="#i-target"/></svg></button>
+          <button type="button" class="mapa-ctrl" id="btnVerRuta" aria-label="Ver ruta de recolección" title="Ver ruta de recolección"><svg class="icono"><use href="#i-mapa"/></svg></button>
+          <button type="button" class="mapa-ctrl" id="btnRecargarRuta" aria-label="Recargar ruta desde OpenStreetMap" title="Recargar ruta"><svg class="icono"><use href="#i-refresh"/></svg></button>
+        </div>
+        <div class="mapa-leyenda" aria-hidden="true">
+          <span><span class="lg-ruta"></span> Ruta de recolección</span>
+          <span><span class="lg-punto"></span> Puntos de recolección</span>
+          <span><span class="lg-usuario"></span> Tu ubicación</span>
+        </div>
+      </div>
+
+      <div class="panel-seguimiento">
+        <div class="tarjeta">
+          <div class="panel-fila">
+            <div class="campo" style="flex:1;min-width:200px">
+              <label for="rutaSelect">🏘️ Mi colonia</label>
+              <select id="rutaSelect" class="select-ruta">
+                <option value="centro" selected>Centro</option>
+                <option value="floresta">La Floresta</option>
+                <option value="villas">Villas del Padre</option>
+                <option value="estanzuela">La Estanzuela</option>
+                <option value="agustin">El Agustín</option>
+                <option value="rafael">San Rafael</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="estado-ruta" id="estadoRutaChip"><span class="chip gris">Estado: sin ruta cargada</span></div>
+          <div class="info-grid">
+            <div class="info-caja"><small>Ruta</small><strong id="infoRutaNombre">—</strong></div>
+            <div class="info-caja"><small>Punto más cercano</small><strong id="infoPuntoCercano">—</strong></div>
+            <div class="info-caja"><small>Distancia</small><strong id="infoDistanciaPunto">—</strong></div>
+            <div class="info-caja"><small>Tiempo de llegada</small><strong id="infoTiempoLlegada">No disponible</strong></div>
+          </div>
+
+          <div class="banner-demo" id="bannerDemo">
+            <span aria-hidden="true">▶</span>
+            <span><strong>Recorrido demostrativo:</strong> el camión que ves es una simulación educativa. No es la posición real de un vehículo municipal.</span>
+          </div>
+
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem">
+            <button type="button" class="btn btn-primario" id="btnNotif" style="flex:1;min-width:180px">
+              <svg class="icono"><use href="#i-bell"/></svg><span id="btnNotifTexto">Activar notificaciones</span>
+            </button>
+          </div>
+          <div class="aviso-fuente" id="fuenteDatosTexto">
+            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong> sobre la ruta (cada 400 m aprox.). GPS de vehículo municipal: <strong>no conectado</strong>.
+          </div>
+        </div>
+
+        <div class="tarjeta">
+          <h3 style="font-size:1rem">📍 Puntos de recolección <span class="chip gris" style="margin-left:.3rem">Propuestos por el sistema</span></h3>
+          <p class="seccion-sub">Distribuidos sobre la ruta real cada 400 m aprox. No son contenedores municipales confirmados.</p>
+          <div class="lista-puntos" id="listaPuntos">
+            <div class="vacio visible" style="padding:1.2rem"><p style="font-size:.85rem">Carga una ruta para ver sus puntos de recolección.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VISTA GUÍA ================= -->
+  <section class="view" id="view-guia" aria-labelledby="t-guia">
+    <h2 class="seccion-titulo" id="t-guia">Guía de separación</h2>
+    <p class="seccion-sub">Separar bien es el primer paso. Elige una categoría o busca tu residuo.</p>
+
+    <div class="tabs" role="tablist" aria-label="Categorías de residuos">
+      <button type="button" class="tab-btn" role="tab" id="tab-org" data-cat="organicos" aria-selected="true" aria-controls="panel-organicos"><svg class="icono"><use href="#i-hoja"/></svg>Orgánicos</button>
+      <button type="button" class="tab-btn" role="tab" id="tab-rec" data-cat="reciclables" aria-selected="false" aria-controls="panel-reciclables"><svg class="icono"><use href="#i-reciclar"/></svg>Reciclables</button>
+      <button type="button" class="tab-btn" role="tab" id="tab-norec" data-cat="noreciclables" aria-selected="false" aria-controls="panel-noreciclables"><svg class="icono"><use href="#i-basura"/></svg>No reciclables</button>
+      <button type="button" class="tab-btn" role="tab" id="tab-esp" data-cat="especiales" aria-selected="false" aria-controls="panel-especiales"><svg class="icono"><use href="#i-escudo"/></svg>Especiales</button>
+    </div>
+
+    <div class="panel-cat activa" id="panel-organicos" role="tabpanel" aria-labelledby="tab-org" tabindex="0">
+      <div class="cat-cab org">
+        <span class="cat-icono"><svg class="icono"><use href="#i-hoja"/></svg></span>
+        <div><h3>Orgánicos</h3><p>Se transforman en compost: alimento para la tierra.</p></div>
+      </div>
+      <div class="items-lista">
+        <span class="item-chip">🍎 Restos de comida</span><span class="item-chip">🍌 Cáscaras</span>
+        <span class="item-chip">🍂 Hojas</span><span class="item-chip">🌿 Residuos de jardín</span>
+        <span class="item-chip">🥚 Cascarón de huevo</span><span class="item-chip">☕ Café y filtros</span>
+      </div>
+      <div class="consejos">
+        <h4>💡 Consejos</h4>
+        <ul>
+          <li>Usa un contenedor con tapa y vacíalo con frecuencia.</li>
+          <li>Si puedes, inicia una composta casera con tus cáscaras.</li>
+          <li>Bolsa separada para orgánicos evita malos olores y contaminación.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel-cat" id="panel-reciclables" role="tabpanel" aria-labelledby="tab-rec" tabindex="0">
+      <div class="cat-cab rec">
+        <span class="cat-icono"><svg class="icono"><use href="#i-reciclar"/></svg></span>
+        <div><h3>Inorgánicos reciclables</h3><p>Enjuaga, seca y separa: tienen segunda vida.</p></div>
+      </div>
+      <div class="items-lista">
+        <span class="item-chip">🧴 PET</span><span class="item-chip">📦 Cartón</span>
+        <span class="item-chip">📄 Papel</span><span class="item-chip">🥫 Latas</span>
+        <span class="item-chip">🫙 Vidrio</span><span class="item-chip">🪣 Plástico duro</span>
+      </div>
+      <div class="consejos">
+        <h4>💡 Consejos</h4>
+        <ul>
+          <li>Enjuaga los envases antes de depositarlos.</li>
+          <li>Aplasta botellas y cajas para ocupar menos espacio.</li>
+          <li>La disponibilidad de reciclaje local puede variar: consulta los puntos de acopio de tu comunidad.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel-cat" id="panel-noreciclables" role="tabpanel" aria-labelledby="tab-norec" tabindex="0">
+      <div class="cat-cab norec">
+        <span class="cat-icono"><svg class="icono"><use href="#i-basura"/></svg></span>
+        <div><h3>Inorgánicos no reciclables</h3><p>Van a la basura común, bien cerrados.</p></div>
+      </div>
+      <div class="items-lista">
+        <span class="item-chip">🚬 Colillas</span><span class="item-chip">🧻 Papel sanitario</span>
+        <span class="item-chip">🥡 Plásticos sucios</span><span class="item-chip">🍪 Empaques metalizados</span>
+        <span class="item-chip">🍼 Pañales</span><span class="item-chip">🧽 Espumas sucias</span>
+      </div>
+      <div class="consejos">
+        <h4>💡 Consejos</h4>
+        <ul>
+          <li>Reduce primero: menos empaque, menos basura.</li>
+          <li>Bolsa bien cerrada = calle más limpia.</li>
+          <li>No mezcles líquidos ni residuos peligrosos aquí.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel-cat" id="panel-especiales" role="tabpanel" aria-labelledby="tab-esp" tabindex="0">
+      <div class="cat-cab esp">
+        <span class="cat-icono"><svg class="icono"><use href="#i-escudo"/></svg></span>
+        <div><h3>Residuos especiales</h3><p>Peligrosos: requieren puntos de acopio.</p></div>
+      </div>
+      <div class="items-lista">
+        <span class="item-chip">🔋 Pilas</span><span class="item-chip">💡 Focos</span>
+        <span class="item-chip">💊 Medicamentos caducados</span><span class="item-chip">📱 Electrónicos</span>
+        <span class="item-chip">🛢️ Aceites usados</span><span class="item-chip">🧪 Químicos</span>
+      </div>
+      <div class="consejos">
+        <h4>💡 Consejos</h4>
+        <ul>
+          <li>Nunca los botes a la basura común ni los quemes.</li>
+          <li>Guarda pilas en una caja seca hasta llevarlas al acopio.</li>
+          <li>Pregunta en farmacias por programas de medicamentos caducados.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tarjeta" style="margin-top:1.1rem">
+      <h3 class="seccion-titulo" style="font-size:1.08rem">¿Dónde va este residuo?</h3>
+      <div class="buscador-caja">
+        <svg class="icono" aria-hidden="true"><use href="#i-buscar"/></svg>
+        <label class="sr-only" for="inputResiduo">Buscar residuo</label>
+        <input type="search" id="inputResiduo" placeholder="Ej. botella, lata, plátano, pila..." autocomplete="off" aria-describedby="estadoBusqueda">
+      </div>
+      <div id="estadoBusqueda" class="sr-only" aria-live="polite"></div>
+      <div id="resultadosResiduo"><p class="pista-buscador">✍️ Escribe el nombre de un residuo y te decimos a qué categoría pertenece.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= VISTA REPORTES ================= -->
+  <section class="view" id="view-reportes" aria-labelledby="t-reportes">
+    <h2 class="seccion-titulo" id="t-reportes">¿Encontraste un problema?</h2>
+    <p class="seccion-sub">Tu reporte ayuda a mejorar la información de la comunidad.</p>
+
+    <div class="tarjeta" style="margin-top:1rem">
+      <form id="formReporte" novalidate>
+        <div class="form-grid">
+          <div class="campo">
+            <label for="repNombre">Nombre <small style="color:var(--muted);font-weight:500">(opcional)</small></label>
+            <input type="text" id="repNombre" maxlength="40" placeholder="Puedes reportar como Anónimo">
+            <p class="error-msg" id="errRepNombre" role="alert"></p>
+          </div>
+          <div class="campo">
+            <label for="repColonia">Colonia</label>
+            <select id="repColonia">
+              <option value="Centro">Centro</option>
+              <option value="La Floresta">La Floresta</option>
+              <option value="Villas del Padre">Villas del Padre</option>
+              <option value="La Estanzuela">La Estanzuela</option>
+              <option value="El Agustín">El Agustín</option>
+              <option value="San Rafael">San Rafael</option>
+              <option value="Otra">Otra</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="repTipo">Tipo de reporte</label>
+            <select id="repTipo">
+              <option value="" selected disabled>Selecciona el tipo…</option>
+              <option value="Contenedor lleno">🗑️ Contenedor lleno</option>
+              <option value="Basura en la calle">🧹 Basura en la calle</option>
+              <option value="Camión no pasó">🚛 Camión no pasó</option>
+              <option value="Ruta incorrecta">🗺️ Ruta incorrecta</option>
+              <option value="Otro">💬 Otro</option>
+            </select>
+            <p class="error-msg" id="errRepTipo" role="alert"></p>
+          </div>
+          <div class="campo">
+            <label for="repDescripcion">Descripción</label>
+            <textarea id="repDescripcion" maxlength="500" placeholder="Cuenta qué pasó: dónde, cuándo y cómo se ve. Mínimo 15 caracteres."></textarea>
+            <div class="progreso-texto"><span></span><span id="contadorRep">0 / 500</span></div>
+            <p class="error-msg" id="errRepDesc" role="alert"></p>
+          </div>
+
+          <div class="ubicacion-caja">
+            <strong style="font-size:.9rem">📍 Ubicación del reporte</strong>
+            <p style="font-size:.76rem;color:var(--muted);margin-top:.15rem">Tu ubicación se utiliza únicamente para situar el reporte en el mapa.</p>
+            <div class="ub-fila">
+              <button type="button" class="btn btn-secundario btn-chico" id="repUsarGPS"><svg class="icono"><use href="#i-target"/></svg>Usar mi ubicación</button>
+              <button type="button" class="btn btn-secundario btn-chico" id="repElegirMapa"><svg class="icono"><use href="#i-mapa"/></svg>Elegir en el mapa</button>
+              <button type="button" class="btn btn-fantasma btn-chico" id="repQuitarUbicacion"><svg class="icono"><use href="#i-x"/></svg>Quitar</button>
+            </div>
+            <p class="coord-texto" id="repCoordenadas">Sin ubicación asignada. El reporte se guardará sin coordenadas.</p>
+            <p class="error-msg" id="errRepUbic" role="alert"></p>
+          </div>
+
+          <div class="foto-zona">
+            <label for="repFoto" class="btn btn-fantasma btn-chico" style="cursor:pointer"><svg class="icono"><use href="#i-camara"/></svg>Agregar fotografía (opcional)</label>
+            <input type="file" id="repFoto" accept="image/*">
+            <p style="font-size:.7rem;color:var(--muted);margin-top:.4rem">JPG o PNG · hasta 5 MB · se reduce automáticamente para guardarla localmente</p>
+            <div class="foto-preview" id="fotoPreview">
+              <img id="fotoPreviewImg" alt="Vista previa de la fotografía del reporte">
+              <button type="button" class="foto-quitar" id="fotoQuitar" aria-label="Quitar fotografía">✕</button>
+            </div>
+            <p class="error-msg" id="errRepFoto" role="alert" style="margin-top:.4rem"></p>
+          </div>
+
+          <button type="submit" class="btn btn-primario btn-bloque"><svg class="icono"><use href="#i-altavoz"/></svg>Enviar reporte</button>
+        </div>
+      </form>
+      <div class="aviso-fuente">☁️ Los reportes se sincronizan en la nube (Supabase) y también se guardan en este dispositivo. Si no hay conexión se etiquetan como “copia local”. Con una conexión municipal podrían llegar al municipio.</div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 class="seccion-titulo" style="font-size:1.08rem">Mis reportes <span class="chip gris" id="estadoNube" style="margin-left:.3rem">☁️ Conectando con la nube…</span></h3>
+      <div class="lista-reportes" id="listaReportes"></div>
+      <div class="vacio" id="reportesVacio">
+        <svg class="icono"><use href="#i-altavoz"/></svg>
+        <p style="margin-top:.4rem">Aún no has enviado reportes.<br>Tu voz ayuda a que la comunidad mejore.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VISTA COMUNIDAD ================= -->
+  <section class="view" id="view-comunidad" aria-labelledby="t-comunidad">
+    <h2 class="seccion-titulo" id="t-comunidad">Comunidad</h2>
+    <p class="seccion-sub">Comparte, comenta y apoya las ideas de tus vecinos de Ciudad Guzmán.</p>
+
+    <div class="comunidad-grid" style="margin-top:1rem">
+      <div class="tarjeta comunidad-form">
+        <h3 style="font-size:1.05rem">Publica algo</h3>
+        <form id="formPost" novalidate>
+          <div class="form-grid" style="margin-top:.7rem">
+            <div class="campo">
+              <label for="postNombre">Nombre <small style="color:var(--muted);font-weight:500">(opcional)</small></label>
+              <input type="text" id="postNombre" maxlength="40" placeholder="Publica como Anónimo">
+              <p class="error-msg" id="errPostNombre" role="alert"></p>
+            </div>
+            <div class="campo">
+              <label for="postTipo">Tipo</label>
+              <select id="postTipo">
+                <option value="" selected disabled>Selecciona…</option>
+                <option value="Duda">❓ Duda</option>
+                <option value="Propuesta">🌱 Propuesta</option>
+                <option value="Iniciativa">🧹 Iniciativa</option>
+                <option value="Aviso">📣 Aviso</option>
+              </select>
+              <p class="error-msg" id="errPostTipo" role="alert"></p>
+            </div>
+            <div class="campo">
+              <label for="postTexto">Mensaje</label>
+              <textarea id="postTexto" maxlength="500" placeholder="¿Qué quieres compartir con tu comunidad?"></textarea>
+              <div class="progreso-texto"><span></span><span id="contadorPost">0 / 500</span></div>
+              <p class="error-msg" id="errPostTexto" role="alert"></p>
+            </div>
+            <button type="submit" class="btn btn-primario btn-bloque">🤝 Publicar en la comunidad</button>
+          </div>
+        </form>
+      </div>
+
+      <div>
+        <div class="tarjeta">
+          <h3 style="font-size:1.05rem">Publicaciones</h3>
+          <div class="aviso-fuente">☁️ Publicaciones y votos se comparten en la nube (Supabase) entre todos los visitantes; también quedan en este dispositivo. Las marcadas como “ejemplo” son contenido de muestra de la app.</div>
+          <div class="muro" id="muro"></div>
+          <div class="vacio" id="muroVacio">
+            <svg class="icono"><use href="#i-usuarios"/></svg>
+            <p style="margin-top:.4rem">Todavía no hay publicaciones.<br>¡Sé la primera voz de tu comunidad!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VISTA PERFIL ================= -->
+  <section class="view" id="view-perfil" aria-labelledby="t-perfil">
+    <h2 class="seccion-titulo" id="t-perfil">Mi perfil</h2>
+    <p class="seccion-sub">Tus acciones locales construyen tu nivel. Todo se guarda en este dispositivo.</p>
+
+    <div class="tarjeta" style="margin-top:1rem">
+      <div class="perfil-cab">
+        <div class="perfil-avatar" id="perfilAvatar">DA</div>
+        <div style="min-width:0">
+          <strong style="font-size:1.15rem;display:block" id="perfilNombreTxt">Daniel Alvarez</strong>
+          <small style="color:var(--muted)" id="perfilColoniaTxt">Centro · Ciudad Guzmán</small>
+          <div style="margin-top:.4rem"><span class="nivel-num" id="perfilNivelNum">Nivel 1 · Vecino consciente</span></div>
+        </div>
+      </div>
+      <div style="margin-top:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="puntos-num" id="perfilPuntosTxt">0</span>
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600" id="perfilSiguienteTxt">0 / 100 puntos</span>
+        </div>
+        <div class="barra-progreso" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barraProgreso" aria-label="Progreso hacia el siguiente nivel"><div id="barraProgresoFill"></div></div>
+        <div class="progreso-texto"><span id="progresoNivelTxt">Nivel 1</span><span id="progresoFaltaTxt">Faltan 100 puntos para el nivel 2</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-caja"><strong id="statReportes">0</strong><small>Reportes</small></div>
+        <div class="stat-caja"><strong id="statParticipaciones">0</strong><small>Participaciones</small></div>
+        <div class="stat-caja"><strong id="statAcciones">0</strong><small>Acciones ecológicas</small></div>
+        <div class="stat-caja"><strong id="statInsignias">0/8</strong><small>Insignias</small></div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 style="font-size:1.05rem">🏅 Insignias</h3>
+      <p class="seccion-sub">Se desbloquean con tus acciones en la app.</p>
+      <div class="insignias-grid" id="insigniasGrid"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 style="font-size:1.05rem">📈 Actividad reciente</h3>
+      <div id="logrosLista" style="margin-top:.4rem">
+        <p style="color:var(--muted);font-size:.85rem">Tus acciones aparecerán aquí.</p>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 style="font-size:1.05rem">Editar perfil</h3>
+      <form id="formPerfil" novalidate>
+        <div class="form-grid" style="margin-top:.7rem">
+          <div class="campo">
+            <label for="pNombre">Nombre</label>
+            <input type="text" id="pNombre" maxlength="40" placeholder="Tu nombre">
+            <p class="error-msg" id="errPNombre" role="alert"></p>
+          </div>
+          <div class="campo">
+            <label for="pColonia">Mi colonia</label>
+            <select id="pColonia">
+              <option value="centro">Centro</option>
+              <option value="floresta">La Floresta</option>
+              <option value="villas">Villas del Padre</option>
+              <option value="estanzuela">La Estanzuela</option>
+              <option value="agustin">El Agustín</option>
+              <option value="rafael">San Rafael</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primario"><svg class="icono"><use href="#i-check"/></svg>Guardar cambios</button>
+        </div>
+      </form>
+      <div class="info-bloque">
+        <strong>Privacidad sencilla</strong>
+        <p>· La ubicación se pide solo cuando la activas y se usa únicamente para calcular rutas cercanas y situar reportes.</p>
+        <p>· Las fotografías las eliges tú; se reducen y se guardan solo en este dispositivo.</p>
+        <p>· Tus reportes y publicaciones se sincronizan en la nube (Supabase) y también se guardan en el navegador como respaldo.</p>
+      </div>
+    </div>
+  </section>
+
+</div></main>
+
+<!-- ============ NAV INFERIOR (MÓVIL) ============ -->
+<nav class="nav-inferior" aria-label="Navegación principal">
+  <button type="button" data-nav="inicio" aria-current="true"><svg class="icono"><use href="#i-inicio"/></svg>Inicio</button>
+  <button type="button" data-nav="mapa"><svg class="icono"><use href="#i-mapa"/></svg>Mapa</button>
+  <button type="button" data-nav="guia"><svg class="icono"><use href="#i-reciclar"/></svg>Guía</button>
+  <button type="button" data-nav="reportes"><svg class="icono"><use href="#i-altavoz"/></svg>Reportes</button>
+  <button type="button" data-nav="comunidad"><svg class="icono"><use href="#i-usuarios"/></svg>Comunidad</button>
+  <button type="button" data-nav="perfil"><svg class="icono"><use href="#i-usuario"/></svg>Perfil</button>
+</nav>
+
+<!-- ============ FOOTER ============ -->
+<footer class="app-footer">
+  <p class="footer-proy">Proyecto FILOSOFARTE — Filosofía II</p>
+  <h3>🌿 BASURA Y MÁS</h3>
+  <p class="autores">Desarrollado por <strong>Daniel Alvarez</strong></p>
+  <p class="institucion">Centro de Bachillerato Tecnológico Industrial y de Servicios No. 226</p>
+  <div class="footer-filo">
+    <p><strong>Basura y Más</strong> busca demostrar que la tecnología puede convertirse en una herramienta de participación, conciencia y cuidado del entorno. Desde la <strong>ética</strong>: usar la tecnología de manera responsable para reducir el impacto ambiental. Desde la <strong>política</strong>: organizarnos, reportar y dialogar como ciudadanos para mejorar los servicios de nuestra comunidad.</p>
+    <p style="margin-top:.5rem">La tecnología no sustituye la responsabilidad de las personas; puede ayudarnos a ejercerla mejor.</p>
+  </div>
+  <p class="footer-frase">“El progreso sin conciencia no es progresión.”</p>
+  <p class="footer-privacidad">Datos cartográficos © colaboradores de OpenStreetMap · Rutas: OSRM · Esta aplicación guarda tus datos localmente en tu navegador.</p>
+</footer>
+
+<!-- ============ MODALES ============ -->
+<div class="modal-overlay" id="modalConfig" role="dialog" aria-modal="true" aria-labelledby="tConfig">
+  <div class="modal">
+    <div class="modal-cab">
+      <h3 id="tConfig">Configuración</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar configuración"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="fila-config">
+      <div><strong>🌙 Tema oscuro</strong><small>Menos luz, mismo impacto</small></div>
+      <label class="interruptor"><input type="checkbox" id="cfgTema" aria-label="Activar tema oscuro"><span class="pista"></span></label>
+    </div>
+    <div class="fila-config">
+      <div><strong>🔔 Notificaciones</strong><small>Avisos del navegador cuando lo permita</small></div>
+      <label class="interruptor"><input type="checkbox" id="cfgNotif" aria-label="Activar notificaciones"><span class="pista"></span></label>
+    </div>
+    <div class="fila-config">
+      <div><strong>🏘️ Mi colonia</strong><small>Se usa en el mapa y en tus reportes</small></div>
+      <div class="campo" style="min-width:150px"><select id="cfgColonia" aria-label="Seleccionar colonia">
+        <option value="centro">Centro</option>
+        <option value="floresta">La Floresta</option>
+        <option value="villas">Villas del Padre</option>
+        <option value="estanzuela">La Estanzuela</option>
+        <option value="agustin">El Agustín</option>
+        <option value="rafael">San Rafael</option>
+      </select></div>
+    </div>
+    <div class="fila-config">
+      <div><strong>▶ Modo demostración</strong><small>Simulación etiquetada del recorrido del camión</small></div>
+      <label class="interruptor"><input type="checkbox" id="cfgDemo" aria-label="Activar modo demostración"><span class="pista"></span></label>
+    </div>
+    <div class="modal-acciones" style="flex-direction:column">
+      <button type="button" class="btn btn-secundario" id="btnAcerca"><svg class="icono"><use href="#i-info"/></svg>Acerca del proyecto</button>
+      <button type="button" class="btn btn-secundario" id="btnPrivacidad"><svg class="icono"><use href="#i-escudo"/></svg>Privacidad</button>
+      <button type="button" class="btn btn-peligro" id="btnResetDatos"><svg class="icono"><use href="#i-basura"/></svg>Restablecer datos locales</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalInfo" role="dialog" aria-modal="true" aria-labelledby="tInfo">
+  <div class="modal">
+    <div class="modal-cab">
+      <h3 id="tInfo">Acerca del proyecto</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="info-bloque" id="infoContenido"></div>
+    <div class="modal-acciones"><button type="button" class="btn btn-secundario" data-cerrar>Entendido</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalPunto" role="dialog" aria-modal="true" aria-labelledby="tPunto">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-cab">
+      <h3 id="tPunto">📍 Punto de recolección</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <div id="puntoDetalle"></div>
+    <div class="modal-acciones">
+      <button type="button" class="btn btn-secundario" data-cerrar>Cerrar</button>
+      <button type="button" class="btn btn-primario" id="btnVerRutaPunto"><svg class="icono"><use href="#i-mapa"/></svg>Ver ruta</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalConfirmar" role="dialog" aria-modal="true" aria-labelledby="tConfirmar" aria-describedby="txtConfirmar">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-cab">
+      <h3 id="tConfirmar">¿Estás seguro?</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <p id="txtConfirmar" style="color:var(--muted);font-size:.9rem">Esta acción no se puede deshacer.</p>
+    <div class="modal-acciones">
+      <button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
+      <button type="button" class="btn btn-peligro" id="btnConfirmarSi">Sí, continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalShare" role="dialog" aria-modal="true" aria-labelledby="tShare">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-cab">
+      <h3 id="tShare">📤 Compartir publicación</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted)">Copia el texto para compartirlo donde quieras:</p>
+    <div class="campo" style="margin-top:.6rem">
+      <label class="sr-only" for="shareTexto">Texto para compartir</label>
+      <textarea id="shareTexto" readonly style="min-height:90px"></textarea>
+    </div>
+    <div class="modal-acciones">
+      <button type="button" class="btn btn-secundario" data-cerrar>Cerrar</button>
+      <button type="button" class="btn btn-primario" id="btnCopiarShare">📋 Copiar</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+<div id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   MÓDULO 0 · UTILIDADES
+   ============================================================ */
+const $  = (s, c) => (c || document).querySelector(s);
+const $$ = (s, c) => Array.prototype.slice.call((c || document).querySelectorAll(s));
+const REDUCIR = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function normalizar(t){
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+function fmtDistancia(m){
+  if (m == null || !isFinite(m)) return '—';
+  if (m < 1000) return Math.round(m) + ' m';
+  return (m / 1000).toFixed(1).replace('.', '.') + ' km';
+}
+function fmtDuracion(seg){
+  if (seg == null || !isFinite(seg)) return '—';
+  const min = Math.round(seg / 60);
+  if (min < 1) return 'menos de 1 min';
+  if (min < 60) return min + ' min';
+  const h = Math.floor(min / 60);
+  return h + ' h ' + (min % 60) + ' min';
+}
+function haversine(a, b){
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lng - a.lng) * rad;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*rad) * Math.cos(b.lat*rad) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function tiempoRelativo(ts){
+  const min = Math.floor(Math.max(0, Date.now() - ts) / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return 'hace ' + min + ' min';
+  const h = Math.floor(min / 60);
+  if (h < 24) return 'hace ' + h + ' h';
+  const d = Math.floor(h / 24);
+  return d === 1 ? 'ayer' : 'hace ' + d + ' días';
+}
+function uid(){ return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function hoyISO(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function iniciales(n){
+  if (!n) return '👤';
+  const p = n.trim().split(/\s+/);
+  return ((p[0] || '')[0] || '?').toUpperCase() + (p[1] ? p[1][0].toUpperCase() : '');
+}
+
+/* ============================================================
+   MÓDULO 1 · PERSISTENCIA LOCAL
+   ============================================================ */
+const almacen = {
+  clave: 'bym.v1',
+  ok: (function(){ try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; } catch(e){ return false; } })(),
+  datos: null,
+  leer(){
+    if (!this.ok) return {};
+    try { return JSON.parse(localStorage.getItem(this.clave)) || {}; } catch(e){ return {}; }
+  },
+  guardar(){
+    if (!this.ok) return;
+    try { localStorage.setItem(this.clave, JSON.stringify(this.datos)); }
+    catch(e){ toast('No se pudo guardar localmente (espacio lleno). La app sigue funcionando.', 'error'); }
+  },
+  borrar(){ if (this.ok) { try { localStorage.removeItem(this.clave); } catch(e){} } }
+};
+almacen.datos = almacen.leer();
+function guardar(){ almacen.guardar(); }
+
+/* ============================================================
+   MÓDULO 2 · ESTADO GLOBAL
+   ============================================================ */
+const estado = {
+  vista: 'inicio',
+  tema: almacen.datos.tema || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+  coloniaId: almacen.datos.coloniaId || 'centro',
+  nombrePerfil: almacen.datos.nombrePerfil || 'Daniel Alvarez',
+  notif: !!almacen.datos.notif,
+  demo: !!almacen.datos.demo,
+  puntos: almacen.datos.puntos || 0,
+  acciones: almacen.datos.acciones || [],          // {ts, tipo, texto}
+  accionDia: almacen.datos.accionDia || null,      // último día con acción ecológica
+  diasAccion: almacen.datos.diasAccion || [],      // días distintos con acción
+  insignias: almacen.datos.insignias || [],
+  reportes: null,
+  publicaciones: null,
+  ubicacion: null,                                  // {lat,lng} del usuario
+  ubicacionManual: null,                            // {lat,lng} seleccionada en mapa
+  ubicacionReporte: null,                           // {lat,lng} del reporte en curso
+  fotoData: null,
+  modoElegirMapa: null,                             // 'usuario' | 'reporte' | null
+  eliminadosRep: almacen.datos.eliminadosRep || []  // ids eliminados localmente (no vuelven desde la nube)
+};
+
+/* ============================================================
+   MÓDULO 3 · CAPA DE DATOS (arquitectura para backend real)
+   ------------------------------------------------------------
+   Cada función devuelve Promesas y está lista para reemplazarse
+   por Supabase / Firebase / API municipal sin tocar la interfaz.
+   ============================================================ */
+const dataLayer = {
+  /** Ubicación del usuario (API del navegador). */
+  getUserLocation(){
+    return new Promise(function(resolve, reject){
+      if (!navigator.geolocation){ reject(new Error('Geolocalización no disponible en este navegador.')); return; }
+      navigator.geolocation.getCurrentPosition(
+        function(pos){ resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, precision: pos.coords.accuracy }); },
+        function(err){
+          const mensajes = { 1: 'Permiso de ubicación rechazado.', 2: 'Ubicación no disponible.', 3: 'La ubicación tardó demasiado.' };
+          reject(new Error(mensajes[err.code] || 'No pudimos acceder a tu ubicación.'));
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+      );
+    });
+  },
+  /** Ruta de recolección de una zona (vialidades OSM + OSRM). */
+  getRoutes(zona){ return construirRutaZona(zona); },
+  /** Puntos sobre la geometría real de la ruta. */
+  getCollectionPoints(ruta, intervaloM){ return distribuirPuntos(ruta.geometria, intervaloM); },
+  /** GPS del vehículo. HOY: no hay fuente municipal conectada → null. */
+  getVehiclePosition(){
+    // Punto de integración futuro: API municipal o backend propio.
+    // Cuando exista, devolver {lat,lng,ts} y la app lo mostrará como real.
+    return Promise.resolve(null);
+  },
+  createReport(reporte){
+    reportesLocales.push(reporte); almacen.datos.reportes = reportesLocales; guardar();
+    reporte.estado = 'Sincronizado con la nube';
+    return upsertNube('reportes', reporte).then(function(ok){
+      if (!ok) reporte.estado = 'Registrado localmente (copia local)';
+      renderReportes();
+      return reporte;
+    });
+  },
+  createPost(post){
+    publicaciones.unshift(post); almacen.datos.publicaciones = publicaciones; guardar();
+    return upsertNube('publicaciones', post).then(function(ok){ post._nube = ok; return post; });
+  },
+  votePost(id){
+    const p = publicaciones.find(function(x){ return x.id === id; });
+    if (p) upsertNube('publicaciones', p);
+    return Promise.resolve(true);
+  },
+  sendNotification(titulo, cuerpo){ notificarReal(titulo, cuerpo); }
+};
+
+/* ---------- Nube (Supabase) con respaldo local honesto ----------
+   API REST de Supabase con la llave anónima: RLS permite leer y crear,
+   nunca editar ni borrar contenido ajeno. Sin conexión → todo queda en
+   el dispositivo y se etiqueta como "copia local" para no confundir. */
+const NUBE = {
+  url: 'https://rmnnqggasqxlpntcffrz.supabase.co/rest/v1/',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbm5xZ2dhc3F4bHBudGNmZnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MDAzMzUsImV4cCI6MjEwNjM3NjMzNX0.89g4vlDGldKazqO8o1MFSPcnvNbIL5D486r1lKrUKto'
+};
+let nubeCargadaPost = false, nubeCargadaRep = false;
+function cabecerasNube(extra){
+  const h = { 'apikey': NUBE.key, 'Authorization': 'Bearer ' + NUBE.key, 'Content-Type': 'application/json' };
+  if (extra) for (const k in extra) h[k] = extra[k];
+  return h;
+}
+function upsertNube(tabla, obj){
+  if (!estado._nube) return Promise.resolve(false);
+  const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube;
+  return fetch(NUBE.url + tabla, {
+    method: 'POST',
+    headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
+    body: JSON.stringify([copia])
+  }).then(function(r){ return r.ok; }).catch(function(){ return false; });
+}
+function nubeEstado(v){
+  estado._nube = (v === 'ok');
+  const e = $('#estadoNube');
+  if (!e) return;
+  if (v === 'ok'){ e.textContent = '☁️ Datos sincronizados en la nube'; e.className = 'chip'; }
+  else if (v === 'conectando'){ e.textContent = '☁️ Conectando con la nube…'; e.className = 'chip gris'; }
+  else { e.textContent = '💾 Datos guardados en este dispositivo (copia local)'; e.className = 'chip gris'; }
+}
+function mapearReporteNube(r){
+  return { id: r.id, nombre: r.nombre, colonia: r.colonia, tipo: r.tipo, texto: r.texto,
+    foto: r.foto || null, ubicacion: r.ubicacion || null, estado: 'Sincronizado con la nube', ts: Number(r.ts) };
+}
+function mapearPostNube(p){
+  return { id: p.id, nombre: p.nombre, colonia: p.colonia, tipo: p.tipo, texto: p.texto,
+    likes: p.likes || 0, votado: false, comentarios: Array.isArray(p.comentarios) ? p.comentarios : [], ts: Number(p.ts), ejemplo: false };
+}
+function ssyncPublicaciones(){
+  return fetch(NUBE.url + 'publicaciones?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(rows){
+      const remotas = (rows || []).map(mapearPostNube);
+      const vistos = {}; remotas.forEach(function(p){ vistos[p.id] = true; });
+      const localesNuevas = publicaciones.filter(function(p){ return !p.ejemplo && !vistos[p.id]; });
+      return Promise.all(localesNuevas.map(function(p){ return upsertNube('publicaciones', p); }))
+        .then(function(){ return remotas.concat(localesNuevas); });
+    })
+    .then(function(todas){
+      if (todas.length){
+        const ids = {}; todas.forEach(function(p){ ids[p.id] = true; });
+        publicaciones.forEach(function(p){ if (!p.ejemplo && !ids[p.id]) todas.push(p); }); // seguridad ante cargas en curso
+        publicaciones = todas; estado.publicaciones = publicaciones;
+        almacen.datos.publicaciones = publicaciones; guardar();
+      }
+      nubeCargadaPost = true; renderMuro();
+    })
+    .catch(function(){ nubeCargadaPost = false; });
+}
+function ssyncReportes(){
+  return fetch(NUBE.url + 'reportes?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(rows){
+      const remotas = (rows || []).map(mapearReporteNube).filter(function(x){ return estado.eliminadosRep.indexOf(x.id) === -1; });
+      const vistos = {}; remotas.forEach(function(x){ vistos[x.id] = true; });
+      const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id]; });
+      return Promise.all(localesNuevas.map(function(x){ return upsertNube('reportes', x); }))
+        .then(function(){ localesNuevas.forEach(function(x){ x.estado = 'Sincronizado con la nube'; }); return remotas.concat(localesNuevas); });
+    })
+    .then(function(todas){
+      reportesLocales = todas; estado.reportes = reportesLocales;
+      almacen.datos.reportes = reportesLocales; guardar();
+      nubeCargadaRep = true; renderReportes();
+    })
+    .catch(function(){ nubeCargadaRep = false; });
+}
+function ssyncComments(post){
+  if (!estado._nube) { almacen.datos.publicaciones = publicaciones; guardar(); return; }
+  upsertNube('publicaciones', post).then(function(){ almacen.datos.publicaciones = publicaciones; guardar(); });
+}
+function initNube(){
+  nubeEstado('conectando');
+  fetch(NUBE.url + 'publicaciones?select=id&limit=1', { headers: cabecerasNube() })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); nubeEstado('ok'); return Promise.all([ssyncPublicaciones(), ssyncReportes()]); })
+    .catch(function(){ nubeEstado('sin'); });
+}
+
+/* ============================================================
+   MÓDULO 4 · TOASTS
+   ============================================================ */
+const cToasts = $('#toasts');
+const ICONO_TOAST = { info:'💚', exito:'✅', error:'⚠️', alerta:'🔔', logro:'🏅' };
+function toast(msg, tipo, ms){
+  tipo = tipo || 'info'; ms = ms || 4200;
+  while (cToasts.children.length >= 4) cToasts.removeChild(cToasts.firstChild);
+  const el = document.createElement('div');
+  el.className = 'toast ' + tipo;
+  const ic = document.createElement('span'); ic.className = 't-icono'; ic.textContent = ICONO_TOAST[tipo] || '💚';
+  const tx = document.createElement('div'); tx.className = 't-texto'; tx.textContent = msg;
+  const bt = document.createElement('button'); bt.type = 'button'; bt.className = 't-cerrar'; bt.setAttribute('aria-label','Cerrar notificación'); bt.textContent = '✕';
+  bt.addEventListener('click', function(){ cerrarToast(el); });
+  el.append(ic, tx, bt);
+  cToasts.appendChild(el);
+  el._t = setTimeout(function(){ cerrarToast(el); }, ms);
+}
+function cerrarToast(el){
+  if (!el || el._c) return;
+  el._c = true; clearTimeout(el._t);
+  el.classList.add('salida');
+  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+}
+
+/* ============================================================
+   MÓDULO 5 · MODALES
+   ============================================================ */
+let focoPrevio = null;
+function abrirModal(id){
+  const ov = $('#' + id);
+  if (!ov) return;
+  focoPrevio = document.activeElement;
+  ov.classList.add('abierto');
+  document.body.style.overflow = 'hidden';
+  const f = $$('button, input, select, textarea, a[href]', ov).filter(function(e){ return !e.disabled && e.offsetParent !== null; });
+  if (f.length) f[0].focus();
+}
+function cerrarModal(id){
+  const ov = typeof id === 'string' ? $('#' + id) : id;
+  if (!ov || !ov.classList.contains('abierto')) return;
+  ov.classList.remove('abierto');
+  if (!$('.modal-overlay.abierto')) document.body.style.overflow = '';
+  if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
+}
+$$('.modal-overlay').forEach(function(ov){
+  ov.addEventListener('click', function(e){ if (e.target === ov) cerrarModal(ov); });
+  ov.addEventListener('keydown', function(e){
+    if (e.key !== 'Tab') return;
+    const f = $$('button, input, select, textarea, a[href]', ov).filter(function(el){ return !el.disabled && el.offsetParent !== null; });
+    if (!f.length) return;
+    const p = f[0], u = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === p){ e.preventDefault(); u.focus(); }
+    else if (!e.shiftKey && document.activeElement === u){ e.preventDefault(); p.focus(); }
+  });
+});
+$$('[data-cerrar]').forEach(function(b){ b.addEventListener('click', function(){ cerrarModal(b.closest('.modal-overlay')); }); });
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){ const a = $('.modal-overlay.abierto'); if (a) cerrarModal(a); }
+});
+function mostrarInfo(titulo, parrafos){
+  $('#tInfo').textContent = titulo;
+  const cont = $('#infoContenido');
+  cont.innerHTML = '';
+  parrafos.forEach(function(p){
+    const el = document.createElement('p');
+    el.innerHTML = p; // contenido propio de la app (no ingresado por usuarios)
+    cont.appendChild(el);
+  });
+  abrirModal('modalInfo');
+}
+let resolverConfirm = null;
+function confirmarAccion(titulo, texto, textoBoton){
+  $('#tConfirmar').textContent = titulo;
+  $('#txtConfirmar').textContent = texto;
+  $('#btnConfirmarSi').textContent = textoBoton || 'Sí, continuar';
+  abrirModal('modalConfirmar');
+  return new Promise(function(res){ resolverConfirm = res; });
+}
+$('#btnConfirmarSi').addEventListener('click', function(){
+  cerrarModal('modalConfirmar');
+  if (resolverConfirm){ resolverConfirm(true); resolverConfirm = null; }
+});
+$$('#modalConfirmar [data-cerrar]').forEach(function(b){
+  b.addEventListener('click', function(){ if (resolverConfirm){ resolverConfirm(false); resolverConfirm = null; } });
+});
+$('#modalConfirmar').addEventListener('click', function(e){
+  if (e.target === this && resolverConfirm){ resolverConfirm(false); resolverConfirm = null; }
+});
+
+/* ============================================================
+   MÓDULO 6 · NAVEGACIÓN SPA
+   ============================================================ */
+const VISTAS = ['inicio','mapa','guia','reportes','comunidad','perfil'];
+function irA(v){
+  if (VISTAS.indexOf(v) === -1) return;
+  estado.vista = v;
+  VISTAS.forEach(function(x){
+    const vista = $('#view-' + x);
+    if (vista) vista.classList.toggle('activa', x === v);
+  });
+  $$('[data-nav]').forEach(function(b){
+    if (b.getAttribute('data-nav') === v) b.setAttribute('aria-current','true');
+    else b.removeAttribute('aria-current');
+  });
+  window.scrollTo({ top: 0, behavior: REDUCIR.matches ? 'auto' : 'smooth' });
+  if (v === 'mapa' && mapa) setTimeout(function(){ mapa.invalidateSize(); }, 80);
+  if (v === 'perfil') renderPerfil();
+}
+$$('[data-nav]').forEach(function(b){ b.addEventListener('click', function(){ irA(b.getAttribute('data-nav')); }); });
+
+/* ============================================================
+   MÓDULO 7 · TEMA
+   ============================================================ */
+function aplicarTema(t){
+  if (t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+  estado.tema = t;
+  const chk = $('#cfgTema'); if (chk) chk.checked = t === 'dark';
+  const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', t === 'dark' ? '#0D1410' : '#2E7D32');
+}
+$('#cfgTema').addEventListener('change', function(){
+  aplicarTema(this.checked ? 'dark' : 'light');
+  almacen.datos.tema = estado.tema; guardar();
+  toast(estado.tema === 'dark' ? '🌙 Tema oscuro activado.' : '☀️ Tema claro activado.', 'info', 2400);
+});
+
+/* ============================================================
+   MÓDULO 8 · GAMIFICACIÓN (puntos, niveles, insignias)
+   ============================================================ */
+const NIVELES = [
+  { min: 0,    nombre: 'Vecino consciente' },
+  { min: 100,  nombre: 'Cuidador' },
+  { min: 220,  nombre: 'Ecoactivo' },
+  { min: 360,  nombre: 'Participante' },
+  { min: 520,  nombre: 'Guardián verde' },
+  { min: 700,  nombre: 'Colaborador' },
+  { min: 900,  nombre: 'Líder comunitario' },
+  { min: 1150, nombre: 'Impulsor ambiental' },
+  { min: 1450, nombre: 'Defensor del entorno' },
+  { min: 1800, nombre: 'Embajador de la comunidad' }
+];
+const PTS = { accion: 10, reporte: 20, participacion: 30, ayuda: 5 };
+
+function nivelDe(puntos){
+  let i = 0;
+  while (i + 1 < NIVELES.length && puntos >= NIVELES[i + 1].min) i++;
+  if (puntos >= NIVELES[NIVELES.length - 1].min){
+    // Progresión ilimitada: cada 500 puntos adicionales sube "Nivel X+" con el nombre máximo
+    const extra = Math.floor((puntos - NIVELES[NIVELES.length - 1].min) / 500);
+    const min = NIVELES[NIVELES.length - 1].min + extra * 500;
+    const sig = min + 500;
+    return { nivel: NIVELES.length + extra, nombre: NIVELES[NIVELES.length - 1].nombre + ' ★', min: min, sig: sig };
+  }
+  return { nivel: i + 1, nombre: NIVELES[i].nombre, min: NIVELES[i].min, sig: i + 1 < NIVELES.length ? NIVELES[i + 1].min : NIVELES[i].min + 500 };
+}
+
+const INSIGNIAS = [
+  { id: 'primera',   icono: '🌱', nombre: 'Primera acción',       desc: 'Registra tu 1ª acción ecológica', cond: e => e.acciones.length >= 1 },
+  { id: 'explorador',icono: '📍', nombre: 'Explorador de rutas',  desc: 'Usa tu ubicación o elige un punto', cond: e => !!e.usoUbicacion },
+  { id: 'separador', icono: '♻️', nombre: 'Separador responsable',desc: '3 días distintos separando', cond: e => e.diasAccion.length >= 3 },
+  { id: 'voz',       icono: '📢', nombre: 'Voz ciudadana',        desc: 'Envía tu primer reporte', cond: e => e.numReportes >= 1 },
+  { id: 'participar',icono: '🤝', nombre: 'Participación',        desc: 'Publica o comenta en la comunidad', cond: e => e.numPublicaciones >= 1 },
+  { id: 'reportero', icono: '📸', nombre: 'Reportero ambiental',  desc: 'Reporte con fotografía', cond: e => e.reporteConFoto },
+  { id: 'ruta',      icono: '🚛', nombre: 'Conoce tu ruta',       desc: 'Consulta la ruta de tu colonia', cond: e => !!e.consultaRuta },
+  { id: 'guardia',   icono: '🏆', nombre: 'Guardián verde',       desc: 'Alcanza el nivel 5', cond: e => nivelDe(e.puntos).nivel >= 5 }
+];
+
+function registrarAccion(tipo, texto, puntosGanados){
+  estado.acciones.unshift({ ts: Date.now(), tipo: tipo, texto: texto });
+  if (estado.acciones.length > 40) estado.acciones.length = 40;
+  almacen.datos.acciones = estado.acciones;
+  addPoints(puntosGanados, texto);
+}
+function addPoints(cantidad, motivo){
+  const antes = nivelDe(estado.puntos).nivel;
+  estado.puntos += cantidad;
+  almacen.datos.puntos = estado.puntos;
+  guardar();
+  toast('+' + cantidad + ' puntos · ' + motivo, 'exito', 3000);
+  actualizarHeaderNivel();
+  const despues = nivelDe(estado.puntos);
+  if (despues.nivel > antes){
+    lanzarConfeti();
+    toast('🎉 ¡Subiste al Nivel ' + despues.nivel + ' — ' + despues.nombre + '!', 'logro', 5500);
+  }
+  verificarInsignias();
+}
+function marcarIndicadores(hash){
+  estado._indicadores = estado._indicadores || {};
+  Object.assign(estado._indicadores, hash);
+}
+function verificarInsignias(){
+  const ctx = {
+    puntos: estado.puntos,
+    acciones: estado.acciones,
+    diasAccion: estado.diasAccion,
+    numReportes: (estado.reportes || []).length,
+    numPublicaciones: contarPublicacionesPropias(),
+    reporteConFoto: (estado.reportes || []).some(function(r){ return !!r.foto; }),
+    usoUbicacion: estado._usoUbicacion || false,
+    consultaRuta: estado._consultaRuta || false
+  };
+  INSIGNIAS.forEach(function(ins){
+    if (estado.insignias.indexOf(ins.id) === -1 && ins.cond(ctx)){
+      estado.insignias.push(ins.id);
+      almacen.datos.insignias = estado.insignias;
+      guardar();
+      lanzarConfeti();
+      toast('🏅 Insignia desbloqueada: ' + ins.icono + ' ' + ins.nombre, 'logro', 5200);
+      renderInsignias(ins.id);
+    }
+  });
+  actualizarHeaderNivel();
+}
+function contarPublicacionesPropias(){
+  return (estado.publicaciones || []).filter(function(p){ return !p.ejemplo; }).length;
+}
+function actualizarHeaderNivel(){
+  const n = nivelDe(estado.puntos);
+  $('#headerNivel').textContent = 'Nivel ' + n.nivel;
+}
+function renderInsignias(recien){
+  const grid = $('#insigniasGrid');
+  grid.innerHTML = '';
+  INSIGNIAS.forEach(function(ins){
+    const desbloq = estado.insignias.indexOf(ins.id) !== -1;
+    const el = document.createElement('div');
+    el.className = 'insignia' + (desbloq ? ' desbloqueada' : '') + (ins.id === recien ? ' recien' : '');
+    const ic = document.createElement('span'); ic.className = 'ins-icono'; ic.textContent = ins.icono;
+    const st = document.createElement('strong'); st.textContent = ins.nombre;
+    const sm = document.createElement('small'); sm.textContent = desbloq ? 'Desbloqueada' : ins.desc;
+    el.append(ic, st, sm);
+    grid.appendChild(el);
+  });
+  $('#statInsignias').textContent = estado.insignias.length + '/' + INSIGNIAS.length;
+}
+function renderPerfil(){
+  const n = nivelDe(estado.puntos);
+  $('#perfilNombreTxt').textContent = estado.nombrePerfil;
+  $('#perfilAvatar').textContent = iniciales(estado.nombrePerfil);
+  const nombresCol = { centro:'Centro', floresta:'La Floresta', villas:'Villas del Padre', estanzuela:'La Estanzuela', agustin:'El Agustín', rafael:'San Rafael' };
+  $('#perfilColoniaTxt').textContent = (nombresCol[estado.coloniaId] || 'Ciudad Guzmán') + ' · Ciudad Guzmán';
+  $('#perfilNivelNum').textContent = 'Nivel ' + n.nivel + ' · ' + n.nombre;
+  $('#perfilPuntosTxt').textContent = estado.puntos;
+  const rango = n.sig - n.min;
+  const avanzado = Math.min(100, Math.round(((estado.puntos - n.min) / rango) * 100));
+  $('#perfilSiguienteTxt').textContent = estado.puntos + ' / ' + n.sig + ' puntos';
+  $('#barraProgreso').setAttribute('aria-valuenow', avanzado);
+  $('#barraProgresoFill').style.width = avanzado + '%';
+  $('#progresoNivelTxt').textContent = 'Nivel ' + n.nivel;
+  $('#progresoFaltaTxt').textContent = 'Faltan ' + Math.max(0, n.sig - estado.puntos) + ' puntos para el nivel ' + (n.nivel + 1);
+  $('#statReportes').textContent = (estado.reportes || []).length;
+  $('#statParticipaciones').textContent = contarPublicacionesPropias() + (estado._numComentarios || 0);
+  $('#statAcciones').textContent = estado.acciones.length;
+  renderInsignias();
+  const lista = $('#logrosLista');
+  lista.innerHTML = '';
+  if (!estado.acciones.length){
+    const p = document.createElement('p'); p.style.cssText = 'color:var(--muted);font-size:.85rem';
+    p.textContent = 'Tus acciones aparecerán aquí.';
+    lista.appendChild(p);
+  } else {
+    estado.acciones.slice(0, 8).forEach(function(a){
+      const fila = document.createElement('div'); fila.className = 'logro-item';
+      const ic = document.createElement('span'); const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('class','icono'); const use = document.createElementNS('http://www.w3.org/2000/svg','use');
+      use.setAttribute('href', a.tipo === 'reporte' ? '#i-altavoz' : a.tipo === 'participacion' ? '#i-usuarios' : a.tipo === 'ruta' ? '#i-mapa' : '#i-hoja');
+      svg.appendChild(use); ic.appendChild(svg);
+      const tx = document.createElement('span'); tx.textContent = a.texto;
+      const ft = document.createElement('small'); ft.textContent = tiempoRelativo(a.ts);
+      fila.append(ic, tx, ft);
+      lista.appendChild(fila);
+    });
+  }
+}
+
+/* ============================================================
+   MÓDULO 9 · CONFETI
+   ============================================================ */
+const cConf = $('#confetti');
+const ctxConf = cConf.getContext ? cConf.getContext('2d') : null;
+let confetiPart = [], confetiActivo = false;
+function ajustarCanvas(){ if (!ctxConf) return; cConf.width = document.documentElement.clientWidth; cConf.height = document.documentElement.clientHeight; }
+window.addEventListener('resize', ajustarCanvas); ajustarCanvas();
+function lanzarConfeti(){
+  if (!ctxConf || REDUCIR.matches) return;
+  const colores = ['#2E7D32','#81C784','#A5D6A7','#FF9800','#2196F3','#FFD54F'];
+  confetiPart = [];
+  for (let i = 0; i < 100; i++){
+    confetiPart.push({
+      x: cConf.width / 2 + (Math.random() - .5) * 200,
+      y: cConf.height * .3,
+      vx: (Math.random() - .5) * 9, vy: -(Math.random() * 9 + 5), g: .22,
+      t: Math.random() * 7 + 4, r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3,
+      c: colores[Math.floor(Math.random() * colores.length)]
+    });
+  }
+  if (!confetiActivo){ confetiActivo = true; requestAnimationFrame(pasoConfeti); }
+}
+function pasoConfeti(){
+  const H = cConf.height;
+  ctxConf.clearRect(0, 0, cConf.width, H);
+  let vivos = 0;
+  confetiPart.forEach(function(p){
+    p.vy += p.g; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+    if (p.y < H + 30) vivos++;
+    ctxConf.save(); ctxConf.translate(p.x, p.y); ctxConf.rotate(p.r);
+    ctxConf.fillStyle = p.c; ctxConf.fillRect(-p.t/2, -p.t/2, p.t, p.t * .6);
+    ctxConf.restore();
+  });
+  if (vivos > 0) requestAnimationFrame(pasoConfeti);
+  else { confetiActivo = false; ctxConf.clearRect(0, 0, cConf.width, cConf.height); }
+}
+
+/* ============================================================
+   MÓDULO 10 · ZONAS DE CIUDAD GUZMÁN
+   ------------------------------------------------------------
+   Delimitaciones APROXIMADAS generadas por el sistema para
+   poder agrupar vialidades por colonia. No son límites oficiales.
+   ============================================================ */
+const ZONAS = {
+  centro:     { nombre: 'Centro',            poly: [[19.7085,-103.4740],[19.7085,-103.4590],[19.6975,-103.4590],[19.6975,-103.4740]], tags: ['primary','secondary','residential'] },
+  floresta:   { nombre: 'La Floresta',       poly: [[19.7160,-103.4780],[19.7160,-103.4640],[19.7070,-103.4640],[19.7070,-103.4780]], tags: ['secondary','residential','tertiary'] },
+  villas:     { nombre: 'Villas del Padre',  poly: [[19.6965,-103.4670],[19.6965,-103.4550],[19.6880,-103.4550],[19.6880,-103.4670]], tags: ['residential','secondary','tertiary'] },
+  estanzuela: { nombre: 'La Estanzuela',     poly: [[19.6935,-103.4830],[19.6935,-103.4680],[19.6845,-103.4680],[19.6845,-103.4830]], tags: ['residential','secondary','tertiary'] },
+  agustin:    { nombre: 'El Agustín',        poly: [[19.7245,-103.4700],[19.7245,-103.4560],[19.7140,-103.4560],[19.7140,-103.4700]], tags: ['primary','secondary','residential'] },
+  rafael:     { nombre: 'San Rafael',        poly: [[19.7030,-103.4585],[19.7030,-103.4460],[19.6930,-103.4460],[19.6930,-103.4585]], tags: ['residential','tertiary','secondary'] }
+};
+const CENTRO_CIUZ = [19.7020, -103.4640];
+const INTERVALO_PUNTOS = 400; // metros entre puntos de recolección (configurable)
+
+function puntoDentro(p, poly){
+  let dentro = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const xi = poly[i][1], yi = poly[i][0], xj = poly[j][1], yj = poly[j][0];
+    if (((yi > p.lat) !== (yj > p.lat)) && (p.lng < (xj - xi) * (p.lat - yi) / (yj - yi) + xi)) dentro = !dentro;
+  }
+  return dentro;
+}
+
+/* ============================================================
+   MÓDULO 11 · SERVICIOS EXTERNOS (Overpass + OSRM + Nominatim)
+   ============================================================ */
+function fetchConTimeout(url, ms){
+  const ctrl = new AbortController();
+  const t = setTimeout(function(){ ctrl.abort(); }, ms || 15000);
+  return fetch(url, { signal: ctrl.signal }).finally(function(){ clearTimeout(t); });
+}
+
+async function osrmRuta(puntos){
+  // puntos: [{lat,lng},...] → ruta por calles reales
+  const coords = puntos.map(function(p){ return p.lng.toFixed(6) + ',' + p.lat.toFixed(6); }).join(';');
+  const url = 'https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson';
+  const r = await fetchConTimeout(url, 15000);
+  if (!r.ok) throw new Error('OSRM no respondió');
+  const j = await r.json();
+  if (!j.routes || !j.routes.length) throw new Error('OSRM sin ruta');
+  const ruta = j.routes[0];
+  return {
+    geometria: ruta.geometry.coordinates.map(function(c){ return { lat: c[1], lng: c[0] }; }),
+    distanciaM: ruta.distance,
+    duracionS: ruta.duration
+  };
+}
+
+function polilineaAPuntos(way){
+  return (way.geometry || []).map(function(g){ return { lat: g.lat, lng: g.lon }; });
+}
+
+// Espejos públicos de Overpass: si uno falla se intenta el siguiente.
+const SERVIDORES_OVERPASS = [
+  'https://overpass-api.de/api/interpreter?data=',
+  'https://overpass.kumi.systems/api/interpreter?data=',
+  'https://overpass.private.coffee/api/interpreter?data='
+];
+// Copia local de vialidades OSM por zona: permite seguir mostrando la ruta
+// aunque Overpass falle temporalmente. Solo contiene datos reales de OSM.
+const CLAVE_CACHE_OSM = 'bym.osm.v1';
+function leerCacheOSM(){
+  try { return JSON.parse(localStorage.getItem(CLAVE_CACHE_OSM)) || {}; } catch(e){ return {}; }
+}
+function guardarCacheOSM(zonaId, ways){
+  try {
+    const c = leerCacheOSM(); c[zonaId] = ways; localStorage.setItem(CLAVE_CACHE_OSM, JSON.stringify(c));
+  } catch(e){ /* sin espacio: la caché es opcional */ }
+}
+
+async function overpassVialidades(zona, zonaId){
+  const lats = zona.poly.map(function(p){ return p[0]; });
+  const lngs = zona.poly.map(function(p){ return p[1]; });
+  const bbox = Math.min.apply(null, lats) + ',' + Math.min.apply(null, lngs) + ',' + Math.max.apply(null, lats) + ',' + Math.max.apply(null, lngs);
+  const q = '[out:json][timeout:25];way["highway"~"^(' + zona.tags.join('|') + ')$"](' + bbox + ');out geom;';
+  // El principal se reintenta al final: suele responder bien tras un 504 transitorio.
+  const servidores = SERVIDORES_OVERPASS.concat([SERVIDORES_OVERPASS[0]]);
+  let ultimoError = null;
+  for (const servidor of servidores){
+    try {
+      const r = await fetchConTimeout(servidor + encodeURIComponent(q), 20000);
+      if (!r.ok) throw new Error('Overpass no respondió (' + r.status + ')');
+      const j = await r.json();
+      const ways = (j.elements || []).filter(function(e){ return e.type === 'way' && e.geometry && e.geometry.length > 1; });
+      guardarCacheOSM(zonaId, ways);
+      return { ways: ways, desdeCache: false };
+    } catch (err){
+      ultimoError = err;
+    }
+  }
+  // Todos los servidores fallaron: usar copia local si existe.
+  const cache = leerCacheOSM()[zonaId];
+  if (cache && cache.length) return { ways: cache, desdeCache: true };
+  throw ultimoError || new Error('Overpass no disponible');
+}
+
+/** Encadena vialidades dentro de la zona en un recorrido continuo. */
+function encadenarVialidades(ways, zona){
+  const dentro = ways.filter(function(w){
+    const pts = polilineaAPuntos(w);
+    const enZona = pts.filter(function(p){ return puntoDentro(p, zona.poly); }).length;
+    return enZona >= Math.max(2, Math.ceil(pts.length * 0.5));
+  });
+  if (dentro.length < 2) return null;
+
+  dentro.sort(function(a, b){ return polilineaAPuntos(b).length - polilineaAPuntos(a).length; });
+  const usadas = [{ way: dentro[0], invertir: false }];
+  const restantes = dentro.slice(1);
+
+  function extremos(wayObj){
+    const p = polilineaAPuntos(wayObj.way || wayObj);
+    if (wayObj.invertir){ const r = p.slice().reverse(); return [r[0], r[r.length - 1]]; }
+    return [p[0], p[p.length - 1]];
+  }
+  let fin = extremos(usadas[0])[1];
+
+  while (restantes.length){
+    let mejor = null;
+    restantes.forEach(function(w, idx){
+      const cand = { way: w, invertir: false };
+      const [ini, finW] = extremos(cand);
+      const dIni = haversine(fin, ini), dFin = haversine(fin, finW);
+      const d = Math.min(dIni, dFin);
+      if (!mejor || d < mejor.d) mejor = { d: d, idx: idx, invertir: dFin < dIni };
+    });
+    if (!mejor || mejor.d > 600) break; // hueco demasiado grande: se detiene la cadena
+    const w = restantes.splice(mejor.idx, 1)[0];
+    usadas.push({ way: w, invertir: mejor.invertir });
+    fin = extremos({ way: w, invertir: mejor.invertir })[1];
+  }
+
+  // Rellenar con tramos de enlace reales vía OSRM
+  return (async function(){
+    let geometria = [];
+    for (let i = 0; i < usadas.length; i++){
+      const w = usadas[i].way;
+      let pts = polilineaAPuntos(w);
+      if (usadas[i].invertir) pts = pts.slice().reverse();
+      if (i > 0){
+        const anterior = geometria[geometria.length - 1];
+        try {
+          const enlace = await osrmRuta([anterior, pts[0]]);
+          geometria = geometria.concat(enlace.geometria);
+        } catch(e){ geometria = geometria.concat([anterior, pts[0]]); }
+      }
+      geometria = geometria.concat(pts);
+    }
+    // cerrar el circuito
+    try {
+      const cierre = await osrmRuta([geometria[geometria.length - 1], geometria[0]]);
+      geometria = geometria.concat(cierre.geometria);
+    } catch(e){ geometria = geometria.concat([geometria[geometria.length - 1], geometria[0]]); }
+    return geometria;
+  })();
+}
+
+/** Simplifica la geometría para no guardar miles de puntos. */
+function simplificar(puntos, umbralM){
+  if (puntos.length < 3) return puntos;
+  const salida = [puntos[0]];
+  for (let i = 1; i < puntos.length - 1; i++){
+    if (haversine(salida[salida.length - 1], puntos[i]) >= umbralM) salida.push(puntos[i]);
+  }
+  salida.push(puntos[puntos.length - 1]);
+  return salida;
+}
+
+const rutas = {}; // rutas[coloniaId] = {geometria, distanciaM, callePrincipal, fuente}
+async function construirRutaZona(coloniaId){
+  if (rutas[coloniaId]) return rutas[coloniaId];
+  const zona = ZONAS[coloniaId];
+  if (!zona) throw new Error('Zona desconocida');
+  const resultado = await overpassVialidades(zona, coloniaId);
+  const ways = resultado.ways;
+  if (!ways.length) throw new Error('No se encontraron vialidades de OpenStreetMap en esta zona.');
+  let geometria = await encadenarVialidades(ways, zona);
+  if (!geometria || geometria.length < 10) throw new Error('No se pudo formar un recorrido continuo en esta zona.');
+  geometria = simplificar(geometria, 12);
+  let distanciaM = 0;
+  for (let i = 1; i < geometria.length; i++) distanciaM += haversine(geometria[i-1], geometria[i]);
+  const nombreSeed = ways[0].tags && ways[0].tags.name ? ways[0].tags.name : 'Vialidades de ' + zona.nombre;
+  rutas[coloniaId] = { geometria: geometria, distanciaM: distanciaM, callePrincipal: nombreSeed, zona: zona.nombre, fuente: 'vialidades de OpenStreetMap' + (resultado.desdeCache ? ' (copia local)' : '') };
+  return rutas[coloniaId];
+}
+
+/** Distribuye puntos cada INTERVALO_PUNTOS metros sobre la geometría real. */
+async function distribuirPuntos(geometria, intervalo){
+  const puntos = [];
+  let acumulado = 0, siguiente = intervalo / 2; // el primero a mitad del primer tramo
+  for (let i = 1; i < geometria.length && puntos.length < 40; i++){
+    const a = geometria[i - 1], b = geometria[i];
+    const seg = haversine(a, b);
+    while (acumulado + seg >= siguiente && puntos.length < 40){
+      const t = (siguiente - acumulado) / seg;
+      puntos.push({
+        numero: puntos.length + 1,
+        lat: a.lat + (b.lat - a.lat) * t,
+        lng: a.lng + (b.lng - a.lng) * t,
+        distanciaM: Math.round(siguiente),
+        estado: 'Punto propuesto por el sistema',
+        confirmado: false
+      });
+      siguiente += intervalo;
+    }
+    acumulado += seg;
+  }
+  return puntos;
+}
+
+/** Geocodificación (Nominatim) — preparada para búsqueda de direcciones. */
+async function nominatimBuscar(texto){
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(texto + ', Ciudad Guzmán, Jalisco');
+  const r = await fetchConTimeout(url, 12000);
+  if (!r.ok) throw new Error('Geocodificación no disponible');
+  return r.json();
+}
+
+/* ============================================================
+   MÓDULO 12 · MAPA LEAFLET
+   ============================================================ */
+let mapa = null;
+let capaRuta = null, capaPuntos = null, capaZonas = null, marcadorUsuario = null, marcadorCamion = null, marcadorSeleccion = null, rutaUsuario = null;
+let puntosActuales = [];   // puntos de la colonia activa
+let rutaActiva = null;     // ruta de la colonia activa
+let puntoSeleccionado = null;
+
+function iconoPunto(num, seleccion){
+  return L.divIcon({
+    className: '',
+    html: '<div class="mk-punto' + (seleccion ? ' mk-punto-seleccion' : '') + '"><span>' + String(num).padStart(2,'0') + '</span></div>',
+    iconSize: [30, 30], iconAnchor: [15, 28], popupAnchor: [0, -26]
+  });
+}
+function iconoUsuario(){
+  return L.divIcon({ className: '', html: '<div style="position:relative;width:22px;height:22px"><div class="mk-pulso"></div><div class="mk-usuario"></div></div>', iconSize: [22,22], iconAnchor: [11,11] });
+}
+function iconoCamion(){
+  return L.divIcon({
+    className: '',
+    html: '<div class="mk-camion"><div class="camion-circulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6h12v10h-12z"/><path d="M13.5 9h4l3 3.5V16h-7"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></svg></div></div>',
+    iconSize: [44,44], iconAnchor: [22,22]
+  });
+}
+
+function initMapa(){
+  if (mapa || typeof L === 'undefined') return;
+  mapa = L.map('mapa', { zoomControl: true, attributionControl: true }).setView(CENTRO_CIUZ, 14);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(mapa);
+
+  // Delimitaciones aproximadas de colonias (visibles pero no bloquean clics)
+  capaZonas = L.layerGroup();
+  Object.keys(ZONAS).forEach(function(id){
+    const z = ZONAS[id];
+    L.polygon(z.poly, { color: '#2E7D32', weight: 1.5, dashArray: '6 6', fillOpacity: 0.05, interactive: false })
+      .addTo(capaZonas);
+  });
+  capaZonas.addTo(mapa);
+
+  capaRuta = L.layerGroup();
+  capaPuntos = L.layerGroup();
+  mapa.on('click', function(e){
+    if (!estado.modoElegirMapa) return;
+    const latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
+    if (estado.modoElegirMapa === 'usuario'){
+      fijarUbicacionManual(latlng);
+    } else if (estado.modoElegirMapa === 'reporte'){
+      estado.ubicacionReporte = latlng;
+      pintarMarcadorSeleccion(latlng);
+      actualizarCoordenadasReporte();
+      estado.modoElegirMapa = null;
+      toast('📍 Ubicación del reporte asignada.', 'exito', 2600);
+    }
+  });
+
+  $('#btnGPS').addEventListener('click', usarMiUbicacion);
+  $('#btnVerRuta').addEventListener('click', centrarEnRuta);
+  $('#btnRecargarRuta').addEventListener('click', function(){ delete rutas[estado.coloniaId]; cargarRutaColonia(true); });
+  $('#rutaSelect').addEventListener('change', function(){ seleccionarColonia(this.value, true); });
+}
+
+function pintarRuta(){
+  capaRuta.clearLayers();
+  capaPuntos.clearLayers();
+  if (rutaActiva){
+    L.polyline(rutaActiva.geometria.map(function(p){ return [p.lat, p.lng]; }),
+      { color: '#ffffff', weight: 9, opacity: .7 }).addTo(capaRuta);
+    L.polyline(rutaActiva.geometria.map(function(p){ return [p.lat, p.lng]; }),
+      { color: '#2E7D32', weight: 5, opacity: .95 }).addTo(capaRuta);
+  }
+  puntosActuales.forEach(function(p){
+    L.marker([p.lat, p.lng], { icon: iconoPunto(p.numero) })
+      .addTo(capaPuntos)
+      .bindPopup(function(){ return construirPopupPunto(p); }, { className: 'pz-popup' });
+  });
+  capaRuta.addTo(mapa);
+  capaPuntos.addTo(mapa);
+}
+
+function construirPopupPunto(p){
+  const cont = document.createElement('div');
+  const t = document.createElement('strong'); t.textContent = '📍 Punto de recolección #' + String(p.numero).padStart(2,'0');
+  const col = document.createElement('div'); col.style.fontSize = '.78rem'; col.textContent = 'Colonia: ' + (rutaActiva ? rutaActiva.zona : '');
+  const est = document.createElement('div'); est.style.fontSize = '.78rem'; est.textContent = 'Estado: ' + p.estado;
+  const d = document.createElement('div'); d.style.fontSize = '.78rem';
+  d.textContent = estado.ubicacion ? ('Distancia: ' + fmtDistancia(haversine(estado.ubicacion, p))) : 'Selecciona tu ubicación para ver la distancia';
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn btn-primario btn-chico'; b.style.marginTop = '.5rem';
+  b.textContent = 'Ver detalle';
+  b.addEventListener('click', function(){ abrirModalPunto(p); mapa.closePopup(); });
+  cont.append(t, col, est, d, b);
+  return cont;
+}
+
+function pintarMarcadorUsuario(latlng){
+  if (marcadorUsuario) mapa.removeLayer(marcadorUsuario);
+  marcadorUsuario = L.marker([latlng.lat, latlng.lng], { icon: iconoUsuario() }).addTo(mapa)
+    .bindPopup('<strong>Tu ubicación</strong><br>Se usa solo para calcular rutas cercanas.', { className: 'pz-popup' });
+}
+function pintarMarcadorSeleccion(latlng){
+  if (marcadorSeleccion) mapa.removeLayer(marcadorSeleccion);
+  marcadorSeleccion = L.marker([latlng.lat, latlng.lng], { icon: iconoPunto('•', true) }).addTo(mapa);
+}
+function limpiarRutaUsuario(){
+  if (rutaUsuario){ mapa.removeLayer(rutaUsuario); rutaUsuario = null; }
+}
+function pintarRutaUsuario(geometria){
+  limpiarRutaUsuario();
+  rutaUsuario = L.polyline(geometria.map(function(p){ return [p.lat, p.lng]; }),
+    { color: '#2196F3', weight: 4, dashArray: '8 10', opacity: .9 }).addTo(mapa);
+}
+
+function seleccionarColonia(id, avisar){
+  if (!ZONAS[id]) id = 'centro';
+  estado.coloniaId = id;
+  almacen.datos.coloniaId = id; guardar();
+  $('#rutaSelect').value = id;
+  $('#cfgColonia').value = id;
+  $('#pColonia').value = id;
+  mapa.setView(CENTRO_CIUZ, 13, { animate: !REDUCIR.matches });
+  cargarRutaColonia(avisar);
+}
+
+async function cargarRutaColonia(avisar){
+  const demoPendiente = estado.demo; // se conserva la intención de demo antes de recargar la ruta
+  const chip = $('#estadoRutaChip');
+  chip.innerHTML = '';
+  const cCargando = document.createElement('span'); cCargando.className = 'chip ambar'; cCargando.textContent = '⏳ Calculando ruta con OpenStreetMap…';
+  chip.appendChild(cCargando);
+  $('#infoRutaNombre').textContent = '—';
+  $('#infoPuntoCercano').textContent = '—';
+  $('#infoDistanciaPunto').textContent = '—';
+  $('#infoTiempoLlegada').textContent = 'No disponible';
+  $('#listaPuntos').innerHTML = '<div class="vacio visible" style="padding:1.1rem"><p style="font-size:.85rem">Calculando la ruta real y sus puntos…</p></div>';
+  detenerDemo(true);
+
+  try {
+    estado._consultaRuta = true;
+    const ruta = await dataLayer.getRoutes(estado.coloniaId);
+    rutaActiva = ruta;
+    puntosActuales = await dataLayer.getCollectionPoints(ruta, INTERVALO_PUNTOS);
+    pintarRuta();
+    centrarEnRuta();
+
+    chip.innerHTML = '';
+    const cOk = document.createElement('span'); cOk.className = 'chip verde'; cOk.textContent = '🟢 Ruta disponible';
+    const cFuente = document.createElement('span'); cFuente.className = 'chip gris'; cFuente.textContent = 'Vialidades de OpenStreetMap';
+    chip.append(cOk, cFuente);
+    $('#infoRutaNombre').textContent = ruta.zona + ' · circuito de ' + fmtDistancia(ruta.distanciaM);
+    renderListaPuntos();
+    verificarInsignias();
+    if (estado.ubicacion) evaluarPuntoCercano();
+    if (avisar) toast('🚛 Ruta de ' + ruta.zona + ' lista: ' + puntosActuales.length + ' puntos sobre calles reales.', 'exito', 4200);
+
+    if (demoPendiente) iniciarDemo();
+  } catch(err){
+    chip.innerHTML = '';
+    const cErr = document.createElement('span'); cErr.className = 'chip ambar'; cErr.textContent = '⚠️ Ruta no disponible';
+    chip.appendChild(cErr);
+    $('#listaPuntos').innerHTML = '<div class="vacio visible" style="padding:1.1rem"><p style="font-size:.85rem">No se pudo calcular la ruta (' + (err.message || 'error de conexión') + ').<br>Revisa tu conexión e inténtalo de nuevo.</p></div>';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn btn-secundario btn-chico'; btn.style.marginTop = '.5rem';
+    btn.textContent = '↻ Intentar de nuevo';
+    btn.addEventListener('click', function(){ cargarRutaColonia(false); });
+    $('#listaPuntos').firstChild.appendChild(btn);
+    if (avisar) toast('No pudimos calcular la ruta de esta colonia. Intenta de nuevo.', 'error');
+  }
+}
+
+function centrarEnRuta(){
+  if (!rutaActiva) return;
+  const bounds = L.latLngBounds(rutaActiva.geometria.map(function(p){ return [p.lat, p.lng]; }));
+  mapa.fitBounds(bounds, { padding: [30, 30] });
+}
+
+function renderListaPuntos(){
+  const cont = $('#listaPuntos');
+  cont.innerHTML = '';
+  if (!puntosActuales.length){
+    const v = document.createElement('div'); v.className = 'vacio visible'; v.style.padding = '1.1rem';
+    v.textContent = 'Carga una ruta para ver sus puntos.';
+    cont.appendChild(v); return;
+  }
+  puntosActuales.forEach(function(p){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'fila-punto';
+    const num = document.createElement('span'); num.className = 'num-punto'; num.textContent = String(p.numero).padStart(2,'0');
+    const info = document.createElement('span'); info.className = 'fp-info';
+    const st = document.createElement('strong'); st.textContent = 'Punto de recolección #' + String(p.numero).padStart(2,'0');
+    const sm = document.createElement('small'); sm.textContent = p.estado + (estado.ubicacion ? ' · a ' + fmtDistancia(haversine(estado.ubicacion, p)) + ' de ti' : '');
+    info.append(st, sm);
+    const dist = document.createElement('span'); dist.className = 'fp-dist'; dist.textContent = fmtDistancia(p.distanciaM) + ' en ruta';
+    b.append(num, info, dist);
+    b.addEventListener('click', function(){ abrirModalPunto(p); });
+    cont.appendChild(b);
+  });
+}
+
+function abrirModalPunto(p){
+  puntoSeleccionado = p;
+  $('#tPunto').textContent = '📍 Punto de recolección #' + String(p.numero).padStart(2,'0');
+  const det = $('#puntoDetalle');
+  det.innerHTML = '';
+  function fila(etiqueta, valor){
+    const d = document.createElement('div'); d.className = 'info-caja'; d.style.marginBottom = '.5rem';
+    const s = document.createElement('small'); s.textContent = etiqueta;
+    const b = document.createElement('strong'); b.textContent = valor;
+    d.append(s, b); det.appendChild(d);
+  }
+  fila('Colonia', rutaActiva ? rutaActiva.zona : '—');
+  fila('Estado', (p.confirmado ? '✓ Punto confirmado' : '📍 ' + p.estado));
+  fila('Distancia en ruta desde el inicio', fmtDistancia(p.distanciaM));
+  fila('Distancia hasta ti', estado.ubicacion ? fmtDistancia(haversine(estado.ubicacion, p)) : 'Selecciona tu ubicación');
+  fila('Próxima atención', 'GPS del vehículo no conectado — no disponible' + (estado.demo ? ' (disponible en modo demostración)' : ''));
+  abrirModal('modalPunto');
+}
+$('#btnVerRutaPunto').addEventListener('click', function(){
+  if (!puntoSeleccionado) return;
+  cerrarModal('modalPunto');
+  calcularRutaHastaPunto(puntoSeleccionado);
+});
+
+/* ============================================================
+   MÓDULO 13 · UBICACIÓN DEL USUARIO
+   ============================================================ */
+async function usarMiUbicacion(){
+  const btn = $('#btnGPS');
+  btn.classList.add('activo');
+  toast('⏳ Buscando tu ubicación…', 'info', 2500);
+  try {
+    const loc = await dataLayer.getUserLocation();
+    estado.ubicacion = { lat: loc.lat, lng: loc.lng };
+    estado._usoUbicacion = true;
+    pintarMarcadorUsuario(estado.ubicacion);
+    mapa.setView([loc.lat, loc.lng], 16, { animate: !REDUCIR.matches });
+    toast('✓ Ubicación encontrada. Buscando la recolección más cercana…', 'exito');
+    evaluarPuntoCercano();
+    verificarInsignias();
+    registrarAccion('ruta', 'Usó su ubicación para buscar la ruta', PTS.ayuda);
+  } catch(err){
+    toast(err.message + ' Puedes seleccionar un punto directamente en el mapa.', 'error', 6000);
+    activarElegirMapa('usuario');
+  } finally {
+    btn.classList.remove('activo');
+  }
+}
+function fijarUbicacionManual(latlng){
+  estado.ubicacion = latlng;
+  estado._usoUbicacion = true;
+  pintarMarcadorUsuario(latlng);
+  pintarMarcadorSeleccion(latlng);
+  toast('📍 Ubicación seleccionada. Buscando la ruta más cercana…', 'info', 3000);
+  evaluarPuntoCercano();
+  verificarInsignias();
+  estado.modoElegirMapa = null;
+}
+function activarElegirMapa(modo){
+  estado.modoElegirMapa = modo;
+  irA('mapa');
+  toast('👆 Toca el mapa para seleccionar tu ubicación.', 'info', 3800);
+}
+$('#btnGPS').addEventListener('click', function(){ /* manejado en initMapa */ });
+
+function puntoMasCercano(){
+  if (!estado.ubicacion || !puntosActuales.length) return null;
+  let mejor = null;
+  puntosActuales.forEach(function(p){
+    const d = haversine(estado.ubicacion, p);
+    if (!mejor || d < mejor.d) mejor = { p: p, d: d };
+  });
+  return mejor;
+}
+function evaluarPuntoCercano(){
+  const cerca = puntoMasCercano();
+  if (!cerca){ 
+    $('#infoPuntoCercano').textContent = '—';
+    $('#infoDistanciaPunto').textContent = '—';
+    $('#infoTiempoLlegada').textContent = 'No disponible';
+    return;
+  }
+  $('#infoPuntoCercano').textContent = '#' + String(cerca.p.numero).padStart(2,'0');
+  $('#infoDistanciaPunto').textContent = fmtDistancia(cerca.d);
+  $('#infoTiempoLlegada').textContent = 'No disponible';
+  calcularRutaHastaPunto(cerca.p);
+}
+async function calcularRutaHastaPunto(punto){
+  if (!estado.ubicacion){ 
+    $('#infoTiempoLlegada').textContent = 'No disponible';
+    return;
+  }
+  $('#infoTiempoLlegada').textContent = '⏳ Calculando…';
+  try {
+    const r = await osrmRuta([estado.ubicacion, punto]);
+    pintarRutaUsuario(r.geometria);
+    const aPie = r.distanciaM / 1.35;       // caminando ~4.9 km/h
+    const enCoche = r.distanciaM / 8.3;     // ~30 km/h urbano
+    $('#infoTiempoLlegada').innerHTML = '';
+    $('#infoTiempoLlegada').textContent = fmtDuracion(aPie) + ' a pie · ' + fmtDuracion(enCoche) + ' en vehículo';
+    toast('El punto #' + String(punto.numero).padStart(2,'0') + ' está a ' + fmtDistancia(r.distanciaM) + ' por calle (' + fmtDuracion(aPie) + ' a pie).', 'info', 4500);
+  } catch(e){
+    $('#infoTiempoLlegada').textContent = 'No disponible';
+  }
+}
+
+/* ============================================================
+   MÓDULO 14 · MODO DEMOSTRACIÓN (simulación etiquetada)
+   ============================================================ */
+const demo = { activo: false, distanciaM: 0, velocidadKmh: 22, ultimoTick: null, raf: null, avisoPunto: null, ultimaAct: null };
+function longitudGeometria(geo){ let t = 0; for (let i = 1; i < geo.length; i++) t += haversine(geo[i-1], geo[i]); return t; }
+function puntoEnDistancia(geo, distObjetivo){
+  let acum = 0;
+  for (let i = 1; i < geo.length; i++){
+    const seg = haversine(geo[i-1], geo[i]);
+    if (acum + seg >= distObjetivo){
+      const t = (distObjetivo - acum) / seg;
+      return { lat: geo[i-1].lat + (geo[i].lat - geo[i-1].lat) * t, lng: geo[i-1].lng + (geo[i].lng - geo[i-1].lng) * t, restante: longitudGeometria(geo) - distObjetivo };
+    }
+    acum += seg;
+  }
+  const u = geo[geo.length - 1];
+  return { lat: u.lat, lng: u.lng, restante: 0 };
+}
+function iniciarDemo(){
+  if (!rutaActiva){ toast('Primero carga la ruta de una colonia para ver la demostración.', 'alerta'); setDemoUI(false); return; }
+  detenerDemo(true);
+  demo.activo = true; demo.distanciaM = 0; demo.ultimoTick = null;
+  estado.demo = true; almacen.datos.demo = true; guardar();
+  if (!marcadorCamion) marcadorCamion = L.marker([rutaActiva.geometria[0].lat, rutaActiva.geometria[0].lng], { icon: iconoCamion(), zIndexOffset: 900 }).addTo(mapa);
+  else marcadorCamion.addTo(mapa);
+  $('#bannerDemo').classList.add('visible');
+  $('#chipDemo').hidden = false;
+  setDemoUI(true);
+  demo.raf = requestAnimationFrame(tickDemo);
+  toast('▶ Recorrido demostrativo iniciado. Los datos son simulados y están etiquetados.', 'alerta', 5000);
+}
+function detenerDemo(silencio){
+  demo.activo = false;
+  if (demo.raf) cancelAnimationFrame(demo.raf);
+  if (marcadorCamion) mapa.removeLayer(marcadorCamion);
+  $('#bannerDemo').classList.remove('visible');
+  $('#chipDemo').hidden = true;
+  setDemoUI(false);
+  estado.demo = false; almacen.datos.demo = false; guardar();
+  if (!silencio) toast('⏹ Recorrido demostrativo detenido.', 'info', 2600);
+}
+function setDemoUI(activo){
+  $('#cfgDemo').checked = activo;
+  $('#swDemoNav').checked = activo;
+}
+function tickDemo(ts){
+  if (!demo.activo || !rutaActiva){ return; }
+  if (demo.ultimoTick == null) demo.ultimoTick = ts;
+  const dt = Math.min(200, ts - demo.ultimoTick) / 1000;
+  demo.ultimoTick = ts;
+  demo.distanciaM += (demo.velocidadKmh * 1000 / 3600) * dt;
+  const total = rutaActiva.distanciaM;
+  if (demo.distanciaM >= total){ demo.distanciaM = 0; demo.avisoPunto = null; }
+  const pos = puntoEnDistancia(rutaActiva.geometria, demo.distanciaM);
+  if (marcadorCamion) marcadorCamion.setLatLng([pos.lat, pos.lng]);
+  demo.ultimaAct = Date.now();
+  $('#infoTiempoLlegada').textContent = 'Demo: ' + fmtDuracion(pos.restante / (demo.velocidadKmh * 1000 / 3600)) + ' (fin del circuito)';
+
+  // Proximidad al punto más cercano del usuario (notificación cada vuelta)
+  if (estado.ubicacion){
+    const cerca = puntoMasCercano();
+    if (cerca){
+      const distRuta = Math.abs(cerca.p.distanciaM - demo.distanciaM);
+      const minRest = distRuta / (demo.velocidadKmh * 1000 / 60);
+      if (minRest <= 5 && demo.avisoPunto !== cerca.p.numero){
+        demo.avisoPunto = cerca.p.numero;
+        toast('🚛 (Demo) El camión está a ~' + Math.round(minRest) + ' min de tu punto #' + String(cerca.p.numero).padStart(2,'0') + '.', 'alerta', 6000);
+        dataLayer.sendNotification('BASURA Y MÁS (demo)', '🚛 El camión demostrativo está a ~' + Math.round(minRest) + ' minutos de tu punto de recolección.');
+      }
+    }
+  }
+  demo.raf = requestAnimationFrame(tickDemo);
+}
+$('#cfgDemo').addEventListener('change', function(){ this.checked ? iniciarDemo() : detenerDemo(false); });
+$('#swDemoNav').addEventListener('change', function(){ this.checked ? iniciarDemo() : detenerDemo(false); });
+
+/* ============================================================
+   MÓDULO 15 · NOTIFICACIONES REALES
+   ============================================================ */
+function notificarReal(titulo, cuerpo){
+  if (!estado.notif) return;
+  try {
+    if ('Notification' in window && Notification.permission === 'granted'){
+      new Notification(titulo, { body: cuerpo });
+    }
+  } catch(e){ /* fallback silencioso: ya se muestra el toast */ }
+}
+function pintarBotonNotif(){
+  const t = $('#btnNotifTexto');
+  t.textContent = estado.notif ? 'Notificaciones activadas ✓' : 'Activar notificaciones';
+  $('#btnNotif').classList.toggle('btn-secundario', estado.notif);
+  $('#btnNotif').classList.toggle('btn-primario', !estado.notif);
+  $('#cfgNotif').checked = estado.notif;
+}
+$('#btnNotif').addEventListener('click', async function(){
+  if (estado.notif){
+    estado.notif = false; almacen.datos.notif = false; guardar(); pintarBotonNotif();
+    toast('🔕 Notificaciones desactivadas.', 'info'); return;
+  }
+  if (!('Notification' in window)){
+    estado.notif = true; almacen.datos.notif = true; guardar(); pintarBotonNotif();
+    toast('Este navegador no soporta notificaciones del sistema; usaremos avisos dentro de la app.', 'alerta', 5000);
+    return;
+  }
+  let permiso = Notification.permission;
+  if (permiso === 'default'){
+    try { permiso = await Notification.requestPermission(); } catch(e){ permiso = 'denied'; }
+  }
+  if (permiso === 'granted'){
+    estado.notif = true; almacen.datos.notif = true; guardar(); pintarBotonNotif();
+    toast('✓ Notificaciones activadas. Te avisaremos en la app cuando el camión esté cerca (en demostración).', 'exito', 5500);
+    dataLayer.sendNotification('BASURA Y MÁS', '♻️ Recuerda sacar tus residuos antes del paso del camión.');
+  } else {
+    estado.notif = true; almacen.datos.notif = true; guardar(); pintarBotonNotif();
+    toast('Permiso del navegador rechazado: usaremos avisos dentro de la app. Nota: las alertas no llegan con la app cerrada.', 'alerta', 6000);
+  }
+});
+$('#cfgNotif').addEventListener('change', function(){
+  if (this.checked){ $('#btnNotif').click(); }
+  else { estado.notif = false; almacen.datos.notif = false; guardar(); pintarBotonNotif(); toast('🔕 Notificaciones desactivadas.', 'info'); }
+});
+
+/* ============================================================
+   MÓDULO 16 · CONCIENCIA (tarjeta local)
+   ============================================================ */
+function pintarConciencia(){
+  $('#contadorAcciones').textContent = estado.acciones.filter(function(a){ return a.tipo === 'accion'; }).length;
+  const resp = $('#respuestaAccion');
+  if (estado.accionDia === hoyISO()){
+    resp.className = 'pensamiento-respuesta ok visible';
+    resp.textContent = '🌿 ¡Excelente! Cada pequeña acción cuenta. Hoy ya registraste tu acción.';
+  }
+}
+$('#btnAccionSi').addEventListener('click', function(){
+  const hoy = hoyISO();
+  const resp = $('#respuestaAccion');
+  resp.className = 'pensamiento-respuesta ok visible';
+  resp.textContent = '¡Excelente! Cada pequeña acción cuenta. 🌿';
+  if (estado.accionDia !== hoy){
+    estado.accionDia = hoy;
+    almacen.datos.accionDia = hoy;
+    if (estado.diasAccion.indexOf(hoy) === -1){ estado.diasAccion.push(hoy); almacen.datos.diasAccion = estado.diasAccion; }
+    guardar();
+    registrarAccion('accion', 'Separó sus residuos hoy', PTS.accion);
+    lanzarConfeti();
+  } else {
+    toast('Ya registraste tu acción de hoy. ¡Vuelve mañana! 🌱', 'info');
+  }
+  pintarConciencia();
+  verificarInsignias();
+});
+$('#btnAccionNo').addEventListener('click', function(){
+  const resp = $('#respuestaAccion');
+  resp.className = 'pensamiento-respuesta pend visible';
+  resp.textContent = '♻️ No pasa nada: todavía estás a tiempo. Abre la guía de separación y empieza hoy.';
+  irA('guia');
+});
+
+/* ============================================================
+   MÓDULO 17 · GUÍA Y BUSCADOR DE RESIDUOS
+   ============================================================ */
+$$('.tab-btn').forEach(function(tab){
+  tab.addEventListener('click', function(){ activarTab(tab.dataset.cat); });
+  tab.addEventListener('keydown', function(e){
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const tabs = $$('.tab-btn');
+    const i = tabs.indexOf(tab);
+    const sig = tabs[(e.key === 'ArrowRight' ? i + 1 : i - 1 + tabs.length) % tabs.length];
+    sig.focus(); activarTab(sig.dataset.cat);
+  });
+});
+function activarTab(cat){
+  $$('.tab-btn').forEach(function(t){ t.setAttribute('aria-selected', t.dataset.cat === cat ? 'true' : 'false'); });
+  $$('.panel-cat').forEach(function(p){ p.classList.toggle('activa', p.id === 'panel-' + cat); });
+}
+
+const RESIDUOS = [
+  { n:'Plátano', cl:['platano','banana','guineo'], cat:'organicos', e:'🍌', c:'Orgánico: compóstalo o bótalo en la bolsa verde.' },
+  { n:'Restos de comida', cl:['comida','sobras','sobra','tortilla','arroz','frijoles'], cat:'organicos', e:'🍎', c:'Orgánico: al contenedor con tapa; ideal para composta.' },
+  { n:'Cáscaras de fruta', cl:['cascara','naranja','manzana','mango','limon','papaya'], cat:'organicos', e:'🍊', c:'Orgánico: perfecto para la composta casera.' },
+  { n:'Hojas y jardín', cl:['hoja','hojas','jardin','pasto','hierba','poda'], cat:'organicos', e:'🍂', c:'Orgánico: sepáralo del resto para poder compostarlo.' },
+  { n:'Cascarón de huevo', cl:['huevo','casaron','cascaron'], cat:'organicos', e:'🥚', c:'Orgánico: se degrada rápido, aplánalo antes.' },
+  { n:'Café y filtros', cl:['cafe','filtro','posos'], cat:'organicos', e:'☕', c:'Orgánico: excelente abono para plantas.' },
+  { n:'Botella PET', cl:['pet','botella','envase','garrafon'], cat:'reciclables', e:'🧴', c:'Reciclable: enjuágala, aplástala y deposítala separada.' },
+  { n:'Cartón', cl:['carton','caja','cajas'], cat:'reciclables', e:'📦', c:'Reciclable: dóblalo y mantenlo seco.' },
+  { n:'Papel', cl:['papel','periodico','revista','cuaderno'], cat:'reciclables', e:'📄', c:'Reciclable: limpio y seco.' },
+  { n:'Lata', cl:['lata','latas','aluminio','atun','refresco'], cat:'reciclables', e:'🥫', c:'Reciclable: enjuaga y aplasta.' },
+  { n:'Vidrio', cl:['vidrio','frasco','tarro','botella de vidrio'], cat:'reciclables', e:'🫙', c:'Reciclable: enjuaga y entrégalo sin tapa. Si está roto, envuélvelo.' },
+  { n:'Plástico duro', cl:['plastico','cubeta','tupper','silla'], cat:'reciclables', e:'🪣', c:'Reciclable si está limpio: busca el símbolo de reciclaje.' },
+  { n:'Colillas y papel sanitario', cl:['colilla','cigarro','papel higienico','sanitario'], cat:'noreciclables', e:'🚬', c:'No reciclable: bolsa cerrada a la basura común.' },
+  { n:'Pañales', cl:['panal','panales'], cat:'noreciclables', e:'🍼', c:'No reciclable: bolsa bien cerrada.' },
+  { n:'Empaques metalizados', cl:['metalizado','papita','dulce','snack'], cat:'noreciclables', e:'🍪', c:'No reciclable normalmente: bótalo cerrado.' },
+  { n:'Plástico sucio', cl:['sucio','graso','contaminado'], cat:'noreciclables', e:'🥡', c:'No reciclable si está contaminado con comida.' },
+  { n:'Pilas', cl:['pila','pilas','bateria','baterias'], cat:'especiales', e:'🔋', c:'Especial: punto de acopio, nunca a la basura común.' },
+  { n:'Focos', cl:['foco','focos','bombilla','tubo','lampara'], cat:'especiales', e:'💡', c:'Especial: contiene materiales peligrosos.' },
+  { n:'Medicamentos', cl:['medicamento','medicina','pastilla','jarabe'], cat:'especiales', e:'💊', c:'Especial: entrégalo en farmacias con programa de acopio.' },
+  { n:'Electrónicos', cl:['electronico','celular','cable','audifonos','cargador','raee'], cat:'especiales', e:'📱', c:'Especial: campañas de reciclaje electrónico (RAEE).' },
+  { n:'Aceite de cocina', cl:['aceite','grasa'], cat:'especiales', e:'🛢️', c:'Especial: guárdalo en frasco y llévalo a un punto de acopio.' }
+];
+const CATS_INFO = {
+  organicos:   { t:'🟢 Orgánicos', cls:'verde' },
+  reciclables: { t:'🔵 Inorgánicos reciclables', cls:'' },
+  noreciclables:{ t:'⚫ Inorgánicos no reciclables', cls:'gris' },
+  especiales:  { t:'🔴 Residuos especiales', cls:'ambar' }
+};
+function tokensDe(t){ return normalizar(t).split(/[^a-z0-9ñ]+/).filter(Boolean); }
+const inputResiduo = $('#inputResiduo');
+let tOutBusq = null;
+inputResiduo.addEventListener('input', function(){
+  clearTimeout(tOutBusq);
+  const q = inputResiduo.value;
+  if (!q.trim()){
+    $('#resultadosResiduo').innerHTML = '<p class="pista-buscador">✍️ Escribe el nombre de un residuo y te decimos a qué categoría pertenece.</p>';
+    $('#estadoBusqueda').textContent = '';
+    return;
+  }
+  tOutBusq = setTimeout(function(){ buscarResiduo(q); }, 200);
+});
+function buscarResiduo(consulta){
+  const tq = tokensDe(consulta);
+  const qn = normalizar(consulta);
+  const hallados = RESIDUOS.filter(function(r){
+    const grupos = r.cl.concat([r.n]);
+    return grupos.some(function(clave){
+      const cn = normalizar(clave);
+      if (cn === qn) return true;
+      return tokensDe(clave).some(function(tc){
+        return tq.some(function(x){ return tc === x || (x.length >= 3 && tc.indexOf(x) === 0) || (tc.length >= 4 && x.indexOf(tc) === 0); });
+      });
+    });
+  }).slice(0, 6);
+  const cont = $('#resultadosResiduo');
+  cont.innerHTML = '';
+  if (!hallados.length){
+    $('#estadoBusqueda').textContent = 'Sin resultados';
+    const v = document.createElement('div'); v.className = 'sin-resultados';
+    v.innerHTML = '🤔 <strong>No encontramos ese residuo.</strong><br>Consulta las categorías generales o intenta con otra palabra.';
+    cont.appendChild(v); return;
+  }
+  $('#estadoBusqueda').textContent = hallados.length + ' resultado(s)';
+  hallados.forEach(function(r, i){
+    const info = CATS_INFO[r.cat];
+    const el = document.createElement('div'); el.className = 'resultado-residuo'; el.style.animationDelay = (i * 40) + 'ms';
+    const em = document.createElement('span'); em.className = 'rr-emoji'; em.textContent = r.e; em.setAttribute('aria-hidden','true');
+    const inf = document.createElement('div'); inf.className = 'rr-info';
+    const st = document.createElement('strong'); st.textContent = r.n;
+    const ch = document.createElement('span'); ch.className = 'chip ' + info.cls; ch.textContent = info.t; ch.style.margin = '.15rem 0'; ch.style.display = 'inline-flex';
+    const p = document.createElement('p'); p.style.cssText = 'font-size:.78rem;color:var(--muted)'; p.textContent = r.c;
+    inf.append(st, ch, p);
+    el.append(em, inf);
+    cont.appendChild(el);
+  });
+}
+
+/* ============================================================
+   MÓDULO 18 · REPORTES CIUDADANOS
+   ============================================================ */
+let reportesLocales = Array.isArray(almacen.datos.reportes) ? almacen.datos.reportes : [];
+let publicaciones = Array.isArray(almacen.datos.publicaciones) ? almacen.datos.publicaciones : semillasPublicaciones();
+// Sincroniza el estado global con los arrays vivos (perfil, insignias y contexto)
+estado.reportes = reportesLocales;
+estado.publicaciones = publicaciones;
+
+function semillasPublicaciones(){
+  const ahora = Date.now();
+  return [
+    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'Centro', tipo: 'Duda', texto: '¿A qué hora pasa la recolección los sábados? En la app puedo revisar la ruta de mi colonia.', ts: ahora - 35*60000, likes: 5, votado: false, comentarios: [] },
+    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'La Floresta', tipo: 'Propuesta', texto: 'Propongo una jornada de limpieza el próximo fin de semana. ¿Quién se apunta?', ts: ahora - 90*60000, likes: 11, votado: false, comentarios: [{autor: 'Comentario de ejemplo', texto: '¡Yo me apunto!', ts: ahora - 60*60000}] },
+    { id: uid(), ejemplo: true, nombre: 'Publicación de ejemplo', colonia: 'El Agustín', tipo: 'Aviso', texto: 'Recuerda separar orgánicos e inorgánicos la noche antes del paso del camión.', ts: ahora - 200*60000, likes: 8, votado: false, comentarios: [] }
+  ];
+}
+
+/* Ubicación del reporte */
+$('#repUsarGPS').addEventListener('click', async function(){
+  toast('⏳ Buscando tu ubicación…', 'info', 2200);
+  try {
+    const loc = await dataLayer.getUserLocation();
+    estado.ubicacionReporte = { lat: loc.lat, lng: loc.lng };
+    estado._usoUbicacion = true;
+    actualizarCoordenadasReporte();
+    verificarInsignias();
+    toast('✓ Ubicación asignada al reporte.', 'exito');
+  } catch(err){
+    marcarError('errRepUbic', err.message + ' Puedes elegir el punto en el mapa.');
+  }
+});
+$('#repElegirMapa').addEventListener('click', function(){
+  activarElegirMapa('reporte');
+});
+$('#repQuitarUbicacion').addEventListener('click', function(){
+  estado.ubicacionReporte = null;
+  if (marcadorSeleccion){ mapa.removeLayer(marcadorSeleccion); marcadorSeleccion = null; }
+  actualizarCoordenadasReporte();
+});
+function actualizarCoordenadasReporte(){
+  const el = $('#repCoordenadas');
+  if (estado.ubicacionReporte){
+    el.textContent = '📍 Ubicación asignada: ' + estado.ubicacionReporte.lat.toFixed(5) + ', ' + estado.ubicacionReporte.lng.toFixed(5);
+    limpiarError('errRepUbic');
+  } else {
+    el.textContent = 'Sin ubicación asignada. El reporte se guardará sin coordenadas.';
+  }
+}
+
+/* Fotografía */
+$('#repFoto').addEventListener('change', function(){
+  limpiarError('errRepFoto');
+  const f = this.files && this.files[0];
+  estado.fotoData = null;
+  $('#fotoPreview').classList.remove('visible');
+  if (!f) return;
+  if (!/^image\//.test(f.type)){ marcarError('errRepFoto','El archivo no es una imagen válida.'); this.value = ''; return; }
+  if (f.size > 5 * 1024 * 1024){ marcarError('errRepFoto','La imagen supera 5 MB. Elige una más ligera.'); this.value = ''; return; }
+  const lector = new FileReader();
+  lector.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      const max = 1280;
+      let w = img.width, h = img.height;
+      if (w > max || h > max){ const k = Math.min(max / w, max / h); w = Math.round(w * k); h = Math.round(h * k); }
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      try {
+        estado.fotoData = cv.toDataURL('image/jpeg', 0.72);
+        $('#fotoPreviewImg').src = estado.fotoData;
+        $('#fotoPreview').classList.add('visible');
+      } catch(e){ marcarError('errRepFoto','No se pudo procesar la imagen.'); }
+    };
+    img.onerror = function(){ marcarError('errRepFoto','La imagen no se pudo leer.'); };
+    img.src = lector.result;
+  };
+  lector.onerror = function(){ marcarError('errRepFoto','No se pudo leer el archivo.'); };
+  lector.readAsDataURL(f);
+});
+$('#fotoQuitar').addEventListener('click', function(){
+  estado.fotoData = null;
+  $('#repFoto').value = '';
+  $('#fotoPreview').classList.remove('visible');
+});
+
+/* Validación y envío */
+$('#repDescripcion').addEventListener('input', function(){
+  $('#contadorRep').textContent = this.value.length + ' / 500';
+  if (this.value.trim().length >= 15) limpiarError('errRepDesc');
+});
+$('#repTipo').addEventListener('change', function(){ if (this.value) limpiarError('errRepTipo'); });
+$('#repNombre').addEventListener('input', function(){ limpiarError('errRepNombre'); });
+
+function marcarError(id, msg){ const e = $('#' + id); e.textContent = '⚠️ ' + msg; e.classList.add('visible'); }
+function limpiarError(id){ $('#' + id).classList.remove('visible'); }
+
+$('#formReporte').addEventListener('submit', function(e){
+  e.preventDefault();
+  let ok = true;
+  const nombre = $('#repNombre').value.trim();
+  if (nombre.length > 40){ marcarError('errRepNombre','Máximo 40 caracteres.'); ok = false; } else limpiarError('errRepNombre');
+  const tipo = $('#repTipo').value;
+  if (!tipo){ marcarError('errRepTipo','Selecciona el tipo de reporte.'); ok = false; } else limpiarError('errRepTipo');
+  const desc = $('#repDescripcion').value.trim();
+  if (desc.length < 15){ marcarError('errRepDesc','Describe el problema con al menos 15 caracteres.'); ok = false; }
+  else if (desc.length > 500){ marcarError('errRepDesc','Máximo 500 caracteres.'); ok = false; }
+  else limpiarError('errRepDesc');
+  if (!ok){
+    toast('Revisa el formulario: hay campos por corregir.', 'error');
+    const inv = $('.campo.invalido input, .campo.invalido select, .campo.invalido textarea');
+    if (inv) inv.focus();
+    return;
+  }
+  const reporte = {
+    id: uid(), nombre: nombre || 'Anónimo', colonia: $('#repColonia').value, tipo: tipo,
+    texto: desc, ts: Date.now(), foto: estado.fotoData || null,
+    ubicacion: estado.ubicacionReporte ? { lat: estado.ubicacionReporte.lat, lng: estado.ubicacionReporte.lng } : null,
+    estado: 'Registrado localmente'
+  };
+  dataLayer.createReport(reporte).then(function(){
+    registrarAccion('reporte', 'Envió un reporte: ' + tipo, PTS.reporte);
+    verificarInsignias();
+    toast('✓ Reporte enviado correctamente' + (reporte.estado === 'Sincronizado con la nube' ? ' (sincronizado en la nube).' : ' (guardado en este dispositivo).') + ' Gracias por participar.', 'exito');
+    // reset
+    e.target.reset();
+    estado.fotoData = null; $('#fotoPreview').classList.remove('visible');
+    estado.ubicacionReporte = null; actualizarCoordenadasReporte();
+    $('#contadorRep').textContent = '0 / 500';
+    renderReportes();
+  });
+});
+
+function renderReportes(){
+  const cont = $('#listaReportes');
+  cont.innerHTML = '';
+  $('#reportesVacio').classList.toggle('visible', !reportesLocales.length);
+  reportesLocales.slice().sort(function(a,b){ return b.ts - a.ts; }).forEach(function(r){
+    const art = document.createElement('article'); art.className = 'tarjeta-reporte';
+    const cab = document.createElement('div'); cab.className = 'cab-reporte';
+    const av = document.createElement('div'); av.className = 'avatar'; av.textContent = iniciales(r.nombre); av.setAttribute('aria-hidden','true');
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const st = document.createElement('strong'); st.textContent = r.nombre;
+    const sm = document.createElement('small'); sm.textContent = tiempoRelativo(r.ts) + ' · ' + r.colonia;
+    meta.append(st, sm);
+    const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = r.tipo;
+    cab.append(av, meta, chip);
+    const txt = document.createElement('p'); txt.className = 'txt-reporte'; txt.textContent = r.texto;
+    art.append(cab, txt);
+    if (r.foto){ const im = document.createElement('img'); im.className = 'foto-reporte'; im.alt = 'Fotografía del reporte'; im.src = r.foto; art.appendChild(im); }
+    const pie = document.createElement('div'); pie.className = 'pie-reporte';
+    const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + r.estado;
+    pie.appendChild(est);
+    if (r.ubicacion){
+      const ub = document.createElement('span'); ub.className = 'chip'; ub.textContent = '📍 ' + r.ubicacion.lat.toFixed(4) + ', ' + r.ubicacion.lng.toFixed(4);
+      pie.appendChild(ub);
+    }
+    const bDel = document.createElement('button'); bDel.type = 'button'; bDel.className = 'btn-eliminar'; bDel.style.marginLeft = 'auto';
+    bDel.setAttribute('aria-label','Eliminar reporte'); bDel.title = 'Eliminar reporte';
+    const sv = document.createElementNS('http://www.w3.org/2000/svg','svg'); sv.setAttribute('class','icono');
+    const us = document.createElementNS('http://www.w3.org/2000/svg','use'); us.setAttribute('href','#i-basura');
+    sv.appendChild(us); bDel.appendChild(sv);
+    bDel.addEventListener('click', function(){
+      confirmarAccion('¿Eliminar reporte?','Tu reporte se borrará de este dispositivo. Esta acción no se puede deshacer.','Sí, eliminar').then(function(okDel){
+        if (!okDel) return;
+        reportesLocales = reportesLocales.filter(function(x){ return x.id !== r.id; });
+      estado.reportes = reportesLocales; // mantiene la referencia sincronizada tras el filtro
+        estado.eliminadosRep.push(r.id); almacen.datos.eliminadosRep = estado.eliminadosRep;
+        almacen.datos.reportes = reportesLocales; guardar();
+        renderReportes(); verificarInsignias();
+        toast('🗑️ Reporte eliminado.', 'info');
+      });
+    });
+    pie.appendChild(bDel);
+    art.appendChild(pie);
+    cont.appendChild(art);
+  });
+}
+
+/* ============================================================
+   MÓDULO 19 · COMUNIDAD
+   ============================================================ */
+$('#postTexto').addEventListener('input', function(){ $('#contadorPost').textContent = this.value.length + ' / 500'; });
+$('#postNombre').addEventListener('input', function(){ limpiarError('errPostNombre'); });
+$('#postTipo').addEventListener('change', function(){ if (this.value) limpiarError('errPostTipo'); });
+
+$('#formPost').addEventListener('submit', function(e){
+  e.preventDefault();
+  let ok = true;
+  const nombre = $('#postNombre').value.trim();
+  if (nombre.length > 40){ marcarError('errPostNombre','Máximo 40 caracteres.'); ok = false; } else limpiarError('errPostNombre');
+  const tipo = $('#postTipo').value;
+  if (!tipo){ marcarError('errPostTipo','Selecciona un tipo.'); ok = false; } else limpiarError('errPostTipo');
+  const texto = $('#postTexto').value.trim();
+  if (texto.length < 10){ marcarError('errPostTexto','Escribe al menos 10 caracteres.'); ok = false; }
+  else if (texto.length > 500){ marcarError('errPostTexto','Máximo 500 caracteres.'); ok = false; }
+  else limpiarError('errPostTexto');
+  if (!ok){ toast('Revisa el formulario antes de publicar.', 'error'); return; }
+
+  const post = { id: uid(), ejemplo: false, nombre: nombre || 'Anónimo', colonia: (ZONAS[estado.coloniaId] || {}).nombre || 'Ciudad Guzmán', tipo: tipo, texto: texto, ts: Date.now(), likes: 0, votado: false, comentarios: [] };
+  dataLayer.createPost(post).then(function(){
+    registrarAccion('participacion', 'Publicó en la comunidad', PTS.participacion);
+    toast('✓ Publicación realizada' + (post._nube ? ' y compartida en la nube.' : ' (guardada en este dispositivo).') + ' ¡Gracias por participar!', 'exito');
+    e.target.reset();
+    $('#contadorPost').textContent = '0 / 500';
+    renderMuro();
+  });
+});
+
+function nodoPost(p){
+  const art = document.createElement('article'); art.className = 'publicacion'; art.dataset.id = p.id;
+  const cab = document.createElement('div'); cab.className = 'pub-cab';
+  const av = document.createElement('div'); av.className = 'avatar'; av.textContent = iniciales(p.nombre); av.style.background = p.ejemplo ? 'var(--muted)' : 'var(--primary)';
+  const meta = document.createElement('div'); meta.className = 'meta';
+  const st = document.createElement('strong'); st.textContent = p.nombre;
+  const sm = document.createElement('small'); sm.textContent = tiempoRelativo(p.ts) + ' · ' + p.colonia;
+  meta.append(st, sm);
+  const chT = document.createElement('span'); chT.className = 'chip'; chT.textContent = p.tipo;
+  cab.append(av, meta, chT);
+  if (p.ejemplo){ const chE = document.createElement('span'); chE.className = 'chip gris'; chE.textContent = 'Ejemplo'; cab.appendChild(chE); }
+  const tx = document.createElement('p'); tx.className = 'txt-post'; tx.textContent = p.texto;
+  art.append(cab, tx);
+
+  const pie = document.createElement('div'); pie.className = 'pub-pie';
+  const bLike = document.createElement('button'); bLike.type = 'button'; bLike.className = 'btn-accion' + (p.votado ? ' votado' : '');
+  bLike.setAttribute('aria-label', p.votado ? 'Ya apoyaste esta publicación' : 'Me importa esta publicación');
+  const icL = document.createElementNS('http://www.w3.org/2000/svg','svg'); icL.setAttribute('class','icono');
+  const uL = document.createElementNS('http://www.w3.org/2000/svg','use'); uL.setAttribute('href','#i-like');
+  icL.appendChild(uL);
+  const num = document.createElement('span'); num.textContent = String(p.likes);
+  bLike.append(icL, document.createTextNode(' Me importa '), num);
+  bLike.addEventListener('click', function(){
+    if (p.votado){ toast('Ya registraste tu apoyo. 💚', 'info', 2400); return; }
+    p.likes += 1; p.votado = true;
+    dataLayer.votePost(p.id);
+    registrarAccion('participacion', 'Apoyó una publicación', PTS.ayuda);
+    renderMuro();
+  });
+  const bCom = document.createElement('button'); bCom.type = 'button'; bCom.className = 'btn-accion';
+  const icC = document.createElementNS('http://www.w3.org/2000/svg','svg'); icC.setAttribute('class','icono');
+  const uC = document.createElementNS('http://www.w3.org/2000/svg','use'); uC.setAttribute('href','#i-comentar');
+  icC.appendChild(uC);
+  bCom.append(icC, document.createTextNode(' Comentar (' + (p.comentarios || []).length + ')'));
+  bCom.addEventListener('click', function(){ $('#com-' + p.id).classList.toggle('abiertos'); });
+  const bSh = document.createElement('button'); bSh.type = 'button'; bSh.className = 'btn-accion';
+  const icS = document.createElementNS('http://www.w3.org/2000/svg','svg'); icS.setAttribute('class','icono');
+  const uS = document.createElementNS('http://www.w3.org/2000/svg','use'); uS.setAttribute('href','#i-compartir');
+  icS.appendChild(uS);
+  bSh.append(icS, document.createTextNode(' Compartir'));
+  bSh.addEventListener('click', function(){ compartirPost(p); });
+  pie.append(bLike, bCom, bSh);
+  art.appendChild(pie);
+
+  const com = document.createElement('div'); com.className = 'comentarios'; com.id = 'com-' + p.id;
+  (p.comentarios || []).forEach(function(c){
+    const fila = document.createElement('div'); fila.className = 'comentario';
+    const a = document.createElement('strong'); a.textContent = c.autor + ':';
+    const t = document.createElement('span'); t.className = 'c-txt'; t.textContent = ' ' + c.texto;
+    fila.append(a, t);
+    com.appendChild(fila);
+  });
+  const fCom = document.createElement('form'); fCom.className = 'comentario-form';
+  const inC = document.createElement('input'); inC.type = 'text'; inC.maxLength = 200; inC.placeholder = 'Escribe un comentario…'; inC.setAttribute('aria-label','Escribir comentario');
+  const bEn = document.createElement('button'); bEn.type = 'submit'; bEn.className = 'btn btn-secundario btn-chico'; bEn.textContent = 'Enviar';
+  fCom.append(inC, bEn);
+  fCom.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    const t = inC.value.trim();
+    if (t.length < 2){ toast('Escribe un comentario más largo.', 'error', 2400); return; }
+    p.comentarios = p.comentarios || [];
+    p.comentarios.push({ autor: estado.nombrePerfil || 'Anónimo', texto: t, ts: Date.now() });
+    ssyncComments(p);
+    estado._numComentarios = (estado._numComentarios || 0) + 1;
+    registrarAccion('participacion', 'Comentó en una publicación', PTS.ayuda);
+    renderMuro();
+    setTimeout(function(){ const el = $('#com-' + p.id); if (el) el.classList.add('abiertos'); }, 50);
+  });
+  com.appendChild(fCom);
+  art.appendChild(com);
+  return art;
+}
+
+function renderMuro(){
+  const muro = $('#muro');
+  muro.innerHTML = '';
+  $('#muroVacio').classList.toggle('visible', !publicaciones.length);
+  publicaciones.slice().sort(function(a,b){ return b.ts - a.ts; }).forEach(function(p){ muro.appendChild(nodoPost(p)); });
+}
+
+function compartirPost(p){
+  const texto = p.nombre + ' (' + p.tipo + ') · ' + p.colonia + ':\n\n' + p.texto + '\n\n— Compartido desde BASURA Y MÁS';
+  if (navigator.share){
+    const urlSitio = (location.protocol === 'http:' || location.protocol === 'https:') ? location.href.split('#')[0] : null;
+    navigator.share({ title: 'BASURA Y MÁS', text: texto, url: urlSitio || undefined }).catch(function(){ /* cancelado por el usuario */ });
+  } else {
+    $('#shareTexto').value = texto;
+    abrirModal('modalShare');
+  }
+}
+$('#btnCopiarShare').addEventListener('click', function(){
+  const ta = $('#shareTexto');
+  ta.select();
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(ta.value);
+    else document.execCommand('copy');
+    toast('📋 Texto copiado.', 'exito', 2400);
+    cerrarModal('modalShare');
+  } catch(e){ toast('Selecciona el texto y cópialo manualmente.', 'alerta'); }
+});
+
+/* ============================================================
+   MÓDULO 20 · PERFIL / CONFIG / RESET
+   ============================================================ */
+$('#formPerfil').addEventListener('submit', function(e){
+  e.preventDefault();
+  const n = $('#pNombre').value.trim();
+  if (n.length > 40){ marcarError('errPNombre','Máximo 40 caracteres.'); return; }
+  limpiarError('errPNombre');
+  estado.nombrePerfil = n || 'Anónimo';
+  almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
+  renderPerfil();
+  toast('✓ Perfil actualizado.', 'exito');
+});
+$('#cfgColonia').addEventListener('change', function(){ seleccionarColonia(this.value, true); });
+
+$('#btnConfig').addEventListener('click', function(){
+  $('#cfgTema').checked = estado.tema === 'dark';
+  $('#cfgNotif').checked = estado.notif;
+  $('#cfgColonia').value = estado.coloniaId;
+  $('#cfgDemo').checked = estado.demo;
+  abrirModal('modalConfig');
+});
+$('#btnAcerca').addEventListener('click', function(){
+  cerrarModal('modalConfig');
+  mostrarInfo('Acerca del proyecto', [
+    '<strong>BASURA Y MÁS</strong> es una plataforma cívica y ecológica desarrollada como proyecto de <strong>Filosofía II (FILOSOFARTE)</strong> por <strong>Daniel Alvarez</strong> para el <strong>CBTis 226</strong>.',
+    'Propone una forma de conectar a la ciudadanía de <strong>Ciudad Guzmán, Jalisco</strong> con la información de recolección, la separación de residuos y la participación comunitaria.',
+    'Fuentes de datos: mapa y vialidades de <strong>OpenStreetMap</strong>, rutas calculadas con <strong>OSRM</strong>, geocodificación con <strong>Nominatim</strong>. Los puntos de recolección son <strong>generados por el sistema</strong> y el GPS de vehículos <strong>no está conectado</strong>; cuando exista una fuente municipal, la app está preparada para integrarla.',
+    '“El progreso sin conciencia no es progresión.”'
+  ]);
+});
+$('#btnPrivacidad').addEventListener('click', function(){
+  cerrarModal('modalConfig');
+  mostrarInfo('Privacidad', [
+    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/OSRM para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros.',
+    '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte (dispositivo y nube).',
+    '<strong>Datos personales:</strong> tu nombre aparece solo si tú lo escribes. Reportes y publicaciones se guardan en el navegador y se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
+    '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas.'
+  ]);
+});
+$('#btnResetDatos').addEventListener('click', function(){
+  confirmarAccion('¿Restablecer datos locales?',    'Se borrarán perfil, puntos, insignias y los datos locales de este dispositivo. Los reportes y publicaciones ya sincronizados con la nube permanecerán en la base de datos. La app volverá a su estado inicial.','Sí, restablecer').then(function(ok){
+    if (!ok) return;
+    almacen.borrar();
+    try { localStorage.removeItem('bym.osm.v1'); } catch(e){}
+    location.reload();
+  });
+});
+
+/* ============================================================
+   MÓDULO 21 · SCROLL / CONEXIÓN / ERRORES GLOBALES
+   ============================================================ */
+window.addEventListener('scroll', function(){
+  $('#appHeader').classList.toggle('con-sombra', (window.scrollY || 0) > 6);
+}, { passive: true });
+
+window.addEventListener('online', function(){ toast('🌐 Conexión restablecida.', 'exito', 3000); });
+window.addEventListener('offline', function(){ toast('Sin conexión: el mapa y las rutas necesitan internet.', 'error', 5500); });
+
+window.addEventListener('error', function(e){
+  if (e && e.message && /leaflet|L\./i.test(e.message)) return;
+  toast('Ocurrió un problema inesperado, pero la app sigue funcionando.', 'error', 4000);
+});
+
+/* ============================================================
+   MÓDULO 22 · INICIALIZACIÓN
+   ============================================================ */
+function iniciar(){
+  aplicarTema(estado.tema);
+  initNube();
+  actualizarHeaderNivel();
+  pintarBotonNotif();
+  pintarConciencia();
+  renderReportes();
+  renderMuro();
+  renderInsignias();
+  renderPerfil();
+  verificarInsignias(); // recupera insignias pendientes de sesiones anteriores
+  $('#pNombre').value = estado.nombrePerfil;
+  $('#pColonia').value = estado.coloniaId;
+  setDemoUI(estado.demo);
+
+  if (typeof L === 'undefined'){
+    // Leaflet no cargó (sin internet): la app sigue funcionando sin mapa
+    $('#listaPuntos').innerHTML = '<div class="vacio visible" style="padding:1.1rem"><p style="font-size:.85rem">El mapa no pudo cargarse sin conexión. Con internet, recarga la página para activarlo.</p></div>';
+    toast('Sin conexión: el mapa no está disponible ahora.', 'error', 6000);
+  } else {
+    initMapa();
+    $('#rutaSelect').value = estado.coloniaId;
+    // Precarga de la ruta de la colonia guardada (en segundo plano)
+    cargarRutaColonia(false);
+  }
+
+  // Reloj de tiempos relativos
+  setInterval(function(){
+    $$('#muro .publicacion').forEach(function(art){
+      const p = publicaciones.find(function(x){ return x.id === art.dataset.id; });
+      if (p){ const sm = art.querySelector('.meta small'); if (sm) sm.textContent = tiempoRelativo(p.ts) + ' · ' + p.colonia; }
+    });
+  }, 60000);
+
+  const ocultar = function(){
+    const l = $('#loader');
+    if (!l) return;
+    l.classList.add('oculto');
+    setTimeout(function(){ if (l.parentNode) l.parentNode.removeChild(l); }, 500);
+  };
+  if (document.readyState === 'complete') setTimeout(ocultar, 350);
+  else window.addEventListener('load', function(){ setTimeout(ocultar, 350); });
+  setTimeout(ocultar, 4000);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+else iniciar();
+
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){ /* sin service worker la app funciona igual */ });
+  });
+}
+
+})();
+</script>
+</body>
+</html>

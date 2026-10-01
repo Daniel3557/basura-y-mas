@@ -1,0 +1,16 @@
+{
+  "name": "BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán",
+  "short_name": "BASURA Y MÁS",
+  "description": "Información, participación y conciencia para una comunidad más limpia. Rutas de recolección, reportes ciudadanos y comunidad. Proyecto FILOSOFARTE · CBTis 226.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F4F9F5",
+  "theme_color": "#2E7D32",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
