@@ -1,7 +1,12 @@
 /* BASURA Y MÁS · Service worker (PWA instalable y uso offline básico)
-   Estrategia: precache del app shell + caché-first para mismos orígenes.
-   Las APIs externas (OSM, OSRM, Nominatim, Supabase) pasan directo a la red. */
-const CACHE = 'bym-v4';
+   Estrategia:
+   · Páginas (navegación): red primero y copia guardada como respaldo, para
+     que una actualización se vea en la primera recarga (antes se servía la
+     versión vieja desde caché y había que recargar dos veces).
+   · Recursos del mismo origen (iconos, manifiesto): caché primero con
+     refresco en segundo plano.
+   · APIs externas (OSM, OSRM, Nominatim, Supabase): directo a la red. */
+const CACHE = 'bym-v5';
 const PRECACHE = [
   './',
   './index.html',
@@ -30,24 +35,32 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Leaflet/OSM/OSRM/Supabase → red
+
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        if (res && res.ok) {
+          const copia = res.clone();
+          caches.open(CACHE).then(function (c) { c.put('./index.html', copia); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match('./index.html').then(function (hit) { return hit || caches.match('./'); });
+      })
+    );
+    return;
+  }
+
   e.respondWith(
-    caches.match(req, { ignoreSearch: req.mode === 'navigate' }).then(function (hit) {
-      if (hit) {
-        // Revalidación en segundo plano
-        fetch(req).then(function (res) {
-          if (res && res.ok) caches.open(CACHE).then(function (c) { c.put(req, res); });
-        }).catch(function () {});
-        return hit;
-      }
-      return fetch(req).then(function (res) {
-        if (res && res.ok && (req.mode === 'navigate' || url.pathname.indexOf('/icon') !== -1)) {
+    caches.match(req).then(function (hit) {
+      const red = fetch(req).then(function (res) {
+        if (res && res.ok) {
           const copia = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copia); });
         }
         return res;
-      }).catch(function () {
-        if (req.mode === 'navigate') return caches.match('./index.html');
-      });
+      }).catch(function () { return hit; });
+      return hit || red;
     })
   );
 });

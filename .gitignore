@@ -1,0 +1,17 @@
+# Archivos locales que NO deben subarse al repositorio ni a Vercel
+.freebuff/
+.vercel/
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Capturas y material personal del autor
+WhatsApp Image *.jpeg
+WhatsApp Image *.png
+qr-sitio.png
+
+# Prototipo alternativo que se conserva solo en el disco
+ecoruta-viva.html
+
+# Grabación de pantalla en webm (el .mp4 sí está versionado)
+video-demo-basura-y-mas.webm

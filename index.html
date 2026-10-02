@@ -23,6 +23,8 @@
 <meta name="apple-mobile-web-app-title" content="BASURA Y MÁS">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="canonical" href="https://basura-y-mas.vercel.app/">
+<link rel="sitemap" type="application/xml" href="./sitemap.xml">
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-512.png">
@@ -186,6 +188,9 @@ main{padding:calc(var(--header-h) + 1rem) .9rem calc(var(--nav-h) + 1.6rem);max-
 .btn-peligro:hover:not(:disabled){filter:brightness(.92)}
 .btn-chico{padding:.42rem .8rem;min-height:36px;font-size:.78rem;border-radius:10px}
 .btn-bloque{width:100%}
+.btn-enlace{background:none;border:none;color:var(--primary);font:inherit;font-size:.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:.2rem 0}
+.btn-enlace:hover:not(:disabled){color:var(--primary-dark)}
+.btn-enlace:disabled{opacity:.6;cursor:default}
 
 .interruptor{position:relative;width:50px;height:29px;flex:none;display:inline-block}
 .interruptor input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
@@ -1132,6 +1137,7 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
           <p class="error-msg" id="errLoginPass" role="alert"></p>
         </div>
         <p class="error-msg" id="errLoginGeneral" role="alert" style="margin-top:.2rem"></p>
+        <button type="button" id="btnOlvidePass" class="btn-enlace" style="margin-top:.3rem">¿Olvidaste tu contraseña?</button>
         <div class="modal-acciones">
           <button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
           <button type="submit" class="btn btn-primario" id="btnLogin">Entrar</button>
@@ -1291,6 +1297,29 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
   </div>
 </div>
 
+<div class="modal-overlay" id="modalNuevaPass" role="dialog" aria-modal="true" aria-labelledby="tNuevaPass">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-cab">
+      <h3 id="tNuevaPass">🔑 Nueva contraseña</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted)">Elige una contraseña nueva para tu cuenta de BASURA Y MÁS.</p>
+    <form id="formNuevaPass" novalidate>
+      <div class="campo" style="margin-top:.7rem"><label for="npPass1">Nueva contraseña</label>
+        <input type="password" id="npPass1" autocomplete="new-password" minlength="6" placeholder="Mínimo 6 caracteres" required>
+      </div>
+      <div class="campo" style="margin-top:.5rem"><label for="npPass2">Repite la contraseña</label>
+        <input type="password" id="npPass2" autocomplete="new-password" minlength="6" placeholder="Repite la contraseña" required>
+      </div>
+      <p class="error-msg" id="errNuevaPass" role="alert" style="margin-top:.4rem"></p>
+      <div class="modal-acciones">
+        <button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="btnGuardarPass">Guardar contraseña</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="toasts" aria-live="polite" aria-atomic="false"></div>
 
@@ -1425,15 +1454,21 @@ const dataLayer = {
   createReport(reporte){
     reportesLocales.push(reporte); almacen.datos.reportes = reportesLocales; guardar();
     reporte.estado = 'Sincronizado con la nube';
-    return upsertNube('reportes', reporte).then(function(ok){
+    // La fotografía se sube como archivo a Supabase Storage: la fila solo
+    // guarda su URL, así la app no descarga megabytes en cada carga.
+    return subirFotoReporte(reporte).then(function(url){
+      if (url) reporte.foto = url;
+      return upsertNube('reportes', reporte);
+    }).then(function(ok){
+      reporte._sinc = ok;
       if (!ok) reporte.estado = 'Registrado localmente (copia local)';
-      renderReportes();
+      renderReportes(); guardar();
       return reporte;
     });
   },
   createPost(post){
     publicaciones.unshift(post); almacen.datos.publicaciones = publicaciones; guardar();
-    return upsertNube('publicaciones', post).then(function(ok){ post._nube = ok; return post; });
+    return upsertNube('publicaciones', post).then(function(ok){ post._nube = ok; post._sinc = ok; guardar(); return post; });
   },
   votePost(id){
     const p = publicaciones.find(function(x){ return x.id === id; });
@@ -1449,8 +1484,14 @@ const dataLayer = {
    el dispositivo y se etiqueta como "copia local" para no confundir. */
 const NUBE = {
   url: 'https://rmnnqggasqxlpntcffrz.supabase.co/rest/v1/',
+  storage: 'https://rmnnqggasqxlpntcffrz.supabase.co/storage/v1/object/',
+  bucketFotos: 'reportes-fotos',
   key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbm5xZ2dhc3F4bHBudGNmZnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MDAzMzUsImV4cCI6MjEwNjM3NjMzNX0.89g4vlDGldKazqO8o1MFSPcnvNbIL5D486r1lKrUKto'
 };
+/* Cuántas filas trae la nube y cuántas guarda el dispositivo. Sin topes la
+   app grows sin límite: se llena el localStorage y el arranque se ralentiza. */
+const MAX_NUBE = 120;
+const MAX_LOCAL = 150;
 let nubeCargadaPost = false, nubeCargadaRep = false;
 
 /* ============================================================
@@ -1549,6 +1590,50 @@ function iniciarSesion(email, pass){
     return cargarPerfilRemoto().then(function(){ return { ok: true }; });
   }).catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo iniciar sesión. Intenta de nuevo.' }; });
 }
+/* ---------- Recuperación de contraseña ----------
+   Envía el correo de Supabase Auth y procesa el enlace (vuelve con
+   #access_token=...). Si el envío falla se explica con el mensaje real. */
+function pedirRecuperacion(email){
+  const cuerpo = { email: email };
+  const esWeb = (location.protocol === 'http:' || location.protocol === 'https:') && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  if (esWeb) cuerpo.redirect_to = location.origin + location.pathname;
+  return fetch(NUBE_AUTH + 'recover', { method: 'POST', headers: cabecerasAnon(), body: JSON.stringify(cuerpo) })
+    .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ return { ok: r.ok, d: d }; }); })
+    .then(function(res){
+      if (!res.ok){
+        const m = (res.d && (res.d.msg || res.d.message || res.d.error_description)) || 'No se pudo enviar el correo.';
+        return { ok: false, error: m };
+      }
+      return { ok: true };
+    })
+    .catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo enviar el correo. Intenta de nuevo con internet.' }; });
+}
+/** Lee el token del enlace de recuperación que llega en la URL (#access_token…). */
+function leerEnlaceRecuperacion(){
+  const h = (location.hash || '').replace(/^#/, '');
+  if (!h || h.indexOf('access_token=') === -1) return null;
+  const p = {};
+  h.split('&').forEach(function(kv){
+    const i = kv.indexOf('=');
+    if (i > 0) p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+  });
+  if (p.error_description) return { error: p.error_description };
+  if (!p.access_token) return null;
+  return { token: p.access_token };
+}
+function cambiarPassword(token, pass){
+  return fetch(NUBE_AUTH + 'user', {
+    method: 'PUT',
+    headers: { 'apikey': NUBE.key, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pass })
+  }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ return { ok: r.ok, d: d }; }); })
+    .then(function(res){
+      if (!res.ok) return { ok: false, error: (res.d && (res.d.msg || res.d.message)) || 'No se pudo actualizar la contraseña.' };
+      guardarSesion(null); // el enlace caduca: se vuelve a entrar con la nueva clave
+      return { ok: true };
+    })
+    .catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo actualizar la contraseña.' }; });
+}
 function cerrarSesion(){
   if (sesion.usuario && sesion.usuario.token){
     fetch(NUBE_AUTH + 'logout', { method: 'POST', headers: cabecerasNube() }).catch(function(){});
@@ -1563,7 +1648,8 @@ function cerrarSesion(){
 }
 function upsertNube(tabla, obj){
   if (!estado._nube) return Promise.resolve(false);
-  const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube;
+  // _sinc/_nube/ejemplo/votado son marcas locales: nunca viajan a la nube.
+  const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube; delete copia._sinc;
   if (sesion.usuario && sesion.usuario.id) copia.usuario_id = sesion.usuario.id;
   const envio = fetch(NUBE.url + tabla, {
     method: 'POST',
@@ -1583,6 +1669,42 @@ function upsertNube(tabla, obj){
     }
     return r.ok;
   }).catch(function(){ return false; });
+}
+/* ---------- Fotografías en Supabase Storage ----------
+   Antes la foto viajaba dentro de la fila (data URL) y cada visita descargaba
+   megabytes. Ahora es un archivo real; si la subida falla, la app conserva la
+   copia reducida en el dispositivo y marca el reporte como local. */
+function dataUrlABlob(dataUrl){
+  const bin = atob((dataUrl.split(',')[1] || ''));
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], { type: 'image/jpeg' });
+}
+function subirFotoReporte(reporte){
+  const d = reporte.foto;
+  if (!d || d.indexOf('data:') !== 0) return Promise.resolve(reporte.foto || null); // ya es URL
+  const ruta = NUBE.bucketFotos + '/reportes/' + encodeURIComponent(reporte.id) + '.jpg';
+  return fetch(NUBE.storage + ruta, {
+    method: 'POST',
+    headers: {
+      'apikey': NUBE.key,
+      'Authorization': 'Bearer ' + (sesion.usuario && sesion.usuario.token ? sesion.usuario.token : NUBE.key),
+      'Content-Type': 'image/jpeg',
+      'x-upsert': 'true'
+    },
+    body: dataUrlABlob(d)
+  }).then(function(r){
+    return r.ok ? (NUBE.storage + 'public/' + ruta) : null;
+  }).catch(function(){ return null; });
+}
+/* Mantiene el dispositivo ligero: como mucho MAX_LOCAL elementos ya subidos
+   a la nube (donde siguen disponibles) más los ejemplos de la app. */
+function podarLista(lista, esEjemplo){
+  const ejemplos = lista.filter(esEjemplo);
+  const reales = lista.filter(function(x){ return !esEjemplo(x); })
+    .sort(function(a, b){ return b.ts - a.ts; })
+    .slice(0, MAX_LOCAL);
+  return ejemplos.concat(reales);
 }
 function actualizarBotonCuenta(){
   const b = $('#btnCuenta');
@@ -1640,7 +1762,9 @@ function mapearPostNube(p){
     likes: p.likes || 0, votado: false, comentarios: Array.isArray(p.comentarios) ? p.comentarios : [], ts: Number(p.ts), ejemplo: false, usuario_id: p.usuario_id || null };
 }
 function ssyncPublicaciones(){
-  return fetch(NUBE.url + 'publicaciones?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
+  // Orden descendente: la nube trae lo MÁS RECIENTE. Con "asc" y límite 200,
+  // al pasar de 200 publicaciones nadie volvía a ver las nuevas.
+  return fetch(NUBE.url + 'publicaciones?select=*&order=ts.desc&limit=' + MAX_NUBE, { headers: cabecerasNube() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(rows){
       const remotas = (rows || []).map(mapearPostNube).map(function(p){
@@ -1649,15 +1773,19 @@ function ssyncPublicaciones(){
         return p;
       });
       const vistos = {}; remotas.forEach(function(p){ vistos[p.id] = true; });
-      const localesNuevas = publicaciones.filter(function(p){ return !p.ejemplo && !vistos[p.id]; });
-      return Promise.all(localesNuevas.map(function(p){ return upsertNube('publicaciones', p); }))
-        .then(function(){ return remotas.concat(localesNuevas); });
+      // Solo se reintentan las que aún no se han podido subir (nada de
+      // reenviar 150 publicaciones en cada visita).
+      const localesNuevas = publicaciones.filter(function(p){ return !p.ejemplo && !vistos[p.id] && !p._sinc; });
+      return Promise.all(localesNuevas.map(function(p){
+        return upsertNube('publicaciones', p).then(function(ok){ p._sinc = ok; });
+      })).then(function(){ return remotas.concat(localesNuevas); });
     })
     .then(function(todas){
       if (todas.length){
         const ids = {}; todas.forEach(function(p){ ids[p.id] = true; });
         publicaciones.forEach(function(p){ if (!p.ejemplo && !ids[p.id]) todas.push(p); }); // seguridad ante cargas en curso
-        publicaciones = todas; estado.publicaciones = publicaciones;
+        publicaciones = podarLista(todas, function(p){ return !!p.ejemplo; });
+        estado.publicaciones = publicaciones;
         almacen.datos.publicaciones = publicaciones; guardar();
       }
       nubeCargadaPost = true; renderMuro();
@@ -1665,7 +1793,7 @@ function ssyncPublicaciones(){
     .catch(function(){ nubeCargadaPost = false; });
 }
 function ssyncReportes(){
-  return fetch(NUBE.url + 'reportes?select=*&order=ts.asc&limit=200', { headers: cabecerasNube() })
+  return fetch(NUBE.url + 'reportes?select=*&order=ts.desc&limit=' + MAX_NUBE, { headers: cabecerasNube() })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(rows){
       const remotas = (rows || []).map(mapearReporteNube).map(function(x){
@@ -1673,12 +1801,16 @@ function ssyncReportes(){
         return x;
       }).filter(function(x){ return estado.eliminadosRep.indexOf(x.id) === -1; });
       const vistos = {}; remotas.forEach(function(x){ vistos[x.id] = true; });
-      const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id]; });
+      const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id] && !x._sinc; });
       return Promise.all(localesNuevas.map(function(x){ return upsertNube('reportes', x); }))
-        .then(function(){ localesNuevas.forEach(function(x){ x.estado = 'Sincronizado con la nube'; }); return remotas.concat(localesNuevas); });
+        .then(function(){
+          localesNuevas.forEach(function(x){ x._sinc = true; x.estado = 'Sincronizado con la nube'; });
+          return remotas.concat(localesNuevas);
+        });
     })
     .then(function(todas){
-      reportesLocales = todas; estado.reportes = reportesLocales;
+      reportesLocales = podarLista(todas, function(){ return false; });
+      estado.reportes = reportesLocales;
       almacen.datos.reportes = reportesLocales; guardar();
       nubeCargadaRep = true; renderReportes();
     })
@@ -1686,7 +1818,7 @@ function ssyncReportes(){
 }
 function ssyncComments(post){
   if (!estado._nube) { almacen.datos.publicaciones = publicaciones; guardar(); return; }
-  upsertNube('publicaciones', post).then(function(){ almacen.datos.publicaciones = publicaciones; guardar(); });
+  upsertNube('publicaciones', post).then(function(ok){ post._sinc = ok; almacen.datos.publicaciones = publicaciones; guardar(); });
 }
 function initNube(){
   nubeEstado('conectando');
@@ -2926,6 +3058,23 @@ function actualizarCoordenadasReporte(){
 }
 
 /* Fotografía */
+/* Reduce la foto a un peso ligero (≈120 KB o menos) para que la app siga
+   siendo rápida con datos móviles y para no llenar el almacenamiento local. */
+function comprimirFoto(img){
+  let w = img.width, h = img.height, cal = 0.72;
+  const cv = document.createElement('canvas');
+  const ctx = cv.getContext('2d');
+  for (let intento = 0; intento < 6; intento++){
+    if (w > 1000 || h > 1000){ const k = Math.min(1000 / w, 1000 / h); w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k)); }
+    cv.width = w; cv.height = h;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const url = cv.toDataURL('image/jpeg', cal);
+    if (url.length <= 160 * 1024 || cal <= 0.4) return url;
+    cal -= 0.12;
+  }
+  return cv.toDataURL('image/jpeg', 0.4);
+}
 $('#repFoto').addEventListener('change', function(){
   limpiarError('errRepFoto');
   const f = this.files && this.files[0];
@@ -2938,16 +3087,10 @@ $('#repFoto').addEventListener('change', function(){
   lector.onload = function(){
     const img = new Image();
     img.onload = function(){
-      const max = 1280;
-      let w = img.width, h = img.height;
-      if (w > max || h > max){ const k = Math.min(max / w, max / h); w = Math.round(w * k); h = Math.round(h * k); }
-      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      try {
-        estado.fotoData = cv.toDataURL('image/jpeg', 0.72);
-        $('#fotoPreviewImg').src = estado.fotoData;
-        $('#fotoPreview').classList.add('visible');
-      } catch(e){ marcarError('errRepFoto','No se pudo procesar la imagen.'); }
+      try { estado.fotoData = comprimirFoto(img); }
+      catch(e){ marcarError('errRepFoto','No se pudo procesar la imagen.'); return; }
+      $('#fotoPreviewImg').src = estado.fotoData;
+      $('#fotoPreview').classList.add('visible');
     };
     img.onerror = function(){ marcarError('errRepFoto','La imagen no se pudo leer.'); };
     img.src = lector.result;
@@ -3001,6 +3144,7 @@ $('#formReporte').addEventListener('submit', function(e){
     toast('✓ Reporte enviado correctamente' + (reporte.estado === 'Sincronizado con la nube' ? ' (sincronizado en la nube).' : ' (guardado en este dispositivo).') + ' Gracias por participar.', 'exito');
     // reset
     e.target.reset();
+    aplicarIdentidad(); // el nombre bloqueado vuelve a su valor (no queda en blanco)
     estado.fotoData = null; $('#fotoPreview').classList.remove('visible');
     estado.ubicacionReporte = null; actualizarCoordenadasReporte();
     $('#contadorRep').textContent = '0 / 500';
@@ -3024,7 +3168,13 @@ function renderReportes(){
     cab.append(av, meta, chip);
     const txt = document.createElement('p'); txt.className = 'txt-reporte'; txt.textContent = r.texto;
     art.append(cab, txt);
-    if (r.foto){ const im = document.createElement('img'); im.className = 'foto-reporte'; im.alt = 'Fotografía del reporte'; im.src = r.foto; art.appendChild(im); }
+    if (r.foto){
+      const im = document.createElement('img'); im.className = 'foto-reporte'; im.alt = 'Fotografía del reporte';
+      im.loading = 'lazy'; im.decoding = 'async'; im.referrerPolicy = 'no-referrer';
+      im.src = r.foto;
+      im.addEventListener('error', function(){ if (im.parentNode) im.parentNode.removeChild(im); });
+      art.appendChild(im);
+    }
     const pie = document.createElement('div'); pie.className = 'pie-reporte';
     const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + r.estado;
     pie.appendChild(est);
@@ -3080,6 +3230,7 @@ $('#formPost').addEventListener('submit', function(e){
     toast('✓ Publicación realizada' + (post._nube ? ' y compartida en la nube.' : ' (guardada en este dispositivo).') + ' ¡Gracias por participar!', 'exito');
     e.target.reset();
     $('#contadorPost').textContent = '0 / 500';
+    aplicarIdentidad(); // el nombre bloqueado vuelve a su valor (no queda en blanco)
     renderMuro();
   });
 });
@@ -3220,6 +3371,37 @@ function pintarModalCuenta(){
   }
 }
 $('#btnVerLogin').addEventListener('click', function(){ $('#formLogin').hidden = false; $('#formRegistro').hidden = true; $('#cLoginEmail').focus(); });
+
+/* --- Recuperación de contraseña --- */
+let tokenRecuperacion = null;
+$('#btnOlvidePass').addEventListener('click', function(){
+  const email = $('#cLoginEmail').value.trim();
+  if (!email){ marcarError('errLoginEmail','Escribe tu correo para enviarte el enlace.'); return; }
+  limpiarError('errLoginEmail'); limpiarError('errLoginGeneral');
+  const btn = this; btn.disabled = true;
+  pedirRecuperacion(email).then(function(res){
+    btn.disabled = false;
+    if (!res.ok){ marcarError('errLoginGeneral', res.error); return; }
+    toast('📧 Si ' + email + ' tiene cuenta, recibirás un enlace para crear una contraseña nueva.', 'exito', 6000);
+  });
+});
+$('#formNuevaPass').addEventListener('submit', function(e){
+  e.preventDefault();
+  const p1 = $('#npPass1').value, p2 = $('#npPass2').value;
+  if (p1.length < 6){ marcarError('errNuevaPass','La contraseña necesita al menos 6 caracteres.'); return; }
+  if (p1 !== p2){ marcarError('errNuevaPass','Las dos contraseñas no coinciden.'); return; }
+  limpiarError('errNuevaPass');
+  if (!tokenRecuperacion){ marcarError('errNuevaPass','Este enlace ya venció. Pide uno nuevo desde "Iniciar sesión".'); return; }
+  const btn = $('#btnGuardarPass'); btn.disabled = true; btn.textContent = 'Guardando…';
+  cambiarPassword(tokenRecuperacion, p1).then(function(res){
+    btn.disabled = false; btn.textContent = 'Guardar contraseña';
+    if (!res.ok){ marcarError('errNuevaPass', res.error); return; }
+    tokenRecuperacion = null;
+    $('#npPass1').value = ''; $('#npPass2').value = '';
+    cerrarModal('modalNuevaPass');
+    toast('🔑 Contraseña actualizada. Ya puedes iniciar sesión.', 'exito', 5200);
+  });
+});
 $('#btnVerRegistro').addEventListener('click', function(){ $('#formRegistro').hidden = false; $('#formLogin').hidden = true; $('#cRegNombre').focus(); });
 
 $('#formLogin').addEventListener('submit', function(e){
@@ -3362,8 +3544,17 @@ window.addEventListener('online', function(){ toast('🌐 Conexión restablecida
 window.addEventListener('offline', function(){ toast('Sin conexión: el mapa y las rutas necesitan internet.', 'error', 5500); });
 
 window.addEventListener('error', function(e){
+  if (e && e.target && e.target !== window) return;           // fallo de un recurso (imagen, fuente), no del código
   if (e && e.message && /leaflet|L\./i.test(e.message)) return;
+  console.warn(e && e.error);
   toast('Ocurrió un problema inesperado, pero la app sigue funcionando.', 'error', 4000);
+});
+
+window.addEventListener('unhandledrejection', function(e){
+  console.warn('Promesa rechazada:', e && e.reason);
+  const m = String((e && e.reason && (e.reason.message || e.reason.error)) || '');
+  if (/fetch|network|failed|load failed|aborted/i.test(m)) return; // sin conexión: ya se avisó antes
+  toast('Algo no pudo sincronizarse. Tus datos siguen guardados en este dispositivo.', 'error', 5000);
 });
 
 /* ============================================================
@@ -3390,6 +3581,19 @@ function iniciar(){
   // Se omite si ya hay una sesión guardada (aunque aún se esté restaurando).
   if (!verOnboarding() && !obtenerSesion()){
     setTimeout(function(){ abrirModal('modalBienvenida'); }, 900);
+  }
+
+  // Vuelve de "Olvidé mi contraseña": el enlace trae el token en la URL.
+  const rec = leerEnlaceRecuperacion();
+  if (rec){
+    history.replaceState(null, '', location.pathname + location.search);
+    if (rec.error){
+      toast('El enlace de recuperación no es válido: ' + rec.error, 'error', 6000);
+    } else {
+      tokenRecuperacion = rec.token;
+      abrirModal('modalNuevaPass');
+      setTimeout(function(){ $('#npPass1').focus(); }, 120);
+    }
   }
 
   if (typeof L === 'undefined'){
