@@ -139,6 +139,17 @@ function check(nombre, cond, detalle) {
   const insertDirecto = await json(REST + 'comentarios', { method: 'POST', headers: anon(), body: JSON.stringify([{ publicacion_id: postId, texto: 'injection', emisor: 'x', ts: Date.now() }]) });
   check('insert directo en comentarios bloqueado', !insertDirecto.ok, insertDirecto.data);
 
+  console.log('\n=== 8b. Tope de comentarios por dispositivo (P1.5) ===');
+  let n = 0, Ultimo = null;
+  for (let i = 0; i < 4; i++) {
+    const r = await json(REST + 'rpc/crear_comentario', { method: 'POST', headers: anon(), body: JSON.stringify({ p_publicacion_id: postId, p_texto: 'Comentario de prueba ' + (i + 1), p_autor: 'Invitado', p_huella: 'tope-' + STAMP }) });
+    if (r.ok) n++; else ultimo = r;
+  }
+  check('se aceptan 3 comentarios del mismo dispositivo', n === 3, n);
+  check('el 4º comentario se rechaza por tope', !!ultimo && /varios comentarios|demasiados/i.test(JSON.stringify(ultimo.data)), ultimo && ultimo.data);
+  const porIp = await json(REST + 'comentarios?publicacion_id=eq.' + postId + '&select=id', { headers: anon() });
+  check('solo quedaron 4 comentarios en total', porIp.data.length === 4, porIp.data.length);
+
   console.log('\n=== 9. Invitado NO puede reescribir el texto ===');
   const vanda = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ texto: 'TEXTO VANDALIZADO', nombre: 'Hacker' }) });
   check('texto intacto', vanda.data && vanda.data[0] && vanda.data[0].texto === post.texto, vanda.data);

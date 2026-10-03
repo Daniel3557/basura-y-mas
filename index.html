@@ -2048,24 +2048,39 @@ function upsertNube(tabla, obj){
   // _sinc/_nube/ejemplo/votado son marcas locales: nunca viajan a la nube.
   const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube; delete copia._sinc;
   if (sesion.usuario && sesion.usuario.id) copia.usuario_id = sesion.usuario.id;
+  // Huella anónima del dispositivo: la base de datos la usa para poner
+  // topes por persona y no depende de nada que se pueda falsear desde aquí.
+  copia.huella = huellaDispositivo();
   const envio = fetch(NUBE.url + tabla, {
     method: 'POST',
     headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
     body: JSON.stringify([copia])
   });
   return envio.then(function(r){
-    // Token caducado: renovarlo con el refresh_token y reintentar una vez
-    if (r.status === 401 && sesion.usuario && sesion.usuario.refresh){
-      return restaurarSesion().then(function(){
-        return fetch(NUBE.url + tabla, {
-          method: 'POST',
-          headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
-          body: JSON.stringify([copia])
-        }).then(function(r2){ return r2.ok; });
-      });
-    }
-    return r.ok;
+    return r.text().then(function(txt){
+      // Token caducado: renovarlo con el refresh_token y reintentar una vez
+      if (r.status === 401 && sesion.usuario && sesion.usuario.refresh){
+        return restaurarSesion().then(function(){
+          return fetch(NUBE.url + tabla, {
+            method: 'POST',
+            headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
+            body: JSON.stringify([copia])
+          }).then(function(r2){ return r2.ok; });
+        });
+      }
+      if (!r.ok && /l[ií]mite de frecuencia/i.test(txt)) avisarLimiteFrecuencia();
+      return r.ok;
+    });
   }).catch(function(){ return false; });
+}
+/* Aviso del tope de la base de datos. Solo se muestra una vez por minuto
+   para no llenar la pantalla si alguien mantiene pulsado el botón. */
+let _ultimoAvisoLimite = 0;
+function avisarLimiteFrecuencia(){
+  const ahora = Date.now();
+  if (ahora - _ultimoAvisoLimite < 60000) return;
+  _ultimoAvisoLimite = ahora;
+  toast('Has enviado demasiadas cosas en poco tiempo. Espera un minuto antes de continuar.', 'alerta', 5200);
 }
 /* ---------- Fotografías en Supabase Storage ----------
    Antes la foto viajaba dentro de la fila (data URL) y cada visita descargaba
