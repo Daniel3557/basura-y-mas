@@ -2018,8 +2018,43 @@ Escrito sin adornos, porque un proyecto honesto vale más que uno que parezca pe
 | DSN de Sentry | `OBSERVABILIDAD.dsn` en `app.js` | Los errores en producción no se ven |
 | Site key de Turnstile | (no implementado) | Los topes por IP son la única defensa |
 | Secret del workflow | GitHub → Settings → Secrets → Actions | No hay verificación automática |
+| **Borrar 22 fotos de prueba** del bucket | Supabase → Storage → `reportes-fotos` | Basura en el bucket, sin efecto en la app |
 
-### 17.7 Sugerencias de mejora
+### 17.7 Las fotos de prueba que sobran en Storage
+
+Cada corrida de `tests/e2e-supabase.js` sube una imagen al bucket `reportes-fotos` con
+nombre `reportes/e2e-…`. **La limpieza automática de la cabecera del archivo no puede
+borrarlas**: Postgres rechaza el borrado de `storage.objects` a propósito, para que nadie
+pierda archivos por accidente:
+
+```
+ERROR: 42501: Direct deletion from storage tables is not allowed. Use the Storage API instead.
+CONTEXT: PL/pgSQL function storage.protect_delete()
+```
+
+Por eso el E2E avisa de que hay filas que limpiar a mano. Estado real de la base de datos
+(medido el 3 de octubre de 2026): **22 fotos huérfanas de prueba y 1 real** (la del
+reporte de ponchito, que sí se conserva).
+
+Para borrarlas, sin `service_role` y sin scripts:
+
+1. Supabase → **Storage** → bucket `reportes-fotos`.
+2. Ordenar por nombre; se ven todas agrupadas con el prefijo `e2e-`.
+3. Seleccionar las `e2e-…`, borrar. **No borrar la que no empieza por `e2e-`.**
+
+Sialguna vez hay demasiadas, la vía rápida es la Storage API desde Node con el
+`service_role` (que **nunca** se escribe en un archivo ni se imprime):
+
+```bash
+# NO forma parte del proyecto: es una operación manual del dueño
+curl -X DELETE "$SUPABASE_URL/storage/v1/object/reportes-fotos/reportes/e2e-....jpg" \
+  -H "apikey: $SERVICE_ROLE" -H "Authorization: Bearer $SERVICE_ROLE"
+```
+
+> Lo mismo aplica a las fotos huérfanas que deja una cuenta borrada: la fila de
+> `reportes` y el archivo van por separado, y borrar la fila no arrastra el archivo.
+
+### 17.8 Sugerencias de mejora
 
 - **Notificaciones push reales** (Supabase no las da; habría que pasar a Firebase o a un service worker push propio).
 - **RSS/Atom** de los reportes para que el ayuntamiento los pueda consumir sin usar la web.
