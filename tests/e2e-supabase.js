@@ -20,6 +20,7 @@
      delete from public.publicaciones where id like 'e2e-%';
      delete from public.reportes   where id like 'e2e-%';
      delete from auth.users        where email like 'e2e.bym+%@gmail.com';
+     -- public.progresos se borra en cascada al borrar auth.users
 
    Salida esperada: "✅ Todas las comprobaciones pasaron".
    ============================================================ */
@@ -220,6 +221,22 @@ function check(nombre, cond, detalle) {
   check('el dueño sí borra (204)', propia.status === 204, propia.status);
   const yaNoEsta = await json(REST + 'reportes?id=eq.' + repId + '&select=id', { headers: anon() });
   check('el reporte ya no existe', (yaNoEsta.data || []).length === 0, yaNoEsta.data);
+
+  console.log('\n=== 12e. Progreso en la nube, solo de la propia cuenta (P4.18) ===');
+  const g1 = await json(REST + 'rpc/guardar_progreso', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_puntos: 40, p_insignias: ['separador'], p_dias_accion: ['20261003'] }) });
+  check('guardar_progreso crea la fila', g1.ok && g1.data && g1.data.puntos === 40, g1.data);
+  const g2 = await json(REST + 'rpc/guardar_progreso', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_puntos: 5, p_insignias: ['guia'], p_dias_accion: ['20261004'] }) });
+  check('los puntos NO pueden bajar', g2.ok && g2.data && g2.data.puntos === 40, g2.data);
+  check('las insignias solo se acumulan', g2.ok && g2.data && g2.data.insignias.sort().join(',') === 'guia,separador', g2.data && g2.data.insignias);
+  const g3 = await json(REST + 'rpc/guardar_progreso', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_puntos: 9999999, p_insignias: [] }) });
+  check('puntos absurdos acotados a 1000000', g3.ok && g3.data && g3.data.puntos === 1000000, g3.data);
+  const g4 = await json(REST + 'rpc/guardar_progreso', { method: 'POST', headers: anon(), body: JSON.stringify({ p_puntos: 500 }) });
+  check('sin sesión no se puede guardar progreso', !g4.ok, g4.data);
+  const g5 = await json(REST + 'progresos?id=eq.' + uid + '&select=puntos', { headers: anon() });
+  check('el progreso de otro NO se puede leer (RLS)', !g5.ok || g5.status === 401 || g5.status === 403, g5.status);
+  const g6 = await json(REST + 'progresos', { method: 'POST', headers: anon(), body: JSON.stringify([{ usuario_id: uid, puntos: 999999 }]) });
+  check('no se puede crear progreso con el id de otro', !g6.ok, g6.data);
+  await json(REST + 'rpc/guardar_progreso', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_puntos: 40, p_insignias: ['separador'], p_dias_accion: ['20261003'] }) });
 
   console.log('\n=== 13. Estado final (la limpieza es manual, ver cabecera del archivo) ===');
   const fin = await json(REST + 'publicaciones?id=like.e2e-*&select=id', { headers: anon() });

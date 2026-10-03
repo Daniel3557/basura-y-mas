@@ -299,7 +299,9 @@ function iniciarSesion(email, pass){
       return { ok: false, error: m };
     }
     guardarSesion({ id: res.d.user.id, email: res.d.user.email, token: res.d.access_token, refresh: res.d.refresh_token });
-    return cargarPerfilRemoto().then(function(){ return { ok: true }; });
+    return cargarPerfilRemoto()
+      .then(function(){ return cargarProgresoNube(); })
+      .then(function(){ comprobarAdmin(); subirProgreso(); return { ok: true }; });
   }).catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo iniciar sesión. Intenta de nuevo.' }; });
 }
 /* ---------- Recuperación de contraseña ----------
@@ -351,6 +353,8 @@ function cerrarSesion(){
     fetch(NUBE_AUTH + 'logout', { method: 'POST', headers: cabecerasNube() }).catch(function(){});
   }
   guardarSesion(null);
+  clearTimeout(_progresoTemporizador);
+  _progresoSubiendo = false;
   estado.nombrePerfil = 'Invitado';
   almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
   $('#repNombre').value = ''; $('#postNombre').value = '';
@@ -622,7 +626,7 @@ function initNube(){
   }).then(function(r){
     if (!r || !r.ok) throw new Error('HTTP ' + (r ? r.status : 0));
     nubeEstado('ok');
-    return Promise.all([ssyncPublicaciones(), ssyncReportes()]);
+    return Promise.all([ssyncPublicaciones(), ssyncReportes(), cargarProgresoNube()]);
   }).catch(function(){ nubeEstado('sin'); });
 }
 
@@ -806,6 +810,9 @@ function addPoints(cantidad, motivo){
   estado.puntos += cantidad;
   almacen.datos.puntos = estado.puntos;
   guardar();
+  // La nube es un espejo opcional: el progreso vive igual sin conexión
+  // y sin cuenta, y solo se sube cuando hay sesión.
+  sincronizarProgresoNube();
   toast('+' + cantidad + ' puntos · ' + motivo, 'exito', 3000);
   actualizarHeaderNivel();
   const despues = nivelDe(estado.puntos);
@@ -814,6 +821,73 @@ function addPoints(cantidad, motivo){
     toast('🎉 ¡Subiste al Nivel ' + despues.nivel + ' — ' + despues.nombre + '!', 'logro', 5500);
   }
   verificarInsignias();
+}
+
+/* ============================================================
+   PROGRESO EN LA NUBE (P4.18)
+   ------------------------------------------------------------
+   Principio: localStorage manda. La nube es un espejo opcional y
+   NUNCA hace retroceder un progreso:
+     · sin sesión o sin conexión → no pasa nada, todo igual que antes;
+     · al iniciar sesión se sube lo local y se baja lo que hubiera en
+       la nube, quedándose con la mejor de las dos versiones;
+     · cada subida va con retraso para no llamar al servidor en cada
+       pulsación.
+   ============================================================ */
+let _progresoTemporizador = null;
+let _progresoSubiendo = false;
+function hoyISO(){
+  const d = new Date();
+  return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+}
+function sincronizarProgresoNube(){
+  if (!estado._nube || !sesion.usuario) return;
+  clearTimeout(_progresoTemporizador);
+  _progresoTemporizador = setTimeout(function(){ subirProgreso(); }, 1200);
+}
+function subirProgreso(){
+  if (_progresoSubiendo || !sesion.usuario || !estado._nube) return;
+  _progresoSubiendo = true;
+  rpcNube('guardar_progreso', {
+    p_puntos: estado.puntos,
+    p_insignias: estado.insignias,
+    p_dias_accion: estado.diasAccion
+  }).then(function(r){
+    _progresoSubiendo = false;
+    if (r.ok && r.data){
+      aplicarProgresoRemoto(r.data);
+    }
+  }).catch(function(){ _progresoSubiendo = false; });
+}
+/** Combina lo local y lo de la nube quedándose siempre con lo más alto. */
+function aplicarProgresoRemoto(fila){
+  if (!fila) return;
+  const remoto = Number(fila.puntos) || 0;
+  const subio = remoto > estado.puntos;
+  const antes = nivelDe(estado.puntos).nivel;
+  estado.puntos = Math.max(estado.puntos, remoto);
+  estado.insignias = Array.from(new Set((estado.insignias || []).concat(fila.insignias || [])));
+  estado.diasAccion = Array.from(new Set((estado.diasAccion || []).concat(fila.dias_accion || [])));
+  almacen.datos.puntos = estado.puntos;
+  almacen.datos.insignias = estado.insignias;
+  almacen.datos.diasAccion = estado.diasAccion;
+  guardar();
+  if (subio){
+    toast('☁️ Progreso recuperado de tu cuenta: ' + estado.puntos + ' puntos.', 'info', 4200);
+    renderInsignias();
+  }
+  if (nivelDe(estado.puntos).nivel > antes){
+    lanzarConfeti();
+    toast('🎉 ¡Subiste al Nivel ' + nivelDe(estado.puntos).nivel + '!', 'logro', 5000);
+  }
+  renderPerfil(); actualizarHeaderNivel();
+}
+/** Se llama al entrar con sesión: baja lo que hubiera en la nube. */
+function cargarProgresoNube(){
+  if (!estado._nube || !sesion.usuario) return Promise.resolve();
+  return rpcNube('mi_progreso', {}).then(function(r){
+    if (r.ok && r.data) aplicarProgresoRemoto(r.data);
+  }).catch(function(){});
 }
 function marcarIndicadores(hash){
   estado._indicadores = estado._indicadores || {};
@@ -835,6 +909,7 @@ function verificarInsignias(){
       estado.insignias.push(ins.id);
       almacen.datos.insignias = estado.insignias;
       guardar();
+      sincronizarProgresoNube();
       lanzarConfeti();
       toast('🏅 Insignia desbloqueada: ' + ins.icono + ' ' + ins.nombre, 'logro', 5200);
       renderInsignias(ins.id);
