@@ -1638,7 +1638,92 @@ git commit -m "…"
 
 Si cambiaste `sw.js`, **sube el nombre de `CACHE`**. Mientras tanto, quien ya había visitado el sitio puede ver la versión anterior hasta hacer un `Ctrl+F5` (o abrir `https://basura-y-mas.vercel.app/?v=c6ff18c` para saltarse la caché).
 
-### 13.5 Entorno de desarrollo local
+### 13.5 SMTP para que "Olvidé mi contraseña" funcione con cualquier correo
+
+> **Estado actual: NO configurado.** Es el único punto del proyecto donde una función
+> terminada se queda sin entregar porque falta una cuenta del equipo. Esta es la receta
+> completa; se ha verificado contra la documentación de Resend y de Supabase, pero
+> **nadie la ha ejecutado todavía** (ver 17.6).
+
+**Por qué importa.** Sin SMTP propio, Supabase usa su servidor de prueba, que tiene dos
+límites duros: solo entrega a correos que estén en la pestaña *Team* del proyecto, y
+acepta **2 mensajes por hora**. En la práctica, un compañero de clase que se registra con
+su Gmail recibe `Email address not authorized` y el enlace de recuperación nunca llega. La
+app no falla: el correo es lo que no sale.
+
+**Paso 1 — Cuenta y dominio en Resend.**
+
+1. Crear cuenta en <https://resend.com> (plan gratuito: **3 000 correos al mes, 100 al
+   día, 3 dominios**; suficiente de sobra para una escuela).
+2. *Domains → Add Domain*. Lo ideal es un dominio propio; si no hay ninguno, sirve el
+   dominio de prueba `onboarding@resend.dev`, **pero solo entrega a tu propio correo**,
+   así que no resuelve el problema.
+3. Con un dominio propio hay que añadir los registros DNS que indique Resend
+   (`SPF`, `DKIM` y un registro `TXT` de verificación) en el panel del registrador del
+   dominio. **Sin esto el dominio no se marca *verified* y no se puede usar como
+   remitente.**
+4. Copiar la **API key** (*API Keys → Create API Key*, empieza por `re_`). Es una
+   contraseña: no va en el repositorio, ni en un commit, ni en un mensaje.
+
+**Paso 2 — Datos SMTP que pide Supabase.** *Settings → SMTP*, tal cual los muestra Resend:
+
+| Campo de Supabase | Valor de Resend |
+|---|---|
+| Host | `smtp.resend.com` |
+| Port | `465` (SSL implícito) o `587` (STARTTLS) |
+| Username | `resend` — **no** es el correo, es la palabra fija |
+| Password | la **API key** (`re_…`) |
+| Sender name | `Basura y Más` |
+
+Otros puertos válidos: 25, 465, 587, 2465, 2587 (465 y 2465 son SMTPS; los demás
+STARTTLS).
+
+**Paso 3 — Pegarlo en Supabase.** *Project Settings → Authentication → Emails → SMTP
+Settings*:
+
+1. Activar **"Enable Custom SMTP"**.
+2. Rellenar host, puerto, usuario y contraseña con la tabla de arriba.
+3. **Sender address**: una dirección del dominio ya verificado, p. ej.
+   `no-reply@tu-dominio`. **No** puede ser una dirección de `@gmail.com`: el dominio del
+   remitente tiene que coincidir con el verificado, o el correo acaba en spam.
+4. Guardar.
+
+Equivalente por API, si se prefiere hacerlo por terminal (el token se saca de
+<https://supabase.com/dashboard/account/tokens>):
+
+```bash
+curl -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_email_enabled": true,
+    "smtp_admin_email": "no-reply@tu-dominio",
+    "smtp_host": "smtp.resend.com",
+    "smtp_port": 465,
+    "smtp_user": "resend",
+    "smtp_pass": "re_…",
+    "smtp_sender_name": "Basura y Más"
+  }'
+```
+
+**Paso 4 — Subir el tope de envío.** Al activar un SMTP propio, Supabase impone
+temporalmente un límite conservador de **30 correos por hora** para proteger la
+reputación del dominio. Se ajusta en *Authentication → Rate Limits → Emails*.
+
+**Paso 5 — Comprobar que sí llega.** En la app: *Mi cuenta → Olvidé mi contraseña* con
+un correo **distinto** del que está en la pestaña *Team* ( Gmail, Hotmail, el del
+compañero de al lado). Si llega, la casilla de 14.4 deja de estar en rojo.
+
+> 🔐 **La API key de Resend es una contraseña.** Va solo en el panel de Supabase (que la
+> guarda cifrada). Nunca en `app.js`, ni en `vercel.json`, ni en este repositorio, ni en
+> una captura. La regla del proyecto sigue siendo la de siempre: no imprimir
+> `service_role` ni tokens.
+
+**Lo que NO hace falta tocar:** nada en el código. La app ya llama a
+`supabase.auth.resetPasswordForEmail()` y abre el formulario de nueva contraseña; solo
+le falta que alguien por el otro lado reciba el correo.
+
+### 13.6 Entorno de desarrollo local
 
 La app no necesita build. Lo más simple es un servidor estático:
 
@@ -1689,7 +1774,7 @@ npx serve -l 8788 .          # o: python -m http.server 8788
 5. Escribe la nueva contraseña dos veces → **"Guardar contraseña"**.
 6. Inicia sesión con la nueva.
 
-> ⚠️ **Importante hoy:** el correo **solo llega a correos del proyecto** porque falta configurar SMTP en Supabase. Si alguien de tu clase pide recuperar la contraseña, **no le llegará nada**. Hay que conectar un proveedor SMTP (ver 8.7).
+> ⚠️ **Importante hoy:** el correo **solo llega a correos del proyecto** porque falta configurar SMTP en Supabase. Si alguien de tu clase pide recuperar la contraseña, **no le llegará nada**. Hay que conectar un proveedor SMTP: la **receta paso a paso con Resend está en 13.5**.
 
 ### 14.5 Ver tu ruta de recolección
 
@@ -1927,7 +2012,7 @@ Escrito sin adornos, porque un proyecto honesto vale más que uno que parezca pe
 
 | Qué | Dónde | Sin esto |
 |---|---|---|
-| SMTP con Resend | Supabase → Authentication → Providers → Email | "Olvidé mi contraseña" no entrega correo |
+| SMTP con Resend | Supabase → Authentication → Providers → Email — **receta completa en 13.5** | "Olvidé mi contraseña" no entrega correo a nadie fuera del equipo |
 | Correo de destino | `DESTINO.correo` en `app.js` | No hay envío automático al municipio |
 | Desplegar `resumen-reportes` | `supabase functions deploy resumen-reportes` | Solo existen el CSV y el resumen manual |
 | DSN de Sentry | `OBSERVABILIDAD.dsn` en `app.js` | Los errores en producción no se ven |
