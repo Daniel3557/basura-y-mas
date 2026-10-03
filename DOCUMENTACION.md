@@ -1561,18 +1561,35 @@ Producción: **https://basura-y-mas.vercel.app**
 
 ### 13.1 Lo que se despliega
 
-Todo lo versionado en Git **menos** lo que `.gitignore` excluye. Verificado en producción:
+**No se despliega todo lo versionado.** A producción van solo los **13 archivos que el
+sitio sirve**; el resto se queda en el repositorio:
+
+| Sí va a producción | No va, y por qué |
+|---|---|
+| `index.html`, `estilos.css`, `app.js`, `sw.js` | `DOCUMENTACION.md` — documentación interna |
+| `vercel.json` (cabeceras y caché) | `migrations/` — el esquema de la base de datos |
+| `manifest.webmanifest`, `robots.txt`, `sitemap.xml` | `supabase-schema.sql`, `tests/`, `tools/` |
+| Los 6 iconos (`icon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, `og.png`) | `.github/` — no lo ejecuta Vercel |
+| | `supabase/functions/` — es código de Edge Function, no de Vercel |
+| | `video-demo-basura-y-mas.mp4` (943 KB, no se sirve desde ninguna página) |
+| | `.gitignore` |
+
+Publicar el esquema y las migraciones en un sitio público no añade nada y sí enseña la
+estructura de la base de datos. El proyecto sigue siendo el repositorio Git completo.
+
+**Verificado en producción el 3 de octubre de 2026** (despliegue `dpl_CBCxgDXva6iLTbUdrq8eTdNntB87`, 13 archivos):
 
 | Comprobación | Resultado |
 |---|---|
-| `sw.js` contiene `bym-v5` | ✅ |
-| `index.html` usa `order=ts.desc` (2 ocurrencias) | ✅ |
-| `robots.txt` responde 200 | ✅ |
-| `sitemap.xml` responde 200 | ✅ |
-| `icon-512.png` responde 200 | ✅ |
-| 5 cabeceras de seguridad presentes | ✅ |
-| `Cache-Control: public, max-age=0, must-revalidate` en `sw.js` | ✅ |
-| Cero errores de consola en navegador real | ✅ |
+| `app.js` y `estilos.css` sirven la versión nueva (154 622 y 56 498 bytes) | ✅ |
+| `sw.js` contiene `bym-v7` | ✅ |
+| Los 6 iconos, `manifest.webmanifest`, `robots.txt` y `sitemap.xml` responden **200** | ✅ |
+| `Content-Security-Policy` presente, sin `unsafe-eval` | ✅ |
+| Las otras 5 cabeceras (`Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) | ✅ |
+| Service worker registrado **en el dominio real** y caché `bym-v7` con los 8 archivos | ✅ |
+| Botón "Explorar como invitado" visible; los 4 enlaces del pie presentes | ✅ |
+| Cero errores de consola y ninguna violación de la CSP | ✅ |
+| Botón de moderación oculto para un invitado | ✅ |
 
 ### 13.2 Opción A — Despliegue automático desde GitHub (la deseada)
 
@@ -1938,7 +1955,7 @@ Ejecuta **60 comprobaciones** contra la API real de Supabase, sin navegador, en 
 
 ### 16.3 Verificación manual en navegador (realizada)
 
-Sobre un servidor local (`npx serve -l 8788`), en Chromium:
+Sobre un servidor local (`npx serve -l 8788`) **y contra producción**, en Chromium:
 
 | Comprobación | Resultado |
 |---|---|
@@ -1949,6 +1966,9 @@ Sobre un servidor local (`npx serve -l 8788`), en Chromium:
 | Contraste WCAG AA de los elementos nuevos (`.motivo-*`, `.bienvenida-valor`, `.footer-link`) en claro **y** en oscuro | Mínimo **5.15:1** (el mínimo exigido es 4.5:1) |
 | Service worker tras extraer CSS y JS | Registrado, precarga `estilos.css` y `app.js` (caché `bym-v7`) |
 | JSON-LD | Válido al parsearlo |
+| **Sincronización sin bucle** (semillado en `localStorage` un reporte con `usuario_id` ajeno **sin** `_pendiente` y otro **con** ella) | En la red: **un solo** `POST /reportes` (201), ninguno a `publicaciones`, **ningún 401/403**. El que lleva `_pendiente` sube; el otro se queda como copia local |
+| **Guardia de moderación** sin cuenta admin (botón forzado a visible y pulsado) | Toast "Esta sección es solo para cuentas administradoras del proyecto" y **no** cambia de vista |
+| **Producción**: mismo origen, caché, enlaces y consola | Todo correcto (ver 13.1) |
 
 ### 16.4 Qué **no** hay
 
