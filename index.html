@@ -1267,6 +1267,7 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
               <button type="button" class="btn btn-fantasma btn-chico" id="repQuitarUbicacion"><svg class="icono"><use href="#i-x"/></svg>Quitar</button>
             </div>
             <p class="coord-texto" id="repCoordenadas">Sin ubicación asignada. El reporte se guardará sin coordenadas.</p>
+            <p style="font-size:.72rem;color:var(--muted);margin-top:.25rem">🔒 Antes de guardarse, la coordenada se redondea a unos <strong>100 metros</strong>. Así nadie puede deducir la dirección exacta de tu casa.</p>
             <p class="error-msg" id="errRepUbic" role="alert"></p>
           </div>
 
@@ -3608,7 +3609,9 @@ function renderReportes(){
     const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + r.estado;
     pie.appendChild(est);
     if (r.ubicacion){
-      const ub = document.createElement('span'); ub.className = 'chip'; ub.textContent = '📍 ' + r.ubicacion.lat.toFixed(4) + ', ' + r.ubicacion.lng.toFixed(4);
+      const ub = document.createElement('span'); ub.className = 'chip';
+      ub.textContent = '📍 Aprox. ' + Number(r.ubicacion.lat).toFixed(3) + ', ' + Number(r.ubicacion.lng).toFixed(3) + ' (±100 m)';
+      ub.title = 'La ubicación se difumina antes de guardarse para no publicar la dirección exacta de quien reportó.';
       pie.appendChild(ub);
     }
     const bDel = document.createElement('button'); bDel.type = 'button'; bDel.className = 'btn-eliminar'; bDel.style.marginLeft = 'auto';
@@ -3978,7 +3981,7 @@ $('#btnAcerca').addEventListener('click', function(){
 $('#btnPrivacidad').addEventListener('click', function(){
   cerrarModal('modalConfig');
   mostrarInfo('Privacidad', [
-    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros.',
+    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros. <strong>El punto exacto no se guarda nunca:</strong> al escribir el reporte la coordenada se redondea a unos 100 metros.',
     '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte (dispositivo y nube).',
     '<strong>Datos personales:</strong> puedes crear una cuenta con tu correo (Supabase Auth) para firmar con tu nombre, o participar como invitado o anónimo. Tu sesión se guarda en este navegador. Reportes y publicaciones se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
     '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas.'

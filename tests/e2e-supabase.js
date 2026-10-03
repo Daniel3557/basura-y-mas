@@ -10,8 +10,9 @@
        node tests/e2e-supabase.js
 
    IMPORTANTE · esta prueba crea datos de prueba en la nube.
-   Las tablas no tienen política de borrado (por seguridad), así que
-   al terminar hay que limpiarlos desde el SQL Editor de Supabase:
+   Las tablas no tienen política de borrado para el cliente (por
+   seguridad), así que al terminar hay que limpiarlos desde el SQL
+   Editor de Supabase:
 
      delete from storage.objects where name like 'reportes/e2e-%';
      delete from public.comentarios  where publicacion_id like 'e2e-%';
@@ -100,6 +101,17 @@ function check(nombre, cond, detalle) {
   const insRep = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation', resolution: 'merge-duplicates' }), body: JSON.stringify([rep]) });
   check('reporte insertado', insRep.ok && insRep.data.length === 1, insRep.data);
   check('foto guardada como URL (no data URL)', insRep.data[0] && String(insRep.data[0].foto).indexOf('https://') === 0, insRep.data[0] && insRep.data[0].foto);
+  check('ubicación difuminada a 3 decimales', insRep.data[0] && insRep.data[0].ubicacion && insRep.data[0].ubicacion.aprox === true && String(insRep.data[0].ubicacion.lat).split('.')[1].length <= 3, insRep.data[0] && insRep.data[0].ubicacion);
+  check('ubicación sin claves extra', insRep.data[0] && insRep.data[0].ubicacion && Object.keys(insRep.data[0].ubicacion).sort().join(',') === 'aprox,lat,lng', insRep.data[0] && insRep.data[0].ubicacion);
+  // El trigger redondea antes de insertar, así que una coordenada exacta
+  // no se rechaza: se guarda aproximada y sin las claves que nadie pidió.
+  const exactaId = 'e2e-exacta-' + STAMP;
+  const exacta = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: exactaId, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Intento de guardar coordenada exacta.', estado: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 19.706123, lng: -103.461234, email: 'fuga@ejemplo.com' } }]) });
+  const ub = exacta.data && exacta.data[0] && exacta.data[0].ubicacion;
+  check('coordenada exacta se guarda redondeada', !!ub && String(ub.lat) === '19.706' && String(ub.lng) === '-103.461', exacta.data);
+  check('clave ajena (email) descartada del jsonb', !!ub && ub.email === undefined && Object.keys(ub).sort().join(',') === 'aprox,lat,lng', ub);
+  const imposible = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: 'e2e-imposible-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Coordenada imposible.', estado: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 999, lng: 0 } }]) });
+  check('coordenada imposible se guarda como null', imposible.data && imposible.data[0] && imposible.data[0].ubicacion === null, imposible.data);
 
   console.log('\n=== 7. Límites de tamaño (texto de 5000 caracteres) ===');
   const largo = await json(REST + 'publicaciones', { method: 'POST', headers: conSesion(), body: JSON.stringify([{ id: 'e2e-largo-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Aviso', texto: 'a'.repeat(5000), likes: 0, comentarios: [], ts: Date.now(), usuario_id: uid }]) });
@@ -147,7 +159,17 @@ function check(nombre, cond, detalle) {
 
   console.log('\n=== 12. Recuperación de contraseña (envío de correo) ===');
   const rec = await json(AUTH + 'recover', { method: 'POST', headers: anon(), body: JSON.stringify({ email: EMAIL, redirect_to: 'https://basura-y-mas.vercel.app/' }) });
-  check('recover responde 200 (o 5xx de SMTP)', rec.ok, rec.data);
+  // Supabase impone su propio límite de correos por hora (429
+  // over_email_send_rate_limit). Eso NO es un fallo de la app: es la
+  // protección antispam del servicio, y por eso esta comprobación
+  // distingue "respondió" de "llegó" (esto último no se puede
+  // verificar desde aquí; se comprueba a mano con un correo real).
+  check('recover responde (200, o 429 por el límite de correo de Supabase)',
+    rec.ok || (rec.data && rec.data.error_code === 'over_email_send_rate_limit'),
+    rec.data);
+  if (rec.data && rec.data.error_code === 'over_email_send_rate_limit') {
+    console.log('  nota · Supabase limitó el envío de correos de esta hora. La entrega real sigue SIN VERIFICAR.');
+  }
 
   console.log('\n=== 13. Estado final (la limpieza es manual, ver cabecera del archivo) ===');
   const fin = await json(REST + 'publicaciones?id=like.e2e-*&select=id', { headers: anon() });
