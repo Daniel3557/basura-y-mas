@@ -2472,6 +2472,7 @@ function mostrarPrivacidad(){
     '<strong>Tu cuenta:</strong> puedes crearla con tu correo (Supabase Auth) o participar sin cuenta como invitado o anónimo. El correo <strong>nunca se muestra</strong> a los demás: tu nombre público es el que elegiste o, si no elegiste, “Vecino”.',
     '<strong>Tus datos y los de otros:</strong> puedes borrar tu propia publicación y tu propio reporte desde la app. No puedes borrar ni editar lo de otras personas, ni el contenido que el equipo del proyecto haya moderado.',
     '<strong>Dónde viven:</strong> en una base de datos Supabase (PostgreSQL) con políticas de seguridad a nivel de fila, y también en tu navegador (para que la app funcione sin conexión). Puedes borrar lo local en <em>Configuración → Restablecer datos locales</em>.',
+    '<strong>Errores de la app:</strong> si el proyecto activa <span title="Sentry, servicio de seguimiento de errores">Sentry</span> para detectar fallos técnicos, se envían solo el tipo de error y el navegador. <strong>Nunca</strong> se envía tu nombre, tu correo ni el texto de lo que escribes. Ahora mismo está <strong>desactivado</strong>: no se envía nada a ningún servicio de ese tipo.',
     '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas. Si ves algo que no debería estar publicado, dilo por el enlace de contacto y lo ocultamos.'
   ]);
 }
@@ -2730,10 +2731,74 @@ window.addEventListener('scroll', function(){
 window.addEventListener('online', function(){ toast('🌐 Conexión restablecida.', 'exito', 3000); });
 window.addEventListener('offline', function(){ toast('Sin conexión: el mapa y las rutas necesitan internet.', 'error', 5500); });
 
+/* ============================================================
+   OBSERVABILIDAD DE ERRORES (Sentry, opcional)
+   ------------------------------------------------------------
+   Qué se envía y qué NO:
+     · se envía: nombre del error, archivo y línea, navegador.
+     · NO se envía: correos, nombres, ni el texto de reportes o
+       publicaciones, ni los identificadores de cuenta. Los errores
+       de red se descartan porque solo dicen "no hay conexión", que
+       la app ya le avisa a la persona con un toast.
+
+   Mientras dsn esté vacío NO se carga nada: ni una petición extra
+   ni una sola línea de un tercero. El proyecto funciona igual sin
+   esto; es ayuda para el desarrollo, no una dependencia.
+
+   CÓMO ACTIVARLO
+     1) Crea un proyecto en sentry.io (plan gratuito, para un
+        proyecto escolar).
+     2) Copia la Client Key (DSN) de Settings → Client Keys.
+     3) Pégala en la constante DSN de más abajo y sube el cambio.
+     La DSN NO es una contraseña: es pública y va incrustada en el
+     código por diseño. Aun asi, solo puede enviar eventos, no leer.
+   ============================================================ */
+const OBSERVABILIDAD = {
+  dsn: '',            // ← pegar aquí la DSN de sentry.io
+  entorno: 'produccion'
+};
+function iniciarObservabilidad(){
+  if (!OBSERVABILIDAD.dsn || window.Sentry) return;
+  const s = document.createElement('script');
+  s.src = 'https://browser.sentry-cdn.com/8.47.0/bundle.min.js';
+  s.async = true;
+  s.crossOrigin = 'anonymous';
+  s.onload = function(){
+    if (!window.Sentry) return;
+    window.Sentry.init({
+      dsn: OBSERVABILIDAD.dsn,
+      environment: OBSERVABILIDAD.entorno,
+      sendDefaultPii: false,
+      tracesSampleRate: 0,                       // solo errores, nada de rendimiento
+      ignoreErrors: [/leaflet/i, /L\./i, /ResizeObserver/i],
+      beforeSend: function(ev){
+        // Nunca sale de Sentry lo que la gente escribió.
+        if (ev && ev.extra) delete ev.extra.texto;
+        if (ev && ev.request && ev.request.url) ev.request.url = ev.request.url.split('?')[0];
+        const noEnviar = /fetch|network|failed|load failed|aborted|timeout/i;
+        const m = String((ev && ev.exception && ev.exception.values && ev.exception.values[0] && ev.exception.values[0].value) || '');
+        if (noEnviar.test(m)) return null;       // ya se le avisó con un toast
+        return ev;
+      }
+    });
+  };
+  s.onerror = function(){ /* si no carga, la app sigue igual */ };
+  document.head.appendChild(s);
+}
+/** Envía el error a Sentry si está activo. Nunca rompe nada. */
+function reportarError(e){
+  try {
+    if (window.Sentry && typeof window.Sentry.captureException === 'function'){
+      window.Sentry.captureException(e);
+    }
+  } catch (x){ /* reportar un fallo al reportar un fallo no sirve de nada */ }
+}
+
 window.addEventListener('error', function(e){
   if (e && e.target && e.target !== window) return;           // fallo de un recurso (imagen, fuente), no del código
   if (e && e.message && /leaflet|L\./i.test(e.message)) return;
   console.warn(e && e.error);
+  reportarError(e && e.error ? e.error : new Error(String((e && e.message) || 'error desconocido')));
   toast('Ocurrió un problema inesperado, pero la app sigue funcionando.', 'error', 4000);
 });
 
@@ -2741,6 +2806,7 @@ window.addEventListener('unhandledrejection', function(e){
   console.warn('Promesa rechazada:', e && e.reason);
   const m = String((e && e.reason && (e.reason.message || e.reason.error)) || '');
   if (/fetch|network|failed|load failed|aborted/i.test(m)) return; // sin conexión: ya se avisó antes
+  reportarError((e && e.reason) || new Error('Promesa rechazada: ' + m));
   toast('Algo no pudo sincronizarse. Tus datos siguen guardados en este dispositivo.', 'error', 5000);
 });
 
@@ -2749,6 +2815,7 @@ window.addEventListener('unhandledrejection', function(e){
    ============================================================ */
 function iniciar(){
   aplicarTema(estado.tema);
+  iniciarObservabilidad();   // no hace nada mientras la DSN esté vacía
   initNube();
   actualizarHeaderNivel();
   pintarBotonNotif();
