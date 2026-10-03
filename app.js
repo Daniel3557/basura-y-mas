@@ -134,6 +134,7 @@ const dataLayer = {
     return Promise.resolve(null);
   },
   createReport(reporte){
+    reporte._pendiente = true;   // se sube solo la primera vez, y solo si nunca se subió
     reportesLocales.push(reporte); almacen.datos.reportes = reportesLocales; guardar();
     reporte.estado_sync = 'Sincronizado con la nube';
     // La fotografía se sube como archivo a Supabase Storage: la fila solo
@@ -149,6 +150,7 @@ const dataLayer = {
     });
   },
   createPost(post){
+    post._pendiente = true;     // se sube solo la primera vez, y solo si nunca se subió
     publicaciones.unshift(post); almacen.datos.publicaciones = publicaciones; guardar();
     return upsertNube('publicaciones', post).then(function(ok){ post._nube = ok; post._sinc = ok; guardar(); return post; });
   },
@@ -386,11 +388,41 @@ function mensajeNube(r){
   if (!r || !r.status) return 'Sin conexión: tu apoyo se guardó solo en este dispositivo.';
   return 'No se pudo registrar tu apoyo.';
 }
+/* ---------- Cuántos intentos lleva un elemento local ----------
+   Sin esto, un reporte que la nube rechaza (porque ya no existe, o
+   porque se superó un límite) se volvía a subir en cada sincronización,
+   para siempre: decenas de peticiones fallidas en cada carga. */
+const MAX_INTENTOS_NUBE = 3;
+function marcarIntento(x){
+  x._intentos = (x._intentos || 0) + 1;
+  return x._intentos;
+}
+function esperaDemasiado(x){ return (x._intentos || 0) >= MAX_INTENTOS_NUBE; }
+
+/** Un aviso, no uno por elemento: el usuario no puede hacer nada con
+    esta información y el toast solo se robaría la pantalla. */
+let _ultimoAvisoSinSubir = 0;
+function avisarSinSubir(lista){
+  const atascados = lista.filter(esperaDemasiado);
+  if (!atascados.length) return;
+  const ahora = Date.now();
+  if (ahora - _ultimoAvisoSinSubir < 300000) return;   // una vez cada 5 min
+  _ultimoAvisoSinSubir = ahora;
+  toast('⚠️ ' + atascados.length + ' contenido(s) se guardaron solo en este dispositivo porque la nube no los aceptó. Bórralos desde la app si ya no los necesitas.', 'alerta', 6000);
+}
+
 function upsertNube(tabla, obj){
   if (!estado._nube) return Promise.resolve(false);
-  // _sinc/_nube/ejemplo/votado son marcas locales: nunca viajan a la nube.
-  const copia = Object.assign({}, obj); delete copia.ejemplo; delete copia.votado; delete copia._nube; delete copia._sinc;
-  if (sesion.usuario && sesion.usuario.id) copia.usuario_id = sesion.usuario.id;
+  // _sinc/_nube/_intentos/ejemplo/votado son marcas locales: no viajan.
+  const copia = Object.assign({}, obj);
+  delete copia.ejemplo; delete copia.votado; delete copia._nube;
+  delete copia._sinc; delete copia._intentos; delete copia._pendiente;
+  // IMPORTANTE: el usuario_id se NORMALIZA siempre. Antes solo se
+  // sobrescribía cuando había sesión, así que sin sesión se enviaba el
+  // id de la cuenta con la que se creó en su día, la base de datos lo
+  // rechazaba (no se puede reclamar la autoría de otra persona) y la
+  // app lo reintentaba eternamente.
+  copia.usuario_id = (sesion.usuario && sesion.usuario.id) || null;
   // Huella anónima del dispositivo: la base de datos la usa para poner
   // topes por persona y no depende de nada que se pueda falsear desde aquí.
   copia.huella = huellaDispositivo();
@@ -566,11 +598,26 @@ function ssyncPublicaciones(){
       });
       const vistos = {}; remotas.forEach(function(p){ vistos[p.id] = true; });
       // Solo se reintentan las que aún no se han podido subir (nada de
-      // reenviar 150 publicaciones en cada visita).
-      const localesNuevas = publicaciones.filter(function(p){ return !p.ejemplo && !vistos[p.id] && !p._sinc; });
+      // reenviar 150 publicaciones en cada visita), y como mucho
+      // MAX_INTENTOS_NUBE veces: pasado ese punto se quedan solo aquí,
+      // marcadas como copia local, en vez de golpear el servidor cada vez.
+      // _pendiente lo pone la app al CREAR el contenido y se borra en
+      // cuanto la nube lo acepta. Sin esta marca, todo lo que estuviera
+      // en el dispositivo se volvía a subir en cada arranque: lo que un
+      // vecino hubiera borrado en la nube reaparecía solo.
+      const localesNuevas = publicaciones.filter(function(p){
+        return !p.ejemplo && !vistos[p.id] && p._pendiente && !esperaDemasiado(p);
+      });
       return Promise.all(localesNuevas.map(function(p){
-        return upsertNube('publicaciones', p).then(function(ok){ p._sinc = ok; });
-      })).then(function(){ return remotas.concat(localesNuevas); });
+        return upsertNube('publicaciones', p).then(function(ok){
+          p._sinc = ok;
+          if (ok) p._pendiente = false;
+          else marcarIntento(p);
+        });
+      })).then(function(){
+        avisarSinSubir(publicaciones);
+        return remotas.concat(localesNuevas);
+      });
     })
     .then(function(todas){
       return adjuntarComentarios(todas).then(function(){ return todas; });
@@ -596,10 +643,18 @@ function ssyncReportes(){
         return x;
       }).filter(function(x){ return estado.eliminadosRep.indexOf(x.id) === -1; });
       const vistos = {}; remotas.forEach(function(x){ vistos[x.id] = true; });
-      const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id] && !x._sinc; });
-      return Promise.all(localesNuevas.map(function(x){ return upsertNube('reportes', x); }))
+      const localesNuevas = reportesLocales.filter(function(x){
+        return !vistos[x.id] && x._pendiente && !esperaDemasiado(x);
+      });
+      return Promise.all(localesNuevas.map(function(x){
+        return upsertNube('reportes', x).then(function(ok){
+          x._sinc = ok;
+          if (ok){ x._pendiente = false; x.estado_sync = 'Sincronizado con la nube'; }
+          else { x.estado_sync = 'Registrado localmente (copia local)'; marcarIntento(x); }
+        });
+      }))
         .then(function(){
-          localesNuevas.forEach(function(x){ x._sinc = true; x.estado_sync = 'Sincronizado con la nube'; });
+          avisarSinSubir(reportesLocales);
           return remotas.concat(localesNuevas);
         });
     })

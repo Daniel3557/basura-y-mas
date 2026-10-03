@@ -76,6 +76,22 @@ jobs:
           grep -q "'./app.js'" sw.js || { echo "::error::sw.js no precarga app.js"; exit 1; }
           echo "OK: el service worker precarga todo lo nuevo."
 
+      - name: La sincronización no puede reventar contra la nube
+        run: |
+          set -e
+          # Sin normalizar el usuario_id, sin sesión se enviaba el id de
+          # la cuenta con la que se creó en su día: la base de datos lo
+          # rechazaba y la app lo reintentaba eternamente.
+          grep -q 'copia.usuario_id = (sesion.usuario && sesion.usuario.id) || null' app.js || {
+            echo "::error::upsertNube debe normalizar siempre usuario_id (si no, reintentos infinitos con 401)."; exit 1; }
+          # Sin la marca _pendiente, lo borrado en la nube reaparece: cada
+          # arranque volvía a subir todo lo que hubiera en el dispositivo.
+          grep -q 'p._pendiente && !esperaDemasiado(p)' app.js || {
+            echo "::error::la sincronización de publicaciones debe filtrar por _pendiente."; exit 1; }
+          grep -q 'x._pendiente && !esperaDemasiado(x)' app.js || {
+            echo "::error::la sincronización de reportes debe filtrar por _pendiente."; exit 1; }
+          echo "OK: la sincronización no puede entrar en bucle ni resucitar contenido borrado."
+
       - name: JSON válidos
         run: |
           set -e
