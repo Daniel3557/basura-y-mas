@@ -60,13 +60,21 @@ function check(nombre, cond, detalle) {
   const uid = sesion.user.id;
 
   console.log('\n=== 2. Perfil creado por el trigger ===');
-  const perfiles = await json(REST + 'perfiles?id=eq.' + uid + '&select=id,nombre', { headers: conSesion() });
+  const perfiles = await json(REST + 'perfiles?id=eq.' + uid + '&select=id,nombre,nombre_edicado', { headers: conSesion() });
   check('perfil existe', Array.isArray(perfiles.data) && perfiles.data.length === 1, perfiles.data);
-  check('nombre = prefijo del correo', perfiles.data[0] && perfiles.data[0].nombre === EMAIL.split('@')[0], perfiles.data);
+  check('nombre por defecto = Vecino (no el correo)', perfiles.data[0] && perfiles.data[0].nombre === 'Vecino', perfiles.data);
+  check('nombre_edicado = false al crearse', perfiles.data[0] && perfiles.data[0].nombre_edicado === false, perfiles.data);
+  check('el correo NO aparece en el perfil', JSON.stringify(perfiles.data).indexOf(EMAIL.split('@')[0]) === -1, perfiles.data);
 
   console.log('\n=== 3. Renombrar el perfil (PATCH propio) ===');
-  const ren = await json(REST + 'perfiles?id=eq.' + uid, { method: 'PATCH', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify({ nombre: 'Vecino E2E' }) });
+  const ren = await json(REST + 'perfiles?id=eq.' + uid, { method: 'PATCH', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify({ nombre: 'Vecino E2E', nombre_edicado: true }) });
   check('nombre actualizado', ren.data && ren.data[0] && ren.data[0].nombre === 'Vecino E2E', ren.data);
+  check('nombre_edicado = true', ren.data && ren.data[0] && ren.data[0].nombre_edicado === true, ren.data);
+  // PostgREST responde 204 cuando RLS filtra todas las filas: no basta con
+  // mirar el código, hay que volver a LEER el perfil y ver que no cambió.
+  await json(REST + 'perfiles?id=eq.' + uid, { method: 'PATCH', headers: anon(), body: JSON.stringify({ nombre: 'Hackeado' }) });
+  const trasIntento = await json(REST + 'perfiles?id=eq.' + uid + '&select=nombre', { headers: anon() });
+  check('un invitado no cambia el perfil de otro', trasIntento.data && trasIntento.data[0] && trasIntento.data[0].nombre === 'Vecino E2E', trasIntento.data);
 
   console.log('\n=== 4. Publicar con cuenta (usuario_id propio) ===');
   const postId = 'e2e-post-' + STAMP;

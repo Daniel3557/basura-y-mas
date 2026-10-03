@@ -1485,8 +1485,9 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
       </form>
 
       <form id="formRegistro" hidden novalidate>
-        <div class="campo"><label for="cRegNombre">Tu nombre</label>
-          <input type="text" id="cRegNombre" maxlength="40" autocomplete="name" placeholder="Ej. María González">
+        <div class="campo"><label for="cRegNombre">Tu nombre o apodo <small style="color:var(--muted);font-weight:500">(opcional)</small></label>
+          <input type="text" id="cRegNombre" maxlength="40" autocomplete="name" placeholder="Si lo dejas vacío te llamamos Vecino">
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.15rem">Solo se publica el nombre que escribas aquí, nunca tu correo.</p>
           <p class="error-msg" id="errRegNombre" role="alert"></p>
         </div>
         <div class="campo"><label for="cRegEmail">Correo electrónico</label>
@@ -1517,7 +1518,8 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
       <div class="chip gris" id="cuentaChipSesion" style="margin-bottom:.8rem">Sesión activa</div>
       <form id="formCuentaNombre" novalidate>
         <div class="campo"><label for="cuentaNuevoNombre">Nombre que aparece en tus publicaciones</label>
-          <input type="text" id="cuentaNuevoNombre" maxlength="40" placeholder="Tu nombre">
+          <input type="text" id="cuentaNuevoNombre" maxlength="40" placeholder="Tu nombre o apodo">
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.15rem">Público para la comunidad. Tu correo nunca se muestra.</p>
           <p class="error-msg" id="errCuentaNombre" role="alert"></p>
         </div>
         <button type="submit" class="btn btn-secundario" style="width:100%">Guardar nombre</button>
@@ -1898,11 +1900,14 @@ function restaurarSesion(){
 function cargarPerfilRemoto(){
   if (!sesion.usuario) return Promise.resolve();
   const uid = sesion.usuario.id;
-  return fetch(NUBE.url + 'perfiles?id=eq.' + uid + '&select=nombre&limit=1', { headers: cabecerasAnon() })
+  return fetch(NUBE.url + 'perfiles?id=eq.' + uid + '&select=nombre,nombre_edicado&limit=1', { headers: cabecerasAnon() })
     .then(function(r){ return r.ok ? r.json() : []; })
     .then(function(rows){
-      const n = (rows && rows[0] && rows[0].nombre) || '';
-      sesion.usuario.nombre = n || (sesion.usuario.email || 'Vecino').split('@')[0];
+      const fila = (rows && rows[0]) || {};
+      const n = (fila.nombre || '').trim();
+      // Nunca se deduce del correo: si no hay nombre elegido, 'Vecino'.
+      sesion.usuario.nombre = n || 'Vecino';
+      sesion.usuario.nombreElegido = !!fila.nombre_edicado;
       estado.nombrePerfil = sesion.usuario.nombre;
       almacen.datos.nombrePerfil = estado.nombrePerfil; guardar();
       aplicarIdentidad();
@@ -1932,11 +1937,14 @@ function crearCuenta(nombre, email, pass){
     const d = res.d;
     if (!d || !d.access_token || !d.user) return { ok: false, error: 'La cuenta se creó, pero el servidor pidió confirmar el correo. Pide a Daniel desactivar "Confirm email" en Supabase.' };
     guardarSesion({ id: d.user.id, email: d.user.email, token: d.access_token, refresh: d.refresh_token });
-    const n = (nombre || '').trim() || (d.user.email || 'Vecino').split('@')[0];
+    // El nombre público NO se deduce del correo: si no se elige uno, es 'Vecino'.
+    const elegido = (nombre || '').trim();
+    const n = elegido || 'Vecino';
     sesion.usuario.nombre = n;
+    sesion.usuario.nombreElegido = !!elegido;
     return fetch(NUBE.url + 'perfiles', {
       method: 'POST', headers: cabecerasNube({ 'Prefer': 'resolution=merge-duplicates' }),
-      body: JSON.stringify([{ id: sesion.usuario.id, nombre: n }])
+      body: JSON.stringify([{ id: sesion.usuario.id, nombre: n, nombre_edicado: !!elegido }])
     }).then(function(){ return { ok: true }; }).catch(function(){ return { ok: true }; });
   }).catch(function(){ return { ok: false, error: 'Sin conexión: no se pudo crear la cuenta. Intenta de nuevo con internet.' }; });
 }
@@ -3898,8 +3906,9 @@ $('#formCuentaNombre').addEventListener('submit', function(e){
   sesion.usuario.nombre = n;
   estado.nombrePerfil = n; almacen.datos.nombrePerfil = n; guardar();
   fetch(NUBE.url + 'perfiles?id=eq.' + sesion.usuario.id, {
-    method: 'PATCH', headers: cabecerasNube({ 'Prefer': 'return=minimal' }), body: JSON.stringify({ nombre: n })
+    method: 'PATCH', headers: cabecerasNube({ 'Prefer': 'return=minimal' }), body: JSON.stringify({ nombre: n, nombre_edicado: true })
   }).catch(function(){});
+  sesion.usuario.nombreElegido = true;
   aplicarIdentidad(); pintarModalCuenta(); renderPerfil();
   toast('✓ Nombre actualizado: ' + n, 'exito');
 });
