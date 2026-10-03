@@ -23,8 +23,13 @@
 
    Salida esperada: "✅ Todas las comprobaciones pasaron".
    ============================================================ */
-const REF = 'https://rmnnqggasqxlpntcffrz.supabase.co';
-const KEY = 'sb_publishable_uxNAAYBRnfq8anL_RAzheA_3Mz8joIn';
+const REF = process.env.SUPABASE_URL || 'https://rmnnqggasqxlpntcffrz.supabase.co';
+// La clave se puede pasar por variable de entorno (lo hace GitHub Actions
+// con el secreto SUPABASE_PUBLISHABLE_KEY). La de abajo es la MISMA clave
+// publica que ya va incrustada en index.html: no es un secreto, es el
+// identificador del proyecto anon. Aun asi, en CI conviene leerla del
+// secreto para poder rotarla sin tocar el codigo.
+const KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_uxNAAYBRnfq8anL_RAzheA_3Mz8joIn';
 const REST = REF + '/rest/v1/';
 const AUTH = REF + '/auth/v1/';
 const STO = REF + '/storage/v1/object/';
