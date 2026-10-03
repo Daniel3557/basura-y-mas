@@ -1812,8 +1812,14 @@ const dataLayer = {
   },
   votePost(id){
     const p = publicaciones.find(function(x){ return x.id === id; });
-    if (p) upsertNube('publicaciones', p);
-    return Promise.resolve(true);
+    if (!p) return Promise.resolve({ ok: false, error: 'La publicación ya no está en la lista.' });
+    // Los "me importa" solo se suman en la base de datos: aquí ya no se
+    // manda un PATCH con la cifra (eso quedaba congelado por seguridad).
+    return rpcNube('dar_like', { p_publicacion_id: id, p_huella: huellaDispositivo() })
+      .then(function(r){
+        if (r.ok && typeof r.data === 'number'){ p.likes = r.data; return { ok: true }; }
+        return { ok: false, error: mensajeNube(r) };
+      });
   },
   sendNotification(titulo, cuerpo){ notificarReal(titulo, cuerpo); }
 };
@@ -1832,6 +1838,24 @@ const NUBE = {
    app grows sin límite: se llena el localStorage y el arranque se ralentiza. */
 const MAX_NUBE = 120;
 const MAX_LOCAL = 150;
+/* Identificador anónimo del dispositivo. NO es un dato personal ni permite
+   reconocer a nadie: solo sirve para que la base de datos sepa que "este
+   navegador ya votó aquí" y para acotar las publicaciones por minuto.
+   Se borra al borrar los datos locales del navegador. */
+const CLAVE_HUELLA = 'bym.huella.v1';
+let _huella = null;
+function huellaDispositivo(){
+  if (_huella) return _huella;
+  try {
+    _huella = localStorage.getItem(CLAVE_HUELLA);
+    if (!_huella){
+      _huella = 'd' + uid().slice(1) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem(CLAVE_HUELLA, _huella);
+    }
+  } catch(e){}
+  if (!_huella) _huella = 'd' + Math.random().toString(36).slice(2, 12);
+  return _huella;
+}
 let nubeCargadaPost = false, nubeCargadaRep = false;
 
 /* ============================================================
@@ -1986,6 +2010,30 @@ function cerrarSesion(){
   ssyncPublicaciones(); ssyncReportes();
   toast('Sesión cerrada. Ahora participas como invitado.', 'info');
 }
+/* ---------- Llamadas a funciones de la base de datos (RPC) ----------
+   Seguridad: los límites de seguridad viven en SQL, no aquí. Esta función
+   solo traduce la respuesta para poder mostrar un mensaje claro. */
+function rpcNube(nombre, cuerpo){
+  return fetch(NUBE.url + 'rpc/' + nombre, {
+    method: 'POST', headers: cabecerasNube(), body: JSON.stringify(cuerpo || {})
+  }).then(function(r){
+    return r.json().catch(function(){ return null; }).then(function(d){
+      return { ok: r.ok, status: r.status, data: d, cruda: d };
+    });
+  }).catch(function(){
+    return { ok: false, status: 0, data: null, cruda: null };
+  });
+}
+/** Traduce el error de PostgREST a un mensaje que se pueda mostrar. */
+function mensajeNube(r){
+  const crudo = (r && r.cruda && (r.cruda.message || r.cruda.msg || r.cruda.error_description)) || '';
+  const m = String(crudo);
+  if (/ya registraste/i.test(m)) return 'ya';
+  if (/límite|demasiad|frecuencia/i.test(m)) return 'Has publicado varias veces seguidas. Espera un momento e inténtalo de nuevo.';
+  if (/no se pudo registrar el apoyo|inicia sesión/i.test(m)) return 'No se pudo registrar tu apoyo. Recarga la página e inténtalo otra vez.';
+  if (!r || !r.status) return 'Sin conexión: tu apoyo se guardó solo en este dispositivo.';
+  return 'No se pudo registrar tu apoyo.';
+}
 function upsertNube(tabla, obj){
   if (!estado._nube) return Promise.resolve(false);
   // _sinc/_nube/ejemplo/votado son marcas locales: nunca viajan a la nube.
@@ -2099,7 +2147,35 @@ function mapearReporteNube(r){
 }
 function mapearPostNube(p){
   return { id: p.id, nombre: p.nombre, colonia: p.colonia, tipo: p.tipo, texto: p.texto,
-    likes: p.likes || 0, votado: false, comentarios: Array.isArray(p.comentarios) ? p.comentarios : [], ts: Number(p.ts), ejemplo: false, usuario_id: p.usuario_id || null };
+    likes: p.likes || 0, votado: false, comentarios: [], ts: Number(p.ts), ejemplo: false, usuario_id: p.usuario_id || null };
+}
+/** Los comentarios ya no viajan dentro de la publicación: viven en su propia
+    tabla y se piden aparte para todas las publicaciones de una vez. */
+function adjuntarComentarios(posts){
+  const ids = (posts || []).filter(function(p){ return !p.ejemplo; }).map(function(p){ return p.id; }).filter(Boolean);
+  if (!ids.length) return Promise.resolve();
+  return rpcNube('comentarios_de', { p_ids: ids }).then(function(r){
+    if (!r.ok || !Array.isArray(r.data)) return;
+    const porPost = {};
+    r.data.forEach(function(c){
+      (porPost[c.publicacion_id] = porPost[c.publicacion_id] || []).push({
+        id: c.id,
+        autor: c.autor || 'Anónimo',
+        texto: c.texto || '',
+        ts: Number(c.ts) || 0,
+        propio: !!(sesion.usuario && c.usuario_id && c.usuario_id === sesion.usuario.id)
+      });
+    });
+    (posts || []).forEach(function(p){ p.comentarios = porPost[p.id] || []; });
+  });
+}
+/** Traduce el error de la base de datos al comentar. */
+function mensajeComentario(r){
+  const m = String((r && r.cruda && (r.cruda.message || r.cruda.msg)) || '');
+  if (/suficientes comentarios|varios comentarios|ya tiene demasiados/i.test(m)) return 'Esta publicación ya tiene suficientes comentarios por ahora.';
+  if (/vacío|existe/i.test(m)) return 'Ese comentario ya no se puede publicar.';
+  if (!r || !r.status) return 'Sin conexión: el comentario se guardó solo en este dispositivo.';
+  return 'No se pudo publicar tu comentario.';
 }
 function ssyncPublicaciones(){
   // Orden descendente: la nube trae lo MÁS RECIENTE. Con "asc" y límite 200,
@@ -2119,6 +2195,9 @@ function ssyncPublicaciones(){
       return Promise.all(localesNuevas.map(function(p){
         return upsertNube('publicaciones', p).then(function(ok){ p._sinc = ok; });
       })).then(function(){ return remotas.concat(localesNuevas); });
+    })
+    .then(function(todas){
+      return adjuntarComentarios(todas).then(function(){ return todas; });
     })
     .then(function(todas){
       if (todas.length){
@@ -2156,9 +2235,11 @@ function ssyncReportes(){
     })
     .catch(function(){ nubeCargadaRep = false; });
 }
-function ssyncComments(post){
-  if (!estado._nube) { almacen.datos.publicaciones = publicaciones; guardar(); return; }
-  upsertNube('publicaciones', post).then(function(ok){ post._sinc = ok; almacen.datos.publicaciones = publicaciones; guardar(); });
+/* Antes, cada comentario reenviaba la publicación entera a la nube. Ahora
+   los comentarios viven en su propia tabla (ver crear_comentario) y aquí solo
+   se guarda la copia local. */
+function guardarPublicacionesLocales(){
+  almacen.datos.publicaciones = publicaciones; guardar();
 }
 function initNube(){
   nubeEstado('conectando');
@@ -3599,10 +3680,16 @@ function nodoPost(p){
   bLike.append(icL, document.createTextNode(' Me importa '), num);
   bLike.addEventListener('click', function(){
     if (p.votado){ toast('Ya registraste tu apoyo. 💚', 'info', 2400); return; }
-    p.likes += 1; p.votado = true;
-    dataLayer.votePost(p.id);
-    registrarAccion('participacion', 'Apoyó una publicación', PTS.ayuda);
+    const antes = p.likes;
+    p.likes += 1; p.votado = true;   // optimista: se ve al instante
     renderMuro();
+    dataLayer.votePost(p.id).then(function(res){
+      if (res.ok){ registrarAccion('participacion', 'Apoyó una publicación', PTS.ayuda); renderMuro(); return; }
+      if (res.error === 'ya'){ toast('Ya habías apoyado esto desde este dispositivo.', 'info', 3000); renderMuro(); return; }
+      p.likes = antes; p.votado = false;
+      renderMuro();
+      toast(res.error, 'error', 4200);
+    });
   });
   const bCom = document.createElement('button'); bCom.type = 'button'; bCom.className = 'btn-accion';
   const icC = document.createElementNS('http://www.w3.org/2000/svg','svg'); icC.setAttribute('class','icono');
@@ -3625,6 +3712,10 @@ function nodoPost(p){
     const a = document.createElement('strong'); a.textContent = c.autor + ':';
     const t = document.createElement('span'); t.className = 'c-txt'; t.textContent = ' ' + c.texto;
     fila.append(a, t);
+    if (c.local){
+      const chip = document.createElement('span'); chip.className = 'chip gris'; chip.style.marginLeft = '.35rem';
+      chip.textContent = 'copia local'; fila.appendChild(chip);
+    }
     com.appendChild(fila);
   });
   const fCom = document.createElement('form'); fCom.className = 'comentario-form';
@@ -3635,13 +3726,33 @@ function nodoPost(p){
     ev.preventDefault();
     const t = inC.value.trim();
     if (t.length < 2){ toast('Escribe un comentario más largo.', 'error', 2400); return; }
-    p.comentarios = p.comentarios || [];
-    p.comentarios.push({ autor: nombreFirma(), texto: t, ts: Date.now() });
-    ssyncComments(p);
-    estado._numComentarios = (estado._numComentarios || 0) + 1;
-    registrarAccion('participacion', 'Comentó en una publicación', PTS.ayuda);
-    renderMuro();
-    setTimeout(function(){ const el = $('#com-' + p.id); if (el) el.classList.add('abiertos'); }, 50);
+    // Sin conexión: se guarda solo aquí y se etiqueta como copia local.
+    if (!estado._nube){
+      p.comentarios = p.comentarios || [];
+      p.comentarios.push({ autor: nombreFirma(), texto: t, ts: Date.now(), local: true });
+      almacen.datos.publicaciones = publicaciones; guardar();
+      estado._numComentarios = (estado._numComentarios || 0) + 1;
+      registrarAccion('participacion', 'Comentó en una publicación', PTS.ayuda);
+      inC.value = '';
+      renderMuro();
+      setTimeout(function(){ const el = $('#com-' + p.id); if (el) el.classList.add('abiertos'); }, 50);
+      toast('Comentario guardado en este dispositivo (copia local).', 'info');
+      return;
+    }
+    inC.value = ''; bEn.disabled = true;
+    rpcNube('crear_comentario', { p_publicacion_id: p.id, p_texto: t, p_autor: nombreFirma(), p_huella: huellaDispositivo() })
+      .then(function(r){
+        bEn.disabled = false;
+        if (!r.ok){ toast(mensajeComentario(r), 'error', 4200); return; }
+        const c = r.data || {};
+        p.comentarios = p.comentarios || [];
+        p.comentarios.push({ id: c.id, autor: c.autor || nombreFirma(), texto: c.texto || t, ts: Number(c.ts) || Date.now(), propio: true });
+        almacen.datos.publicaciones = publicaciones; guardar();
+        estado._numComentarios = (estado._numComentarios || 0) + 1;
+        registrarAccion('participacion', 'Comentó en una publicación', PTS.ayuda);
+        renderMuro();
+        setTimeout(function(){ const el = $('#com-' + p.id); if (el) el.classList.add('abiertos'); }, 50);
+      });
   });
   com.appendChild(fCom);
   art.appendChild(com);

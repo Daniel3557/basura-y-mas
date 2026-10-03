@@ -14,6 +14,8 @@
    al terminar hay que limpiarlos desde el SQL Editor de Supabase:
 
      delete from storage.objects where name like 'reportes/e2e-%';
+     delete from public.comentarios  where publicacion_id like 'e2e-%';
+     delete from public.likes_votos  where publicacion_id like 'e2e-%';
      delete from public.publicaciones where id like 'e2e-%';
      delete from public.reportes   where id like 'e2e-%';
      delete from auth.users        where email like 'e2e.bym+%@gmail.com';
@@ -96,10 +98,26 @@ function check(nombre, cond, detalle) {
   check('texto gigante rechazado (23514)', largo.status === 400 && JSON.stringify(largo.data).indexOf('23514') !== -1, largo.data);
 
   console.log('\n=== 8. Invitado: like y comentario sí funcionan ===');
-  const like = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ likes: 1 }) });
-  check('like aplicado', like.data && like.data[0] && like.data[0].likes === 1, like.data);
-  const com = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ comentarios: [{ autor: 'Invitado', texto: '¡Me apunto!', ts: Date.now() }] }) });
-  check('comentario guardado', com.data && com.data[0] && com.data[0].comentarios.length === 1, com.data);
+  const huella = 'e2e-huella-' + STAMP;
+  const rpcLike = (h) => json(REST + 'rpc/dar_like', { method: 'POST', headers: anon(), body: JSON.stringify({ p_publicacion_id: postId, p_huella: h }) });
+  const like1 = await rpcLike(huella);
+  check('like por RPC aplicado (=1)', like1.ok && like1.data === 1, like1.data);
+  const like2 = await rpcLike(huella);
+  check('segundo like del mismo dispositivo rechazado', !like2.ok && /ya registraste/i.test(JSON.stringify(like2.data)), like2.data);
+  const like3 = await rpcLike(huella + '-otro');
+  check('otro dispositivo puede apoyar (=2)', like3.ok && like3.data === 2, like3.data);
+  const inflar = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ likes: 1000000 }) });
+  check('no se pueden inflar likes por PATCH', inflar.data && inflar.data[0] && inflar.data[0].likes === 2, inflar.data);
+  const bajar = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ likes: 0 }) });
+  check('no se pueden bajar likes por PATCH', bajar.data && bajar.data[0] && bajar.data[0].likes === 2, bajar.data);
+  const meter = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ comentarios: [{ autor: 'Invitado', texto: '¡Me apunto!', ts: Date.now() }] }) });
+  check('comentario NO se puede meter por PATCH (ahora es tabla)', meter.data && meter.data[0] && meter.data[0].comentarios.length === 0, meter.data);
+  const com = await json(REST + 'rpc/crear_comentario', { method: 'POST', headers: anon(), body: JSON.stringify({ p_publicacion_id: postId, p_texto: '¡Me apunto!', p_autor: 'Invitado', p_huella: huella }) });
+  check('comentario creado por RPC', com.ok && com.data && com.data.texto === '¡Me apunto!', com.data);
+  const leerCom = await json(REST + 'comentarios?publicacion_id=eq.' + postId + '&select=autor,texto', { headers: anon() });
+  check('comentario visible en la tabla', leerCom.ok && leerCom.data.length === 1, leerCom.data);
+  const insertDirecto = await json(REST + 'comentarios', { method: 'POST', headers: anon(), body: JSON.stringify([{ publicacion_id: postId, texto: 'injection', emisor: 'x', ts: Date.now() }]) });
+  check('insert directo en comentarios bloqueado', !insertDirecto.ok, insertDirecto.data);
 
   console.log('\n=== 9. Invitado NO puede reescribir el texto ===');
   const vanda = await json(REST + 'publicaciones?id=eq.' + postId, { method: 'PATCH', headers: anon({ Prefer: 'return=representation' }), body: JSON.stringify({ texto: 'TEXTO VANDALIZADO', nombre: 'Hacker' }) });
