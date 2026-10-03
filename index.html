@@ -30,6 +30,64 @@
 <link rel="apple-touch-icon" href="./icon-512.png">
 <title>BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán</title>
 
+<!-- Datos estructurados (schema.org). Solo describen lo que la página
+     ES y HACE. No se declara ningún dato municipal, horario ni tarifa
+     que la app no muestre: la honestidad también vale para el SEO. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://basura-y-mas.vercel.app/#app",
+      "name": "BASURA Y MÁS",
+      "url": "https://basura-y-mas.vercel.app/",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Android, iOS, Web",
+      "inLanguage": "es-MX",
+      "browserRequirements": "Requiere un navegador con JavaScript. Funciona sin conexión tras la primera visita.",
+      "description": "Aplicación cívica y ecológica para Ciudad Guzmán, Jalisco: rutas de recolección calculadas sobre calles reales, guía de separación de residuos y reportes ciudadanos con foto.",
+      "featureList": [
+        "Ruta de recolección calculada con OpenStreetMap y OSRM",
+        "Guía de separación de residuos por categoría",
+        "Reportes ciudadanos con fotografía y ubicación aproximada",
+        "Comunidad de publicaciones y comentarios",
+        "Funciona sin conexión y guarda copia local"
+      ],
+      "author": { "@id": "https://basura-y-mas.vercel.app/#persona" },
+      "publisher": { "@id": "https://basura-y-mas.vercel.app/#persona" },
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MXN" },
+      "license": "https://github.com/Daniel3557/basura-y-mas"
+    },
+    {
+      "@type": "Person",
+      "@id": "https://basura-y-mas.vercel.app/#persona",
+      "name": "Daniel Alvarez",
+      "affiliation": {
+        "@type": "EducationalOrganization",
+        "name": "Centro de Bachillerato Tecnológico Industrial y de Servicios No. 226",
+        "alternateName": "CBTis 226"
+      },
+      "knowsAbout": ["Filosofía", "Ética", "Civic participation", "Recycling", "Web development"]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://basura-y-mas.vercel.app/#webpage",
+      "url": "https://basura-y-mas.vercel.app/",
+      "name": "BASURA Y MÁS · Comunidad limpia para Ciudad Guzmán",
+      "inLanguage": "es-MX",
+      "isPartOf": { "@id": "https://basura-y-mas.vercel.app/#app" },
+      "about": [
+        { "@type": "Thing", "name": "Recolección de residuos sólidos" },
+        { "@type": "Thing", "name": "Separación en la fuente" },
+        { "@type": "Thing", "name": "Participación ciudadana" }
+      ]
+    }
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -770,7 +828,39 @@ footer .footer-proy{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase
 footer h3{color:#fff;margin-top:.3rem}
 footer .autores{font-size:.88rem;margin:.4rem 0}
 footer .institucion{font-size:.78rem;color:#B9D8BC}
+/* ============ POR QUÉ EXISTE ESTO ============ */
+/* No es una tarjeta más: es el argumento del proyecto en tres
+   párrafos. Fondo tenue, borde superior marcado y tipografía de
+   lectura larga, para que se lea como un texto y no como un botón. */
+.panel-motivo{
+  margin-top:var(--s4);padding:var(--s6) var(--s4) var(--s5);
+  border:1px solid var(--border);border-top:4px solid var(--g-600);
+  border-radius:var(--radius-lg);
+  background:linear-gradient(170deg,color-mix(in srgb,var(--g-100) 30%,var(--card)),var(--card) 70%);
+}
+[data-theme="dark"] .panel-motivo{background:linear-gradient(170deg,color-mix(in srgb,var(--g-800) 42%,var(--card)),var(--card) 70%)}
+.panel-motivo h2{max-width:26ch;text-wrap:balance}
+.motivo-texto{margin-top:var(--s3);font-size:var(--t-body);color:var(--text);max-width:62ch;line-height:1.65}
+.motivo-pares{display:grid;gap:var(--s4);margin-top:var(--s5);grid-template-columns:1fr}
+@media (min-width:620px){.motivo-pares{grid-template-columns:1fr 1fr}}
+.motivo-par h3{font-family:var(--font-display);font-size:1.02rem;font-weight:600;color:var(--g-800);letter-spacing:.01em}
+[data-theme="dark"] .motivo-par h3{color:var(--g-100)}
+.motivo-par h3::before{content:"— ";color:var(--acento)}
+.motivo-par p{margin-top:.3rem;font-size:var(--t-small);color:var(--muted);line-height:1.62}
+.motivo-pie{margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--border);font-size:var(--t-small);color:var(--muted);font-style:italic;max-width:62ch}
+/* Propuesta de valor en el modal de bienvenida: una frase, arriba del todo */
+.bienvenida-valor{
+  margin-top:.7rem;padding:.65rem .8rem;border-left:3px solid var(--primary);
+  background:color-mix(in srgb,var(--g-100) 34%,transparent);border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  font-size:.85rem;color:var(--text);line-height:1.5;
+}
 .footer-filo{margin-top:1.2rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius-lg);padding:1rem 1.1rem;text-align:left}
+/* Los enlaces de información son parte de la página, no un extra del
+   engranaje: se ven al final sin abrir nada. */
+.footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:.35rem .5rem;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.14)}
+.footer-link{background:none;border:none;color:#CFE5D1;font:inherit;font-size:.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(207,229,209,.45);padding:.2rem .35rem;transition:color .18s ease,text-decoration-color .18s ease}
+.footer-link:hover{color:#fff;text-decoration-color:currentColor}
+.footer-link:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .footer-filo p{font-size:.82rem;color:#CFE5D1}
 .footer-filo strong{color:#fff}
 .footer-frase{margin-top:1.1rem;font-weight:700;font-style:italic;color:#fff}
@@ -1040,6 +1130,24 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
         <span class="chip gris">Propuesta</span>
       </div>
     </div>
+
+    <!-- ============ POR QUÉ EXISTE ESTO ============ -->
+    <section class="panel-motivo" aria-labelledby="t-motivo">
+      <p class="seccion-kicker">Por qué existe esto</p>
+      <h2 class="seccion-titulo" id="t-motivo">La tecnología no resuelve el problema: solo acerca las piezas</h2>
+      <p class="motivo-texto">Un contenedor lleno no se arregla con una app. Lo que sí cambia es quién se entera, cuándo y con qué datos. Esta herramienta existe para que ese “quién se entera” deje de depender de que alguien se dé cuenta por casualidad.</p>
+      <div class="motivo-pares">
+        <div class="motivo-par">
+          <h3>Ética</h3>
+          <p>Toda herramienta cambia algo, para bien o para mal. Esta obliga a tomar partido: los datos que se publican, la ubicación que se difumina, lo que no se inventa. Elegir qué se muestra es un acto ético, no una decisión técnica.</p>
+        </div>
+        <div class="motivo-par">
+          <h3>Política</h3>
+          <p>El bien común se sostiene entre muchas manos, y una comunidad solo puede cuidar lo que alcanza a ver. Reportar, proponer y organizarse no es quejarse: es ejercer el derecho a participar de las decisiones que afectan a todos.</p>
+        </div>
+      </div>
+      <p class="motivo-pie">Por eso los reportes se pueden seguir aunque no se resuelvan al día: la plataforma muestra el estado real de cada uno, no una promesa de que el problema ya está resuelto.</p>
+    </section>
   </section>
 
   <!-- ================= VISTA MAPA ================= -->
@@ -1478,6 +1586,15 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
     <p style="margin-top:.5rem">La tecnología no sustituye la responsabilidad de las personas; puede ayudarnos a ejercerla mejor.</p>
   </div>
   <p class="footer-frase">“El progreso sin conciencia no es progresión.”</p>
+
+  <!-- Enlaces visibles: nada de lo importante escondido tras el engranaje -->
+  <nav class="footer-links" aria-label="Información del proyecto">
+    <button type="button" class="footer-link" id="linkAcerca">Acerca del proyecto</button>
+    <button type="button" class="footer-link" id="linkContacto">Contacto</button>
+    <button type="button" class="footer-link" id="linkPrivacidad">Política de privacidad</button>
+    <a class="footer-link" href="https://github.com/Daniel3557/basura-y-mas" target="_blank" rel="noopener noreferrer">Código fuente</a>
+  </nav>
+
   <p class="footer-privacidad">Datos cartográficos © colaboradores de OpenStreetMap · Rutas: OSRM · Tus datos se sincronizan en Supabase y también se guardan en tu navegador.</p>
 </footer>
 
@@ -1567,6 +1684,7 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
       <h3 id="tBienvenida">🌿 Bienvenido a BASURA Y MÁS</h3>
     </div>
     <p style="font-size:.88rem;color:var(--text)">Esta app es de <strong>todos los vecinos de Ciudad Guzmán</strong>. Crea tu cuenta para participar con tu propio nombre, o entra como invitado si lo prefieres.</p>
+    <p class="bienvenida-valor">Ver la ruta de recolección de tu colonia, saber dónde separar cada residuo y reportar lo que no funciona — sin instalar nada.</p>
     <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:1rem">
       <button type="button" class="btn btn-primario" id="btnBienvenidaCrear">✨ Crear mi cuenta</button>
       <button type="button" class="btn btn-secundario" id="btnBienvenidaLogin">Ya tengo cuenta: iniciar sesión</button>
@@ -4068,24 +4186,35 @@ $('#btnConfig').addEventListener('click', function(){
   $('#cfgDemo').checked = estado.demo;
   abrirModal('modalConfig');
 });
-$('#btnAcerca').addEventListener('click', function(){
-  cerrarModal('modalConfig');
+/* ---------- Las tres páginas de información ----------
+   Se muestran desde el engranaje (Configuración) y también desde los
+   enlaces del pie de página: nada de esto queda escondido. */
+function mostrarAcerca(){
   mostrarInfo('Acerca del proyecto', [
     '<strong>BASURA Y MÁS</strong> es una plataforma cívica y ecológica desarrollada como proyecto de <strong>Filosofía II (FILOSOFARTE)</strong> por <strong>Daniel Alvarez</strong> para el <strong>CBTis 226</strong>.',
     'Propone una forma de conectar a la ciudadanía de <strong>Ciudad Guzmán, Jalisco</strong> con la información de recolección, la separación de residuos y la participación comunitaria.',
     'Fuentes de datos: mapa y vialidades de <strong>OpenStreetMap</strong>, rutas calculadas con <strong>OSRM</strong>, geocodificación con <strong>Nominatim</strong>. Los puntos de recolección son <strong>generados por el sistema</strong> y el GPS de vehículos <strong>no está conectado</strong>; cuando exista una fuente municipal, la app está preparada para integrarla.',
+    '<strong>Lo que NO hace:</strong> no está conectada a ningún sistema del municipio, no manda correos ni notificaciones automáticas, y no recoge datos personales de terceros. No inventa horarios ni tarifas que no estén en las fuentes citadas.',
+    '<strong>Código abierto:</strong> todo el proyecto está en <a href="https://github.com/Daniel3557/basura-y-mas" target="_blank" rel="noopener noreferrer">GitHub</a>.',
     '“El progreso sin conciencia no es progresión.”'
   ]);
-});
-$('#btnPrivacidad').addEventListener('click', function(){
-  cerrarModal('modalConfig');
-  mostrarInfo('Privacidad', [
-    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía únicamente a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte; nunca se comparte con terceros. <strong>El punto exacto no se guarda nunca:</strong> al escribir el reporte la coordenada se redondea a unos 100 metros.',
-    '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte (dispositivo y nube).',
-    '<strong>Datos personales:</strong> puedes crear una cuenta con tu correo (Supabase Auth) para firmar con tu nombre, o participar como invitado o anónimo. Tu sesión se guarda en este navegador. Reportes y publicaciones se sincronizan en una base de datos Supabase (PostgreSQL) protegida con políticas RLS.',
-    '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas.'
+}
+function mostrarPrivacidad(){
+  mostrarInfo('Política de privacidad', [
+    '<strong>Qué Guardamos:</strong> lo que tú escribes (reportes y publicaciones), un nombre o apodo opcional, y la ubicación <em>si</em> decides adjuntarla a un reporte. Nada más.',
+    '<strong>Ubicación:</strong> solo se pide cuando la activas y se usa para calcular rutas cercanas o situar un reporte. Se envía a OpenStreetMap/Mapbox para calcular rutas y a Supabase si adjuntas un reporte. <strong>El punto exacto no se guarda nunca:</strong> la coordenada se redondea a unos 100 metros antes de escribirla, así que no se puede deducir la dirección de tu casa.',
+    '<strong>Fotografías:</strong> las eliges tú con el botón de la cámara; se reducen de tamaño y se guardan junto con tu reporte, en este dispositivo y en la nube.',
+    '<strong>Tu cuenta:</strong> puedes crearla con tu correo (Supabase Auth) o participar sin cuenta como invitado o anónimo. El correo <strong>nunca se muestra</strong> a los demás: tu nombre público es el que elegiste o, si no elegiste, “Vecino”.',
+    '<strong>Tus datos y los de otros:</strong> puedes borrar tu propia publicación y tu propio reporte desde la app. No puedes borrar ni editar lo de otras personas, ni el contenido que el equipo del proyecto haya moderado.',
+    '<strong>Dónde viven:</strong> en una base de datos Supabase (PostgreSQL) con políticas de seguridad a nivel de fila, y también en tu navegador (para que la app funcione sin conexión). Puedes borrar lo local en <em>Configuración → Restablecer datos locales</em>.',
+    '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas. Si ves algo que no debería estar publicado, dilo por el enlace de contacto y lo ocultamos.'
   ]);
-});
+}
+$('#btnAcerca').addEventListener('click', function(){ cerrarModal('modalConfig'); mostrarAcerca(); });
+$('#btnPrivacidad').addEventListener('click', function(){ cerrarModal('modalConfig'); mostrarPrivacidad(); });
+$('#linkAcerca').addEventListener('click', mostrarAcerca);
+$('#linkPrivacidad').addEventListener('click', mostrarPrivacidad);
+$('#linkContacto').addEventListener('click', function(){ $('#btnContacto').click(); });
 $('#btnResetDatos').addEventListener('click', function(){
   confirmarAccion('¿Restablecer datos locales?',    'Se borrarán perfil, puntos, insignias y los datos locales de este dispositivo. Los reportes y publicaciones ya sincronizados con la nube permanecerán en la base de datos. La app volverá a su estado inicial.','Sí, restablecer').then(function(ok){
     if (!ok) return;
