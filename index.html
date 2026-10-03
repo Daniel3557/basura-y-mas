@@ -863,6 +863,8 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
     <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.5-4.5"/></symbol>
     <symbol id="i-camara" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-descargar" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></symbol>
+    <symbol id="i-ojo" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
     <symbol id="i-like" viewBox="0 0 24 24"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-8a2.5 2.5 0 0 1 2.5 2.5V9H19a2 2 0 0 1 2 2.4l-1.3 6.5a2 2 0 0 1-2 1.6H7"/></symbol>
     <symbol id="i-comentar" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></symbol>
@@ -1426,6 +1428,33 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
     </div>
   </section>
 
+  <!-- ================= VISTA MODERACIÓN (solo cuentas administradoras) ================= -->
+  <section class="view" id="view-moderacion" aria-labelledby="t-moderacion">
+    <h2 class="seccion-titulo" id="t-moderacion">Panel de moderación</h2>
+    <p class="seccion-sub">Revisión de reportes y publicaciones. Solo visible para cuentas administradoras del proyecto.</p>
+
+    <div class="panel-destacado" style="margin-top:1rem">
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+        <span class="chip verde" id="modResumen">—</span>
+        <button type="button" class="btn btn-secundario btn-chico" id="btnExportarCsv"><svg class="icono"><use href="#i-descargar"/></svg>Exportar CSV</button>
+        <button type="button" class="btn btn-fantasma btn-chico" id="btnRefrescarMod"><svg class="icono"><use href="#i-refresh"/></svg>Actualizar</button>
+      </div>
+      <div class="aviso-fuente">ℹ️ Ocultar NO borra: el contenido desaparece de la vista pública pero se conserva y puede volver a mostrarse. El estado de seguimiento solo lo cambia esta pantalla.</div>
+    </div>
+
+    <div class="tarjeta">
+      <h3 class="seccion-titulo" style="font-size:1.05rem">Reportes</h3>
+      <div class="lista-reportes" id="modReportes"></div>
+      <p class="vacio" id="modReportesVacio">No hay reportes.</p>
+    </div>
+
+    <div class="tarjeta">
+      <h3 class="seccion-titulo" style="font-size:1.05rem">Publicaciones</h3>
+      <div class="lista-reportes" id="modPublicaciones"></div>
+      <p class="vacio" id="modPublicacionesVacio">No hay publicaciones.</p>
+    </div>
+  </section>
+
 </div></main>
 
 <!-- ============ NAV INFERIOR (MÓVIL) ============ -->
@@ -1577,7 +1606,9 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
     </div>
     <div class="modal-acciones" style="flex-direction:column">
       <button type="button" class="btn btn-secundario" id="btnAcerca"><svg class="icono"><use href="#i-info"/></svg>Acerca del proyecto</button>
+      <button type="button" class="btn btn-secundario" id="btnContacto"><svg class="icono"><use href="#i-altavoz"/></svg>Contacto y envío al municipio</button>
       <button type="button" class="btn btn-secundario" id="btnPrivacidad"><svg class="icono"><use href="#i-escudo"/></svg>Privacidad</button>
+      <button type="button" class="btn btn-secundario" id="btnIrModeracion" hidden><svg class="icono"><use href="#i-escudo"/></svg>Panel de moderación</button>
       <button type="button" class="btn btn-peligro" id="btnResetDatos"><svg class="icono"><use href="#i-basura"/></svg>Restablecer datos locales</button>
     </div>
   </div>
@@ -1796,7 +1827,7 @@ const dataLayer = {
   },
   createReport(reporte){
     reportesLocales.push(reporte); almacen.datos.reportes = reportesLocales; guardar();
-    reporte.estado = 'Sincronizado con la nube';
+    reporte.estado_sync = 'Sincronizado con la nube';
     // La fotografía se sube como archivo a Supabase Storage: la fila solo
     // guarda su URL, así la app no descarga megabytes en cada carga.
     return subirFotoReporte(reporte).then(function(url){
@@ -1804,7 +1835,7 @@ const dataLayer = {
       return upsertNube('reportes', reporte);
     }).then(function(ok){
       reporte._sinc = ok;
-      if (!ok) reporte.estado = 'Registrado localmente (copia local)';
+      if (!ok) reporte.estado_sync = 'Registrado localmente (copia local)';
       renderReportes(); guardar();
       return reporte;
     });
@@ -2167,8 +2198,17 @@ function nubeEstado(v){
 }
 function mapearReporteNube(r){
   return { id: r.id, nombre: r.nombre, colonia: r.colonia, tipo: r.tipo, texto: r.texto,
-    foto: r.foto || null, ubicacion: r.ubicacion || null, estado: 'Sincronizado con la nube', ts: Number(r.ts), usuario_id: r.usuario_id || null };
+    foto: r.foto || null, ubicacion: r.ubicacion || null,
+    estado_sync: 'Sincronizado con la nube',                       // nota técnica del navegador
+    estado: r.estado || 'recibido',                                // estado real del reporte
+    oculto: !!r.oculto, ts: Number(r.ts), usuario_id: r.usuario_id || null };
 }
+/** Etiquetas del estado de seguimiento, con su color. */
+const ESTADOS_REPORTE = {
+  recibido:    { txt: 'Recibido',    chip: 'ambar'  },
+  en_revision: { txt: 'En revisión', chip: ''       },
+  atendido:    { txt: 'Atendido',    chip: 'verde'  }
+};
 function mapearPostNube(p){
   return { id: p.id, nombre: p.nombre, colonia: p.colonia, tipo: p.tipo, texto: p.texto,
     likes: p.likes || 0, votado: false, comentarios: [], ts: Number(p.ts), ejemplo: false, usuario_id: p.usuario_id || null };
@@ -2247,7 +2287,7 @@ function ssyncReportes(){
       const localesNuevas = reportesLocales.filter(function(x){ return !vistos[x.id] && !x._sinc; });
       return Promise.all(localesNuevas.map(function(x){ return upsertNube('reportes', x); }))
         .then(function(){
-          localesNuevas.forEach(function(x){ x._sinc = true; x.estado = 'Sincronizado con la nube'; });
+          localesNuevas.forEach(function(x){ x._sinc = true; x.estado_sync = 'Sincronizado con la nube'; });
           return remotas.concat(localesNuevas);
         });
     })
@@ -2269,6 +2309,7 @@ function initNube(){
   nubeEstado('conectando');
   restaurarSesion().then(function(){
     actualizarBotonCuenta();
+    comprobarAdmin();
     return fetch(NUBE.url + 'publicaciones?select=id&limit=1', { headers: cabecerasNube() });
   }).then(function(r){
     if (!r || !r.ok) throw new Error('HTTP ' + (r ? r.status : 0));
@@ -2370,9 +2411,10 @@ $('#modalConfirmar').addEventListener('click', function(e){
 /* ============================================================
    MÓDULO 6 · NAVEGACIÓN SPA
    ============================================================ */
-const VISTAS = ['inicio','mapa','guia','reportes','comunidad','perfil'];
+const VISTAS = ['inicio','mapa','guia','reportes','comunidad','perfil','moderacion'];
 function irA(v){
   if (VISTAS.indexOf(v) === -1) return;
+  if (v === 'moderacion' && !estado._admin){ toast('Esta sección es solo para cuentas administradoras del proyecto.', 'error'); return; }
   estado.vista = v;
   VISTAS.forEach(function(x){
     const vista = $('#view-' + x);
@@ -3581,12 +3623,12 @@ $('#formReporte').addEventListener('submit', function(e){
     id: uid(), nombre: nombre || 'Anónimo', colonia: $('#repColonia').value, tipo: tipo,
     texto: desc, ts: Date.now(), foto: estado.fotoData || null,
     ubicacion: estado.ubicacionReporte ? { lat: estado.ubicacionReporte.lat, lng: estado.ubicacionReporte.lng } : null,
-    estado: 'Registrado localmente', usuario_id: sesion.usuario ? sesion.usuario.id : null
+    estado: 'recibido', usuario_id: sesion.usuario ? sesion.usuario.id : null
   };
   dataLayer.createReport(reporte).then(function(){
     registrarAccion('reporte', 'Envió un reporte: ' + tipo, PTS.reporte);
     verificarInsignias();
-    toast('✓ Reporte enviado correctamente' + (reporte.estado === 'Sincronizado con la nube' ? ' (sincronizado en la nube).' : ' (guardado en este dispositivo).') + ' Gracias por participar.', 'exito');
+    toast('✓ Reporte enviado correctamente' + (reporte.estado_sync === 'Sincronizado con la nube' ? ' (sincronizado en la nube).' : ' (guardado en este dispositivo).') + ' Gracias por participar.', 'exito');
     // reset
     e.target.reset();
     aplicarIdentidad(); // el nombre bloqueado vuelve a su valor (no queda en blanco)
@@ -3621,8 +3663,18 @@ function renderReportes(){
       art.appendChild(im);
     }
     const pie = document.createElement('div'); pie.className = 'pie-reporte';
-    const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + r.estado;
+    const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + (r.estado_sync || 'copia local');
     pie.appendChild(est);
+    // Estado de seguimiento: lo cambia la moderación, no quien reportó.
+    const info = ESTADOS_REPORTE[r.estado] || ESTADOS_REPORTE.recibido;
+    const seg = document.createElement('span'); seg.className = 'chip ' + info.chip;
+    seg.textContent = '📋 ' + info.txt;
+    seg.title = 'Estado del seguimiento. Solo el equipo del proyecto puede cambiarlo.';
+    pie.appendChild(seg);
+    if (r.oculto){
+      const oc = document.createElement('span'); oc.className = 'chip gris'; oc.textContent = '🚫 Oculto por moderación';
+      pie.appendChild(oc);
+    }
     if (r.ubicacion){
       const ub = document.createElement('span'); ub.className = 'chip';
       ub.textContent = '📍 Aprox. ' + Number(r.ubicacion.lat).toFixed(3) + ', ' + Number(r.ubicacion.lng).toFixed(3) + ' (±100 m)';
@@ -3635,14 +3687,26 @@ function renderReportes(){
     const us = document.createElementNS('http://www.w3.org/2000/svg','use'); us.setAttribute('href','#i-basura');
     sv.appendChild(us); bDel.appendChild(sv);
     bDel.addEventListener('click', function(){
-      confirmarAccion('¿Eliminar reporte?','Tu reporte se borrará de este dispositivo. Esta acción no se puede deshacer.','Sí, eliminar').then(function(okDel){
+      const esMio = !!(sesion.usuario && r.usuario_id && r.usuario_id === sesion.usuario.id);
+      confirmarAccion(
+        '¿Eliminar reporte?',
+        esMio
+          ? 'Se borrará de este dispositivo y de la nube. Esta acción no se puede deshacer.'
+          : 'No publicaste este reporte con tu cuenta, así que solo se borrará de este dispositivo: seguirá visible para el resto de la comunidad. Puedes pedir a la moderación que lo oculte.',
+        'Sí, eliminar'
+      ).then(function(okDel){
         if (!okDel) return;
-        reportesLocales = reportesLocales.filter(function(x){ return x.id !== r.id; });
-      estado.reportes = reportesLocales; // mantiene la referencia sincronizada tras el filtro
-        estado.eliminadosRep.push(r.id); almacen.datos.eliminadosRep = estado.eliminadosRep;
-        almacen.datos.reportes = reportesLocales; guardar();
-        renderReportes(); verificarInsignias();
-        toast('🗑️ Reporte eliminado.', 'info');
+        borrarEnNube('reportes', r).then(function(res){
+          reportesLocales = reportesLocales.filter(function(x){ return x.id !== r.id; });
+          estado.reportes = reportesLocales; // mantiene la referencia sincronizada tras el filtro
+          estado.eliminadosRep.push(r.id); almacen.datos.eliminadosRep = estado.eliminadosRep;
+          almacen.datos.reportes = reportesLocales; guardar();
+          renderReportes(); verificarInsignias();
+          if (res.ok) toast('🗑️ Reporte eliminado de este dispositivo y de la nube.', 'info');
+          else if (res.motivo === 'sin-conexion') toast('💾 Eliminado aquí, pero sin conexión no se pudo borrar en la nube.', 'alerta', 5000);
+          else if (res.motivo === 'sin-cuenta') toast('💾 Eliminado solo de este dispositivo (sigue visible en la nube).', 'alerta', 5000);
+          else toast('💾 Eliminado de este dispositivo. La nube no lo confirmó.', 'alerta', 5000);
+        });
       });
     });
     pie.appendChild(bDel);
@@ -3730,6 +3794,26 @@ function nodoPost(p){
   bSh.append(icS, document.createTextNode(' Compartir'));
   bSh.addEventListener('click', function(){ compartirPost(p); });
   pie.append(bLike, bCom, bSh);
+  // Solo quien la publicó puede borrarla (y la base de datos lo comprueba).
+  if (sesion.usuario && p.usuario_id && p.usuario_id === sesion.usuario.id){
+    const bOwn = document.createElement('button'); bOwn.type = 'button'; bOwn.className = 'btn-accion';
+    const icD = document.createElementNS('http://www.w3.org/2000/svg','svg'); icD.setAttribute('class','icono');
+    const usD = document.createElementNS('http://www.w3.org/2000/svg','use'); usD.setAttribute('href','#i-basura');
+    icD.appendChild(usD);
+    bOwn.appendChild(icD, document.createTextNode(' Borrar'));
+    bOwn.addEventListener('click', function(){
+      confirmarAccion('¿Borrar tu publicación?', 'Se eliminará de la nube y de este dispositivo, junto con sus comentarios y sus "me importa". No se puede deshacer.', 'Sí, borrar').then(function(ok){
+        if (!ok) return;
+        borrarEnNube('publicaciones', p).then(function(res){
+          publicaciones = publicaciones.filter(function(x){ return x.id !== p.id; });
+          almacen.datos.publicaciones = publicaciones; guardar();
+          renderMuro();
+          toast(res.ok ? '🗑️ Publicación borrada.' : '💾 Se quitó de este dispositivo, pero la nube no confirmó el borrado.', 'info', 4200);
+        });
+      });
+    });
+    pie.appendChild(bOwn);
+  }
   art.appendChild(pie);
 
   const com = document.createElement('div'); com.className = 'comentarios'; com.id = 'com-' + p.id;
@@ -4010,6 +4094,237 @@ $('#btnResetDatos').addEventListener('click', function(){
     location.reload();
   });
 });
+
+/* ============================================================
+   MÓDULO 20c · MODERACIÓN, EXPORTACIÓN Y BORRADO PROPIO
+   ------------------------------------------------------------
+   · El panel solo aparece si la base de datos dice que la cuenta es
+     administradora (función es_admin). Ocultar el botón NO es la
+     protección: cada acción vuelve a preguntárselo al servidor.
+   · El CSV se genera en el navegador con los datos que la app ya
+     tiene; no hace falta ninguna clave secreta para hacerlo.
+   ============================================================ */
+
+/* ---------- ¿Esta cuenta administra el proyecto? ---------- */
+function comprobarAdmin(){
+  if (!sesion.usuario) { estado._admin = false; mostrarBotonModeracion(false); return Promise.resolve(false); }
+  return rpcNube('es_admin', {}).then(function(r){
+    estado._admin = !!(r.ok && r.data === true);
+    mostrarBotonModeracion(estado._admin);
+    if (estado._admin && estado.vista === 'moderacion') renderModeracion();
+    return estado._admin;
+  }).catch(function(){ estado._admin = false; mostrarBotonModeracion(false); return false; });
+}
+function mostrarBotonModeracion(visible){
+  const b = $('#btnIrModeracion');
+  if (b) b.hidden = !visible;
+}
+
+/* ---------- Panel ---------- */
+let modFilas = { reportes: [], publicaciones: [] };
+function renderModeracion(){
+  const contR = $('#modReportes'), contP = $('#modPublicaciones');
+  if (!contR) return;
+  contR.innerHTML = ''; contP.innerHTML = '';
+  $('#modReportesVacio').classList.toggle('visible', !modFilas.reportes.length);
+  $('#modPublicacionesVacio').classList.toggle('visible', !modFilas.publicaciones.length);
+
+  const ocultos = modFilas.reportes.concat(modFilas.publicaciones).filter(function(f){ return f.oculto; }).length;
+  const pendientes = modFilas.reportes.filter(function(f){ return f.estado !== 'atendido'; }).length;
+  $('#modResumen').textContent = modFilas.reportes.length + ' reportes · ' + modFilas.publicaciones.length + ' publicaciones · ' + pendientes + ' sin atender · ' + ocultos + ' ocultos';
+
+  modFilas.reportes.forEach(function(f){ contR.appendChild(nodoModeracion(f, 'reportes')); });
+  modFilas.publicaciones.forEach(function(f){ contP.appendChild(nodoModeracion(f, 'publicaciones')); });
+}
+
+function nodoModeracion(f, tabla){
+  const art = document.createElement('article'); art.className = 'tarjeta-reporte';
+  const cab = document.createElement('div'); cab.className = 'cab-reporte';
+  const meta = document.createElement('div'); meta.className = 'meta';
+  const st = document.createElement('strong'); st.textContent = f.nombre || 'Anónimo';
+  const sm = document.createElement('small'); sm.textContent = tiempoRelativo(f.ts) + ' · ' + f.colonia + ' · ' + (tabla === 'reportes' ? 'Reporte' : 'Publicación');
+  meta.append(st, sm);
+  cab.append(meta);
+  const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = f.tipo;
+  cab.appendChild(chip);
+  if (f.oculto){
+    const oc = document.createElement('span'); oc.className = 'chip gris'; oc.textContent = '🚫 Oculto';
+    cab.appendChild(oc);
+  }
+  art.appendChild(cab);
+  const txt = document.createElement('p'); txt.className = 'txt-reporte'; txt.textContent = f.texto;
+  art.appendChild(txt);
+
+  const pie = document.createElement('div'); pie.className = 'pie-reporte';
+  pie.style.gap = '.4rem';
+
+  if (tabla === 'reportes'){
+    const sel = document.createElement('select');
+    sel.setAttribute('aria-label', 'Estado de seguimiento del reporte');
+    sel.style.cssText = 'border:2px solid var(--border-strong);border-radius:var(--radius-sm);padding:.35rem .5rem;background:var(--card);font-size:.8rem';
+    Object.keys(ESTADOS_REPORTE).forEach(function(k){
+      const o = document.createElement('option'); o.value = k; o.textContent = ESTADOS_REPORTE[k].txt;
+      if (f.estado === k) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function(){
+      rpcNube('marcar_seguimiento', { p_id: f.id, p_estado: this.value }).then(function(r){
+        if (!r.ok){ toast('No se pudo cambiar el estado.', 'error'); sel.value = f.estado; return; }
+        f.estado = this.value; renderModeracion();
+        toast('📋 Reporte marcado como ' + ESTADOS_REPORTE[this.value].txt.toLowerCase() + '.', 'exito');
+      }.bind(this));
+    });
+    pie.appendChild(sel);
+  } else {
+    const info = document.createElement('span'); info.className = 'chip gris';
+    info.textContent = '💚 ' + (f.likes || 0) + ' · 💬 ' + (f.n_comentarios || 0);
+    pie.appendChild(info);
+  }
+
+  const bOcultar = document.createElement('button');
+  bOcultar.type = 'button'; bOcultar.className = 'btn btn-secundario btn-chico';
+  const svO = document.createElementNS('http://www.w3.org/2000/svg','svg'); svO.setAttribute('class','icono');
+  const usO = document.createElementNS('http://www.w3.org/2000/svg','use'); usO.setAttribute('href', f.oculto ? '#i-ojo' : '#i-x');
+  svO.appendChild(usO);
+  bOcultar.appendChild(svO, document.createTextNode(f.oculto ? ' Mostrar' : ' Ocultar'));
+  bOcultar.addEventListener('click', function(){
+    const nuevo = !f.oculto;
+    rpcNube('moderar', { p_tabla: tabla, p_id: f.id, p_oculto: nuevo, p_motivo: nuevo ? 'Revisión manual del equipo del proyecto' : null }).then(function(r){
+      if (!r.ok){ toast('No se pudo cambiar la visibilidad.', 'error'); return; }
+      f.oculto = nuevo;
+      toast(nuevo ? '🚫 Contenido oculto de la vista pública (se conserva).' : '✅ Contenido visible de nuevo.', 'exito');
+      renderModeracion();
+      ssyncReportes(); ssyncPublicaciones();
+    });
+  });
+  pie.appendChild(bOcultar);
+  art.appendChild(pie);
+  return art;
+}
+
+function cargarModeracion(){
+  if (!estado._admin) return Promise.resolve();
+  return rpcNube('pendientes_moderacion', {}).then(function(r){
+    if (!r.ok || !Array.isArray(r.data)) return;
+    modFilas = { reportes: [], publicaciones: [] };
+    r.data.forEach(function(f){
+      (f.tabla === 'reportes' ? modFilas.reportes : modFilas.publicaciones).push({
+        id: f.id, nombre: f.nombre, colonia: f.colonia, tipo: f.tipo, texto: f.texto,
+        estado: f.estado, oculto: f.oculto, oculto_motivo: f.oculto_motivo, usuario_id: f.usuario_id, ubicacion: f.ubicacion || '',
+        likes: f.likes, n_comentarios: f.n_comentarios, ts: Number(f.ts)
+      });
+    });
+    if (estado.vista === 'moderacion') renderModeracion();
+  });
+}
+
+/* ---------- Exportar CSV (sin claves, todo en el navegador) ---------- */
+function escaparCSV(valor){
+  const s = String(valor === null || valor === undefined ? '' : valor);
+  return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function descargarCSV(nombre, cabeceras, filas){
+  // Punto y coma como separador: es lo que Excel en español abre solo.
+  const cuerpo = [cabeceras.join(';')].concat(filas.map(function(f){ return f.map(escaparCSV).join(';'); })).join('\r\n');
+  const BOM = '﻿';   // Excel necesita UTF-8 con BOM para los acentos
+  const blob = new Blob([BOM + cuerpo], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function exportarReportesCSV(){
+  if (!estado._admin || !modFilas.reportes.length){ toast('No hay reportes que exportar.', 'info'); return; }
+  const cab = ['id', 'fecha', 'colonia', 'tipo', 'estado', 'texto', 'ubicacion_aprox', 'con_cuenta', 'oculto', 'motivo_oculto'];
+  const filas = modFilas.reportes.map(function(f){
+    const d = new Date(Number(f.ts));
+    return [f.id, d.toISOString(), f.colonia, f.tipo, f.estado, f.texto, f.ubicacion || '', f.usuario_id ? 'sí' : 'no', f.oculto ? 'sí' : 'no', f.oculto_motivo || ''];
+  });
+  descargarCSV('reportes-basura-y-mas-' + new Date().toISOString().slice(0, 10) + '.csv', cab, filas);
+  toast('📄 CSV descargado con ' + filas.length + ' reportes.', 'exito');
+}
+
+/* ---------- Borrar lo propio ---------- */
+/** Intenta borrar en la nube. Devuelve true/false; si no se pudo,
+    el contenido se queda en el dispositivo y se avisa con claridad. */
+function borrarEnNube(tabla, fila){
+  if (!sesion.usuario || !fila.usuario_id || fila.usuario_id !== sesion.usuario.id){
+    return Promise.resolve({ ok: false, motivo: 'sin-cuenta' });
+  }
+  return fetch(NUBE.url + tabla + '?id=eq.' + encodeURIComponent(fila.id), {
+    method: 'DELETE', headers: cabecerasNube({ Prefer: 'return=minimal' })
+  }).then(function(r){
+    if (r.status === 204) return { ok: true };
+    if (!r.status) return { ok: false, motivo: 'sin-conexion' };
+    return { ok: false, motivo: 'error' };
+  }).catch(function(){ return { ok: false, motivo: 'sin-conexion' }; });
+}
+
+/* ---------- Enlaces de la vista de moderación ---------- */
+/* ---------- Contacto y envío al municipio ----------
+   Rellenar DESTINO.correo con la dirección REAL a la que el proyecto
+   debe enviar los reportes. Se deja vacía a propósito: no se inventa
+   ningún dato oficial del municipio, y con un destinatario inventado
+   los correos se irían a un sitio equivocado sin que nadie se entere.
+   Mientras esté vacía, la app ofrece las dos vías que sí funcionan:
+   descargar el CSV y copiar un resumen para pegarlo a mano. */
+const DESTINO = {
+  correo: '',                    // ← completar con la cuenta institucional real
+  area: 'Servicios Públicos',    // nombre del área, tal como lo confirme el municipio
+  enlace: ''                     // enlace oficial (formulario web, WhatsApp…) si lo hay
+};
+$('#btnContacto').addEventListener('click', function(){
+  cerrarModal('modalConfig');
+  const cuerpo = [
+    '<strong>Cómo llegan los reportes al municipio</strong>',
+    '<strong>1. Exportar CSV.</strong> Desde el panel de moderación, el botón <em>Exportar CSV</em> descarga todos los reportes en una hoja de cálculo lista para Excel (separador ";", UTF-8). Es la vía que funciona hoy y no depende de ningún servicio de correo.',
+    '<strong>2. Copiar el resumen.</strong> El botón de abajo pone en el portapapeles un resumen de los reportes pendientes, para pegarlo en un correo o en un mensaje al área correspondiente.',
+    '<strong>3. Correo automático.</strong> Requiere desplegar la función de borde <code>supabase/functions/resumen-reportes</code> y configurar el remitente con Resend. Está escrito en el repositorio pero <strong>no está desplegado ni verificado</strong>.',
+    '<strong>Destinatario:</strong> ' + (DESTINO.correo
+      ? 'los reportes se envían a <strong>' + DESTINO.correo + '</strong> (' + DESTINO.area + ').'
+      : '<strong>pendiente de configurar.</strong> El equipo del proyecto aún no ha confirmado la dirección oficial, y la app no la inventa. Hasta que se rellene, usa el CSV o el resumen copiado.'),
+    '<strong>Importante:</strong> esta app <strong>no está conectada a ningún sistema municipal</strong>. Los reportes los ve el equipo del proyecto; llegar al área de Servicios Públicos depende de que alguien los entregue.'
+  ];
+  mostrarInfo('Contacto y envío al municipio', cuerpo);
+  const acciones = $('#infoContenido');
+  if (acciones){
+    const fila = document.createElement('div');
+    fila.style.cssText = 'display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.9rem';
+    const b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'btn btn-secundario btn-chico'; b1.textContent = '📋 Copiar resumen';
+    b1.addEventListener('click', function(){
+      const t = textoResumenReportes();
+      if (navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ toast('📋 Resumen copiado.', 'exito'); }).catch(function(){ toast('No se pudo copiar. Selecciona el texto a mano.', 'error'); });
+      else toast('Tu navegador no permite copiar automáticamente.', 'error');
+    });
+    const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'btn btn-secundario btn-chico'; b2.textContent = '🖨️ Imprimir resumen';
+    b2.addEventListener('click', function(){ window.print(); });
+    fila.append(b1, b2);
+    acciones.appendChild(fila);
+  }
+});
+/** Resumen en texto plano de los reportes que aún no están atendidos. */
+function textoResumenReportes(){
+  const lista = (modFilas.reportes || []).filter(function(f){ return f.estado !== 'atendido' && !f.oculto; });
+  const lineas = lista.map(function(f, i){
+    const d = new Date(Number(f.ts));
+    return (i + 1) + '. [' + f.estado + '] ' + f.colonia + ' · ' + f.tipo + ' — ' + f.texto;
+  });
+  return 'BASURA Y MÁS · Resumen de reportes ciudadanos (' + new Date().toLocaleDateString('es-MX') + ')\n' +
+         'Proyecto FILOSOFARTE · CBTis 226\n\n' +
+         (lineas.length ? lineas.join('\n') : 'No hay reportes pendientes.') +
+         '\n\nNota: la ubicación se guarda difuminada a unos 100 metros por privacidad.';
+}
+
+$('#btnIrModeracion').addEventListener('click', function(){
+  cerrarModal('modalConfig');
+  irA('moderacion');
+  cargarModeracion().then(function(){ renderModeracion(); });
+});
+$('#btnRefrescarMod').addEventListener('click', function(){
+  cargarModeracion().then(function(){ renderModeracion(); toast('🔄 Panel actualizado.', 'info', 2000); });
+});
+$('#btnExportarCsv').addEventListener('click', exportarReportesCSV);
 
 /* ============================================================
    MÓDULO 21 · SCROLL / CONEXIÓN / ERRORES GLOBALES

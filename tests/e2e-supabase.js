@@ -97,7 +97,7 @@ function check(nombre, cond, detalle) {
 
   console.log('\n=== 6. Reporte con la foto como URL ===');
   const repId = 'e2e-rep-' + STAMP;
-  const rep = { id: repId, nombre: 'Vecino E2E', colonia: 'Centro', tipo: 'Basura acumulada', texto: 'Reporte de verificación automática.', foto: urlPublica, ubicacion: { lat: 19.7, lng: -103.4 }, estado: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid };
+  const rep = { id: repId, nombre: 'Vecino E2E', colonia: 'Centro', tipo: 'Basura acumulada', texto: 'Reporte de verificación automática.', foto: urlPublica, ubicacion: { lat: 19.7, lng: -103.4 }, estado_sync: 'Sincronizado con la nube', estado: 'recibido', ts: Date.now(), usuario_id: uid };
   const insRep = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation', resolution: 'merge-duplicates' }), body: JSON.stringify([rep]) });
   check('reporte insertado', insRep.ok && insRep.data.length === 1, insRep.data);
   check('foto guardada como URL (no data URL)', insRep.data[0] && String(insRep.data[0].foto).indexOf('https://') === 0, insRep.data[0] && insRep.data[0].foto);
@@ -106,11 +106,11 @@ function check(nombre, cond, detalle) {
   // El trigger redondea antes de insertar, así que una coordenada exacta
   // no se rechaza: se guarda aproximada y sin las claves que nadie pidió.
   const exactaId = 'e2e-exacta-' + STAMP;
-  const exacta = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: exactaId, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Intento de guardar coordenada exacta.', estado: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 19.706123, lng: -103.461234, email: 'fuga@ejemplo.com' } }]) });
+  const exacta = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: exactaId, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Intento de guardar coordenada exacta.', estado_sync: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 19.706123, lng: -103.461234, email: 'fuga@ejemplo.com' } }]) });
   const ub = exacta.data && exacta.data[0] && exacta.data[0].ubicacion;
   check('coordenada exacta se guarda redondeada', !!ub && String(ub.lat) === '19.706' && String(ub.lng) === '-103.461', exacta.data);
   check('clave ajena (email) descartada del jsonb', !!ub && ub.email === undefined && Object.keys(ub).sort().join(',') === 'aprox,lat,lng', ub);
-  const imposible = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: 'e2e-imposible-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Coordenada imposible.', estado: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 999, lng: 0 } }]) });
+  const imposible = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: 'e2e-imposible-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Coordenada imposible.', estado_sync: 'Sincronizado con la nube', ts: Date.now(), usuario_id: uid, ubicacion: { lat: 999, lng: 0 } }]) });
   check('coordenada imposible se guarda como null', imposible.data && imposible.data[0] && imposible.data[0].ubicacion === null, imposible.data);
 
   console.log('\n=== 7. Límites de tamaño (texto de 5000 caracteres) ===');
@@ -181,6 +181,40 @@ function check(nombre, cond, detalle) {
   if (rec.data && rec.data.error_code === 'over_email_send_rate_limit') {
     console.log('  nota · Supabase limitó el envío de correos de esta hora. La entrega real sigue SIN VERIFICAR.');
   }
+
+  console.log('\n=== 12b. Moderación: una cuenta corriente no administra (P2.8) ===');
+  const admin = await json(REST + 'rpc/es_admin', { method: 'POST', headers: conSesion(), body: '{}' });
+  check('es_admin = false para una cuenta corriente', admin.ok && admin.data === false, admin.data);
+  const moderar = await json(REST + 'rpc/moderar', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_tabla: 'reportes', p_id: repId, p_oculto: true, p_motivo: 'prueba' }) });
+  check('moderar() bloqueado para no administrador', !moderar.ok && /administradora/i.test(JSON.stringify(moderar.data)), moderar.data);
+  const marcar = await json(REST + 'rpc/marcar_seguimiento', { method: 'POST', headers: conSesion(), body: JSON.stringify({ p_id: repId, p_estado: 'atendido' }) });
+  check('marcar_seguimiento() bloqueado para no administrador', !marcar.ok && /administradora/i.test(JSON.stringify(marcar.data)), marcar.data);
+  const listar = await json(REST + 'rpc/pendientes_moderacion', { method: 'POST', headers: conSesion(), body: '{}' });
+  check('listado de moderación bloqueado', !listar.ok && /administradora/i.test(JSON.stringify(listar.data)), listar.data);
+  const moderarAnon = await json(REST + 'rpc/moderar', { method: 'POST', headers: anon(), body: JSON.stringify({ p_tabla: 'reportes', p_id: repId, p_oculto: true, p_motivo: 'prueba' }) });
+  check('moderar() bloqueado también para invitados', moderarAnon.status === 401 || moderarAnon.status === 403 || !moderarAnon.ok, moderarAnon);
+
+  console.log('\n=== 12c. Estado del reporte (P2.7) ===');
+  const leerEstado = await json(REST + 'reportes?id=eq.' + repId + '&select=estado,estado_sync', { headers: anon() });
+  check('estado por defecto = recibido', leerEstado.data && leerEstado.data[0] && leerEstado.data[0].estado === 'recibido', leerEstado.data);
+  await json(REST + 'reportes?id=eq.' + repId, { method: 'PATCH', headers: conSesion(), body: JSON.stringify({ estado: 'atendido' }) });
+  const trasAuto = await json(REST + 'reportes?id=eq.' + repId + '&select=estado', { headers: anon() });
+  check('el autor no se autoproclama atendido', trasAuto.data && trasAuto.data[0] && trasAuto.data[0].estado === 'recibido', trasAuto.data);
+  const estadoInventado = await json(REST + 'reportes', { method: 'POST', headers: conSesion({ Prefer: 'return=representation' }), body: JSON.stringify([{ id: 'e2e-estado-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Reporte que nace ya atendido.', estado_sync: 'Sincronizado con la nube', estado: 'atendido', ts: Date.now(), usuario_id: uid }]) });
+  check('un reporte nuevo siempre nace en "recibido"', estadoInventado.data && estadoInventado.data[0] && estadoInventado.data[0].estado === 'recibido', estadoInventado.data);
+  const estadoRaro = await json(REST + 'reportes', { method: 'POST', headers: conSesion(), body: JSON.stringify([{ id: 'e2e-raro-' + STAMP, nombre: 'X', colonia: 'Centro', tipo: 'Otro', texto: 'Estado inventado.', estado_sync: 'x', estado: 'inventado', ts: Date.now(), usuario_id: uid }]) });
+  check('no se puede insertar un estado fuera del enum', !estadoRaro.ok, estadoRaro.data);
+
+  console.log('\n=== 12d. Borrado: solo el dueño (P2.10) ===');
+  // PostgREST devuelve 204 también cuando el borrado afecta a 0 filas,
+  // así que la única comprobación que vale es leer la fila después.
+  await json(REST + 'reportes?id=eq.' + repId, { method: 'DELETE', headers: anon() });
+  const trasInvitado = await json(REST + 'reportes?id=eq.' + repId + '&select=id', { headers: anon() });
+  check('un invitado no borra el reporte de otro', (trasInvitado.data || []).length === 1, trasInvitado.data);
+  const propia = await json(REST + 'reportes?id=eq.' + repId, { method: 'DELETE', headers: conSesion() });
+  check('el dueño sí borra (204)', propia.status === 204, propia.status);
+  const yaNoEsta = await json(REST + 'reportes?id=eq.' + repId + '&select=id', { headers: anon() });
+  check('el reporte ya no existe', (yaNoEsta.data || []).length === 0, yaNoEsta.data);
 
   console.log('\n=== 13. Estado final (la limpieza es manual, ver cabecera del archivo) ===');
   const fin = await json(REST + 'publicaciones?id=like.e2e-*&select=id', { headers: anon() });
