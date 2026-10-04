@@ -6,7 +6,7 @@
    · Recursos del mismo origen (iconos, manifiesto): caché primero con
      refresco en segundo plano.
    · APIs externas (OSM, OSRM, Nominatim, Supabase): directo a la red. */
-const CACHE = 'bym-v7';
+const CACHE = 'bym-v9';
 const PRECACHE = [
   './',
   './index.html',

@@ -2934,6 +2934,592 @@ function iniciar(){
   else window.addEventListener('load', function(){ setTimeout(ocultar, 350); });
   setTimeout(ocultar, 4000);
 }
+/* ============================================================
+   MÓDULO 23 · ECO, EL ASISTENTE DE LA APP
+   ------------------------------------------------------------
+   Eco NO es un modelo de lenguaje. Es un buscador que entiende
+   las preguntas que la app ya sabe contestar y responde SOLO con
+   datos que están en este mismo archivo: las colonias de ZONAS, la
+   guía de RESIDUOS, los niveles e insignias, los estados de un
+   reporte y los tipos que admite el formulario.
+
+   Por qué así y no con una IA:
+     · No hay claves ni peticiones a terceros: nada sale del
+       dispositivo y funciona sin conexión.
+     · No puede inventar nada. Si no hay dato, contesta que no lo
+       tiene, que es justo lo que una app cívica debe hacer.
+     · Se puede auditar entera leyendo este bloque.
+
+   Todo lo que dice el usuario se trata como texto no confiable:
+   se normaliza, se comparan palabras clave y SIEMPRE se pinta con
+   textContent. Nunca se interpreta como HTML ni como instrucciones.
+   ============================================================ */
+
+/* Reglas que Eco no puede romper. Se responden ANTES que cualquier otra
+   cosa del chat: si alguien intenta cambiarlas, estas ganan. */
+const ECO_LEMA = 'La tecnología también puede cuidar nuestro hogar.';
+const ECO_FRASE = 'El progreso sin conciencia no es progresión.';
+const ECO_SIN_GPS =
+  'No puedo mostrar una posición en vivo del camión porque el sistema no tiene una señal GPS activa. ' +
+  'Prefiero decírtelo claro antes que inventarte una ubicación o un horario.';
+const ECO_NO_MUNICIPAL =
+  'Esto no son datos oficiales del municipio: son puntos que el sistema propone a partir de las calles ' +
+  'reales del mapa. Para el horario oficial conviene consultar al ayuntamiento.';
+const ECO_SIN_DATO =
+  'No tengo ese dato. No estoy conectado al ayuntamiento ni a un modelo de lenguaje, así que ' +
+  'prefiero decirte "no lo sé" antes que inventarlo.';
+const ECO_ETIQUETA_VISTA = {
+  inicio: 'Inicio', mapa: 'el mapa', guia: 'Reciclaje', reportes: 'Reportes',
+  comunidad: 'Comunidad', perfil: 'tu perfil'
+};
+
+const ECO_CHIPS = [
+  '¿Cuándo pasa el camión?',
+  'Punto más cercano',
+  'Botella de plástico',
+  'Cómo reportar',
+  'Mi ruta',
+  'Puntos e insignias',
+  'Privacidad'
+];
+
+/* Consejo de educación ambiental. `f` dice de dónde sale el texto, para no
+   presentar una recomendación mía como si fuera un dato medido. */
+const ECO_TIPOS = [
+  { t: 'Enjuaga y aplasta los envases', f: 'recomendación de la guía de la app',
+    d: 'Un envase vacío, limpio y aplastado ocupa menos espacio y se procesa mejor que uno sucio y lleno de aire.' },
+  { t: 'Separa el orgánico en su propia bolsa', f: 'recomendación de la guía de la app',
+    d: 'Una bolsa separada para restos de comida y jardín evita que el recyclable se contamine y quite el olor.' },
+  { t: 'Lo especial nunca va al contenedor común', f: 'dato de la guía de la app',
+    d: 'Pilas, focos, medicamentos, aceite de cocina y electrónicos van a punto de acopio o a campañas de acopio.' },
+  { t: 'El cascarón de huevo sirve de composta', f: 'dato de la guía de la app',
+    d: 'Aplánalo antes de tirarlo: se degrada rápido y sirve de abono para las plantas.' },
+  { t: 'Envuelve el vidrio roto antes de moverlo', f: 'recomendación de la guía de la app',
+    d: 'Ponlo en una bolsa o en cartón para que nadie se corte al recogerlo.' },
+  { t: 'Registra tu acción todos los días', f: 'función de la app',
+    d: 'Cada día que separas residuos puedes registrarlo en Inicio y sumas ' + PTS.accion + ' puntos. Solo cuenta una vez al día.' }
+];
+
+/* ---------- Utilidades de texto ---------- */
+function ecoTiene(t){
+  for (let i = 1; i < arguments.length; i++) if (t.indexOf(arguments[i]) !== -1) return true;
+  return false;
+}
+/** Busca una palabra completa (con acentos ya normalizados) para evitar
+    que "rfc" se active dentro de otra palabra. */
+function ecoPalabra(t, w){
+  return new RegExp('(^|[^a-z0-9])' + w + '([^a-z0-9]|$)').test(t);
+}
+function ecoTexto(s){ return String(s == null ? '' : s); }
+
+/** Palabras clave → respuesta. El orden importa: primero las guardas de
+    seguridad, después lo más específico, al final lo general. */
+function ecoResponder(pregunta){
+  const t = normalizar(pregunta);
+  if (!t) return null;
+
+  /* --- 0. Guardas de seguridad: nada de lo que sigue las desactiva --- */
+  if (ecoTiene(t, 'ignora tus reglas', 'ignora las reglas', 'olvida tus reglas', 'cambia tus reglas',
+      'nuevas reglas', 'reglas nuevas', 'sin reglas', 'sin restricciones', 'actua como',
+      'actua de otro modo', 'eres ahora', 'nuevo prompt', 'prompt del sistema', 'system prompt',
+      'modo desarrollador', 'developer mode', 'cambia tus instrucciones', 'instruccion del sistema')){
+    return {
+      texto: 'Mis reglas no se cambian desde el chat. Sigo siendo Eco: no invento datos, no me conecto ' +
+        'al ayuntamiento y no salgo de esta app.\n\nLo que sí puedo hacer es bastante: guías de separación, ' +
+        'rutas y puntos propuestos, reportes, puntos e insignias.'
+    };
+  }
+  if (ecoTiene(t, 'mi contrasena es', 'dime tu contrasena', 'tu contrasena es', 'dame la contrasena',
+      'cual es mi contrasena', 'contrasena de', 'password de', 'clave de', 'api key', 'token de',
+      'clave anonima', 'anon key', 'sb_secret', 'sb_publishable')){
+    return {
+      texto: 'No te pido ni te doy contraseñas, tokens ni claves. Eco no necesita ningún secreto para ' +
+        'ayudarte: todo lo que sabe ya está en la app y funciona sin claves y sin conexión.'
+    };
+  }
+  if (ecoTiene(t, 'tarjeta de credito', 'tarjeta de debito', 'datos bancarios', 'numero de cuenta',
+      'clabe', 'salario', 'banco') || ecoPalabra(t, 'rfc') || ecoPalabra(t, 'curp')){
+    return {
+      texto: 'Esto es una app de residuos: no necesito ni guardo datos bancarios ni documentos personales. ' +
+        'Para tu reporte solo hace falta una descripción, una foto opcional y el punto del mapa.'
+    };
+  }
+  if (ecoTiene(t, 'datos de otro', 'datos de otra', 'correo de otra', 'correo de otro', 'privado de otra',
+      'privado de otro', 'hackear', 'acceder a la cuenta de', 'ver la cuenta de', 'de otro usuario',
+      'de otra persona', 'de otro vecino')){
+    return {
+      texto: 'No puedo mostrarte datos ni cuentas de otras personas. Lo que cada quien publica es suyo, ' +
+        'y los reportes se guardan con la ubicación difuminada a unos 100 metros justamente para no ' +
+        'exponer a nadie. Tampoco puedo modificar nada a nombre de otro usuario.'
+    };
+  }
+  if (ecoTiene(t, 'ejecuta este', 'ejecutar este codigo', 'ejecuta codigo', 'corre este codigo',
+      'haz un fetch', 'hazte un bot', 'haz un bot', 'javascript:', 'inyectar', 'drop table',
+      'cambia el codigo')){
+    return {
+      texto: 'No ejecuto código ni abro lo que me mandes. Lo que escribas lo trato como texto: no lo ' +
+        'convierto en HTML, no lo ejecuto y no cambia lo que soy.'
+    };
+  }
+  /* La ficha pide responder en español salvo que se pida otro idioma. */
+  if (ecoTiene(t, ' hello', ' hi ', ' where ', ' what ', ' how ', ' why ', ' recycle ', ' trash ', ' garbage ')){
+    return {
+      texto: 'Hola 🙂 Yo respondo en español, como toda la app. Pregúntame lo que quieras en español y te ' +
+        'ayudo con residuos, rutas, reportes y puntos.'
+    };
+  }
+
+  /* --- 1. Navegación ("¿dónde está X?"). Va antes que todo lo demás
+        porque pregunta por la ubicación de una función, no por la función.
+        Las dos únicas preguntas de ubicación que se apartan son las del
+        punto más cercano y las del camión: esas tienen su propia regla. --- */
+  if (ecoTiene(t, 'donde esta', 'donde queda', 'donde encuentro', 'como abro', 'seccion', 'menu',
+      'navegacion', 'en que parte', 'como llego a') &&
+      !ecoTiene(t, 'punto mas cercano', 'mas cercano', 'camion', 'horario', 'gps', 'posicion')){
+    return {
+      texto: 'Está todo en la barra de navegación de la izquierda (abajo en el celular):',
+      lista: [
+        'La ruta y los puntos de recolección están en Mapa.',
+        'La guía para separar cada residuo está en Reciclaje.',
+        'Los reportes ciudadanos están en Reportes.',
+        'Publicaciones, comentarios y me gusta están en Comunidad.',
+        'Tus puntos, nivel e insignias están en Mi perfil.',
+        'Tu resumen del día está en Inicio.'
+      ]
+    };
+  }
+
+  /* --- 2. Reportes ciudadanos (antes que camión: "el camión no pasó" también
+        se reporta, y ahí toca explicar cómo, no el horario) --- */
+  if (ecoTiene(t, 'reportar', 'reporte', 'reportes', 'quejarse', 'avisar', 'contenedor lleno',
+      'camion no paso', 'ruta incorrecta', 'basura en la calle')){
+    if (ecoTiene(t, 'tipo', 'cuales son los tipos')){
+      return {
+        texto: 'El formulario acepta cinco tipos: contenedor lleno, basura en la calle, camión no pasó, ' +
+          'ruta incorrecta y otro.',
+        ir: 'reportes'
+      };
+    }
+    return {
+      texto: 'Sí, te ayudo. Los pasos son:\n\n' +
+        '1. Entra a Reportes.\n' +
+        '2. Elige el tipo: contenedor lleno, basura en la calle, camión no pasó, ruta incorrecta u otro.\n' +
+        '3. Marca el punto en el mapa o usa tu ubicación actual.\n' +
+        '4. Escribe qué pasó y, si quieres, adjunta una foto.\n' +
+        '5. Revisa y envía.\n\n' +
+        'Tu ubicación se guarda difuminada a unos 100 metros, para que se vea la zona sin decir ' +
+        'exactamente dónde estás.',
+      ir: 'reportes'
+    };
+  }
+
+  /* --- 3. Camión, horarios, GPS y tiempos de llegada --- */
+  if (ecoTiene(t, 'camion', 'horario', 'que hora', 'cuando pasa', 'pasara', 'tiempo de llegada', 'gps',
+      'posicion', 'sigue al camion', 'esta en', 'llego') &&
+      !ecoTiene(t, 'reportar', 'reporte', 'reportes', 'quejarse', 'avisar')){
+    const col = ZONAS[estado.coloniaId];
+    const nombreColonia = ecoColoniaEnTexto(t) || (col ? col.nombre : null);
+    let estadoRuta = '';
+    if (rutaActiva && (!nombreColonia || rutaActiva.zona === nombreColonia)){
+      estadoRuta = '\n\nLo que sí está cargado ahora mismo es la ruta de ' + rutaActiva.zona + ': circuito de ' +
+        fmtDistancia(rutaActiva.distanciaM) + ' con ' + puntosActuales.length + ' puntos propuestos, cada ' +
+        INTERVALO_PUNTOS + ' m. Eso es el recorrido, no el horario.';
+    }
+    return {
+      texto: '🚛 ' + ECO_SIN_GPS +
+        (nombreColonia ? ' Estoy viendo la colonia que tienes seleccionada (' + nombreColonia + '),' +
+          ' pero el sistema no sabe a qué hora pasa.' : '') +
+        estadoRuta +
+        '\n\nLo que sí puedo hacer: enseñarte el recorrido y los puntos propuestos de tu colonia.',
+      ir: 'mapa'
+    };
+  }
+
+  /* --- 4. Punto más cercano: aquí sí hay datos reales, si hay ubicación --- */
+  if (ecoTiene(t, 'punto mas cercano', 'mas cercano', 'cerca de mi', 'punto de recoleccion mas cercano',
+      'cual es el punto', 'donde deposito', 'donde tiro cerca')){
+    const r = ecoPuntoCercanoReal();
+    if (r.accion === 'geo'){
+      return {
+        texto: 'Para decirte cuál es el punto más cercano necesito tu ubicación. El navegador te va a ' +
+          'pedir permiso; solo se usa para calcular distancias y no se comparte con nadie.',
+        acciones: [{ etiqueta: '📍 Usar mi ubicación', fn: ecoUsarMiUbicacion }]
+      };
+    }
+    if (r.accion === 'mapa'){
+      return {
+        texto: 'Ya sé dónde estás, pero la ruta todavía no termina de calcularse. En cuanto esté lista te ' +
+          'puedo decir el punto más cercano y a qué distancia.',
+        ir: 'mapa'
+      };
+    }
+    return {
+      texto: r.texto + '\n\n' + ECO_NO_MUNICIPAL,
+      ir: 'mapa'
+    };
+  }
+
+  /* --- 5. Estado de la ruta de su colonia --- */
+  if (ecoTiene(t, 'estado de la ruta', 'como va mi ruta', 'mi ruta esta', 'ya llego el camion',
+      'la ruta activo', 'tengo ruta cargada')){
+    if (!rutaActiva){
+      return {
+        texto: 'Todavía no hay ninguna ruta cargada. Se calcula al abrir el mapa, con las calles reales ' +
+          'de OpenStreetMap. Si no hay conexión, no se puede calcular y la app lo dice.',
+        ir: 'mapa'
+      };
+    }
+    return {
+      texto: '🚛 Ruta de ' + rutaActiva.zona + ' cargada: circuito de ' + fmtDistancia(rutaActiva.distanciaM) +
+        ' sobre ' + rutaActiva.fuente + ', con ' + puntosActuales.length + ' puntos propuestos cada ' +
+        INTERVALO_PUNTOS + ' m.\n\n' +
+        'Ojo con la diferencia: esto es el recorrido. El horario y la hora de llegada del camión no ' +
+        'los tiene el sistema.',
+      ir: 'mapa'
+    };
+  }
+
+  /* --- 6. Rutas y colonias --- */
+  if (ecoTiene(t, 'ruta', 'mapa', 'colonia', 'colonias', 'punto de recoleccion', 'puntos de recoleccion')){
+    const lista = Object.keys(ZONAS).map(function(k){ return ZONAS[k].nombre; });
+    const col = ZONAS[estado.coloniaId];
+    const pedida = ecoColoniaEnTexto(t);
+    const foco = pedida
+      ? 'De las colonias con ruta, ' + pedida + ' es la que mencionas.\n\n'
+      : (col ? 'Tienes seleccionada ' + col.nombre + '.\n\n' : '');
+    return {
+      texto: foco + 'La app tiene ' + lista.length + ' colonias con ruta: ' + lista.join(', ') + '.\n\n' +
+        'En el mapa eliges la tuya en el selector de arriba y ves el recorrido con los puntos ' +
+        'propuestos. ' + ECO_NO_MUNICIPAL,
+      ir: 'mapa'
+    };
+  }
+
+  /* --- 7. Reciclaje: primero el residuo concreto --- */
+  if (ecoTiene(t, 'que hago con', 'como separo', 'donde va', 'que va', 'residuo', 'reciclar', 'basura',
+      'separar', 'tirar', 'botella', 'papel', 'carton', 'vidrio', 'plastico', 'pila', 'aceite',
+      'electronico', 'medicamento', 'organico', 'compost', 'metal', 'lata', 'boton')){
+    const r = buscarEcoResiduo(t);
+    if (r) return { texto: r, ir: 'guia' };
+    // "qué son los residuos especiales" no es un residuo: es una categoría.
+    if (ecoTiene(t, 'organicos', 'inorganicos', 'reciclables', 'no reciclables', 'especiales', 'categoria',
+        'cuales son las categorias')){
+      return { texto: ecoResumenCategorias(), lista: ecoListaCategorias(), ir: 'guia' };
+    }
+    if (ecoTiene(t, 'basura', 'reciclar', 'separar', 'donde va')){
+      return { texto: ecoResumenCategorias(), lista: ecoListaCategorias(), ir: 'guia' };
+    }
+    return {
+      texto: ECO_SIN_DATO + '\n\nPrueba con un nombre más común ("botella PET", "cartón", "pilas", "aceite") ' +
+        'o busca tú mismo entre los ' + RESIDUOS.length + ' residuos con guía.',
+      ir: 'guia'
+    };
+  }
+
+  /* --- 8. Las cuatro categorías de la guía --- */
+  if (ecoTiene(t, 'organicos', 'inorganicos', 'reciclables', 'no reciclables', 'especiales', 'categoria',
+      'cuales son las categorias')){
+    return { texto: ecoResumenCategorias(), lista: ecoListaCategorias(), ir: 'guia' };
+  }
+
+  /* --- 9. Comunidad: publicaciones, comentarios, votos y actividades --- */
+  if (ecoTiene(t, 'comunidad', 'publicacion', 'publicar', 'comentario', 'comentar', 'me gusta', 'like',
+      'voto', 'votar', 'evento', 'jornada', 'taller', 'accion')){
+    return {
+      texto: 'En Comunidad puedes:\n\n' +
+        '· Publicar una idea o un aviso (con tu nombre de perfil, o como Anónimo).\n' +
+        '· Comentar lo que ponen tus vecinos.\n' +
+        '· Dar un me gusta a las publicaciones que te parezcan buenas.\n\n' +
+        'Publicar o comentar da ' + PTS.participacion + ' puntos. Y ojo con una cosa: las actividades ' +
+        'que aparecen (jornada de limpieza, taller de compostaje) son propuestas de ejemplo para ' +
+        'demostrar la plataforma, no eventos oficiales del municipio.',
+      ir: 'comunidad'
+    };
+  }
+
+  /* --- 10. Puntos, niveles e insignias --- */
+  if (ecoTiene(t, 'puntos', 'insignia', 'insignias', 'nivel', 'recompensa', 'progreso', 'logro')){
+    const n = nivelDe(estado.puntos || 0);
+    return {
+      texto: 'Así funciona lo que ganas:\n\n' +
+        '· Acción ecológica del día: +' + PTS.accion + ' puntos.\n' +
+        '· Reporte enviado: +' + PTS.reporte + '.\n' +
+        '· Publicación o comentario: +' + PTS.participacion + '.\n\n' +
+        'Hay ' + NIVELES.length + ' niveles. Vas en el ' + n.nivel + ' ("' + n.nombre + '") con ' +
+        (estado.puntos || 0) + ' puntos.\n\n' +
+        'Las ' + INSIGNIAS.length + ' insignias se desbloquean solas según lo que hagas: ' +
+        INSIGNIAS.map(function(i){ return i.icono + ' ' + i.nombre; }).join(', ') + '.\n\n' +
+        'Una cosa honesta: yo no te puedo dar puntos a mano. Los calcula la app.',
+      ir: 'perfil'
+    };
+  }
+
+  /* --- 11. Educación ambiental --- */
+  if (ecoTiene(t, 'consejo', 'consejos', 'tip', 'tips', 'aprender', 'aprender a', 'que puedo hacer para',
+      'cuidar el ambiente', 'medio ambiente', 'contaminacion', 'contaminar', 'sustentable')){
+    const elegido = ecoConsejoPara(t);
+    if (elegido) return { texto: elegido, ir: 'guia' };
+    return {
+      texto: 'Te dejo consejos que sí están respaldados por la guía de la app:',
+      lista: ECO_TIPOS.slice(0, 4).map(function(c){ return c.t + ' — ' + c.d; }),
+      ir: 'guia'
+    };
+  }
+
+  /* --- 12. Privacidad --- */
+  if (ecoTiene(t, 'privacidad', 'datos', 'guardan', 'informacion', 'rastreo', 'cookie', 'seguridad',
+      'mis datos')){
+    return {
+      texto: 'Esto es lo que guarda la app:\n\n' +
+        '· Tu cuenta (correo y el nombre que eliges). El correo nunca se muestra como nombre público.\n' +
+        '· Lo que publicas y comentas, con tu nombre de perfil.\n' +
+        '· Los reportes, con la ubicación difuminada a unos 100 metros.\n' +
+        '· Tu sesión y tu progreso, también en este navegador, para que la app funcione sin conexión.\n\n' +
+        'Todo está escrito en el pie, en "Política de privacidad".'
+    };
+  }
+
+  /* --- 13. Cuenta --- */
+  if (ecoTiene(t, 'cuenta', 'registrar', 'iniciar sesion', 'correo', 'password', 'contrasena', 'perdi mi')){
+    return {
+      texto: 'Puedes usar Basura y Más de dos formas:\n\n' +
+        '· Como invitado: todo menos publicar con tu nombre. Sin cuenta.\n' +
+        '· Con cuenta: para publicar, comentar y que tu reporte quede a tu nombre.\n\n' +
+        'Si olvidaste la contraseña, la app manda un enlace al correo con el que te registraste. ' +
+        'Aviso honesto: hoy ese correo solo llega a correos del propio proyecto, porque falta conectar ' +
+        'un servidor de correo.'
+    };
+  }
+
+  /* --- 14. Quién es y qué puede hacer --- */
+  if (ecoTiene(t, 'quien eres', 'presentate', 'como te llamas', 'que puedes hacer', 'que es esto',
+      'como uso', 'como funciona', 'ayuda', 'para que sirves')){
+    return {
+      texto: 'Soy Eco, el asistente de Basura y Más. ' + ECO_LEMA + '\n\n' +
+        'No soy un modelo de lenguaje: soy un buscador que entiende las preguntas que esta app ya sabe ' +
+        'contestar y responde solo con los datos que tiene guardados. Si no lo sé, te lo digo.\n\n' +
+        'Puedo ayudarte con: rutas y puntos propuestos, el punto más cercano a tu ubicación, cómo separar ' +
+        'un residuo, cómo enviar un reporte, comunidad, puntos e insignias, y dónde está cada función.\n\n' +
+        '"' + ECO_FRASE + '"',
+      acciones: [{ etiqueta: '→ Ir a Inicio', ir: 'inicio' }]
+    };
+  }
+
+  /* --- 15. Si ninguna regla entiende la pregunta, no se improvisa: lo dice --- */
+  return null;
+}
+
+/* ---------- Datos reales que usa Eco ---------- */
+
+/** Devuelve el nombre de una colonia si la persona la menciona. */
+function ecoColoniaEnTexto(t){
+  const claves = Object.keys(ZONAS);
+  for (let i = 0; i < claves.length; i++){
+    const n = normalizar(ZONAS[claves[i]].nombre);
+    if (t.indexOf(n) !== -1) return ZONAS[claves[i]].nombre;
+  }
+  return null;
+}
+
+/** Punto de recolección más cercano a la ubicación ya conocida. Solo usa
+    datos calculados de verdad: la geometría de la ruta y la posición del
+    propio usuario. Distancia en línea recta, no por calle. */
+function ecoPuntoCercanoReal(){
+  if (!estado.ubicacion) return { accion: 'geo' };
+  if (!puntosActuales.length || !rutaActiva) return { accion: 'mapa' };
+  const cerca = puntoMasCercano();
+  if (!cerca) return { accion: 'mapa' };
+  return {
+    texto: '📍 El punto propuesto más cercano a tu ubicación es el #' +
+      String(cerca.p.numero).padStart(2, '0') + ' de la ruta de ' + rutaActiva.zona + ', a ' +
+      fmtDistancia(cerca.d) + ' en línea recta.\n\nEl tiempo a pie o en vehículo por calle lo calcula ' +
+      'el mapa cuando hay conexión; yo no te lo estimo de memoria.'
+  };
+}
+
+/** Pide la ubicación al navegador y responde con el punto más cercano. */
+async function ecoUsarMiUbicacion(){
+  ecoMensajeEco('⏳ Pidiendo permiso de ubicación…');
+  try {
+    const loc = await dataLayer.getUserLocation();
+    estado.ubicacion = { lat: loc.lat, lng: loc.lng };
+    estado._usoUbicacion = true;
+    if (mapa){
+      pintarMarcadorUsuario(estado.ubicacion);
+      mapa.setView([loc.lat, loc.lng], 16, { animate: !REDUCIR.matches });
+    }
+    if (puntosActuales.length) evaluarPuntoCercano();
+    registrarAccion('ruta', 'Usó su ubicación para buscar la ruta', PTS.ayuda);
+    verificarInsignias();
+    const r = ecoPuntoCercanoReal();
+    ecoMensajeEco(r.texto ? ('✓ Ubicación lista.\n\n' + r.texto + '\n\n' + ECO_NO_MUNICIPAL) : '✓ Ubicación lista.');
+    ecoPintarAcciones([{ etiqueta: '→ Ir a el mapa', ir: 'mapa' }]);
+  } catch (err) {
+    ecoMensajeEco('No pude obtener tu ubicación (' + (err.message || 'sin permiso') + '). ' +
+      'No pasa nada: puedes elegir tu punto tocando el mapa.');
+  }
+}
+
+function ecoResumenCategorias(){
+  return 'La guía separa los residuos en cuatro grupos:';
+}
+function ecoListaCategorias(){
+  return Object.keys(CATS_INFO).map(function(k){
+    const n = RESIDUOS.filter(function(r){ return r.cat === k; }).length;
+    return CATS_INFO[k].t + ': ' + n + ' residuos con guía.';
+  });
+}
+
+/** Elige el consejo de ECO_TIPOS que mejor encaja con la pregunta. */
+function ecoConsejoPara(t){
+  let mejor = null, mejorLargo = 0;
+  for (let i = 0; i < ECO_TIPOS.length; i++){
+    const c = ECO_TIPOS[i];
+    const palabras = normalizar(c.t + ' ' + c.d).split(/[^a-z0-9]+/)
+      .filter(function(p){ return p.length > 4; });
+    let coincide = 0;
+    palabras.forEach(function(p){ if (t.indexOf(p) !== -1) coincide++; });
+    if (coincide > mejorLargo){ mejor = c; mejorLargo = coincide; }
+  }
+  if (!mejor) return null;
+  return mejor.t + '\n\n' + mejor.d + '\n\nFuente: ' + mejor.f + '.';
+}
+
+/** Busca el residuo con la misma lógica de palabras que usa la guía. */
+function buscarEcoResiduo(t){
+  for (let i = 0; i < RESIDUOS.length; i++){
+    const r = RESIDUOS[i];
+    if (r.cl.some(function(c){ return t.indexOf(normalizar(c)) !== -1; })){
+      const cat = CATS_INFO[r.cat];
+      return r.e + ' ' + r.n + ' → ' + r.c + '\n\nCategoría: ' + (cat ? cat.t : r.cat) + '.';
+    }
+  }
+  return null;
+}
+
+/* ---------- Interfaz de Eco ---------- */
+function ecoAbrir(){
+  const chat = $('#ecoChat');
+  if (chat && !chat.children.length){
+    ecoMensajeEco(
+      'Hola, soy Eco 🌿\n\n' + ECO_LEMA + '\n\nTe ayudo con lo que tiene esta app: rutas y puntos ' +
+      'propuestos, cómo separar residuos, reportes, comunidad y tus puntos. Pregúntame con tus palabras.\n\n' +
+      'Una aclaración importante: no tengo conexión con el ayuntamiento ni GPS del camión, así que de ' +
+      'eso no te puedo dar datos. Prefiero decirte "no lo sé" antes que inventarte algo.'
+    );
+  }
+  renderChipsEco();
+  abrirModal('modalEco');
+  setTimeout(function(){ const i = $('#ecoInput'); if (i) i.focus(); }, 120);
+}
+function ecoMensajeEco(texto){
+  const chat = $('#ecoChat');
+  if (!chat) return;
+  const d = document.createElement('div');
+  d.className = 'eco-msg eco-msg-eco';
+  d.textContent = texto;      // textContent: lo que escriba el usuario nunca se interpreta como HTML
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+function ecoMensajeYo(texto){
+  const chat = $('#ecoChat');
+  if (!chat) return;
+  const d = document.createElement('div');
+  d.className = 'eco-msg eco-msg-yo';
+  d.textContent = texto;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+/** Lista con viñetas dentro de una burbuja de Eco. */
+function ecoMensajeLista(items){
+  const chat = $('#ecoChat');
+  if (!chat) return;
+  const d = document.createElement('div');
+  d.className = 'eco-msg eco-msg-eco';
+  const ul = document.createElement('ul');
+  ul.className = 'eco-lista';
+  items.forEach(function(it){
+    const li = document.createElement('li');
+    li.textContent = it;
+    ul.appendChild(li);
+  });
+  d.appendChild(ul);
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+/** Botones de acción. Cada uno es un .eco-chip suelto dentro del chat:
+    sin esto se estiraría a todo el ancho de la burbuja. */
+function ecoPintarAcciones(acciones){
+  const chat = $('#ecoChat');
+  if (!chat || !acciones || !acciones.length) return;
+  acciones.forEach(function(a){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'eco-chip';
+    b.style.marginTop = '.35rem';
+    b.textContent = a.etiqueta;
+    b.addEventListener('click', function(){
+      if (a.fn){ a.fn(); return; }
+      cerrarModal('modalEco');
+      if (a.ir) irA(a.ir);
+    });
+    chat.appendChild(b);
+  });
+  chat.scrollTop = chat.scrollHeight;
+}
+function renderChipsEco(){
+  const cont = $('#ecoChips');
+  if (!cont) return;
+  cont.replaceChildren();               // ni una vez innerHTML en este módulo
+  ECO_CHIPS.forEach(function(p){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'eco-chip';
+    b.textContent = p;
+    b.addEventListener('click', function(){ ecoPreguntar(p); });
+    cont.appendChild(b);
+  });
+}
+function ecoPreguntar(pregunta){
+  ecoMensajeYo(pregunta);
+  const r = ecoResponder(pregunta);
+  if (r){
+    ecoMensajeEco(ecoTexto(r.texto));
+    if (r.lista) ecoMensajeLista(r.lista);
+    if (r.acciones) ecoPintarAcciones(r.acciones);
+    // Ofrece el atajo, pero solo a vistas abiertas para todo el mundo:
+    // el panel de moderación nunca se ofrece desde aquí.
+    if (r.ir && r.ir !== 'moderacion'){
+      ecoPintarAcciones([{ etiqueta: '→ Ir a ' + (ECO_ETIQUETA_VISTA[r.ir] || 'esa sección'), ir: r.ir }]);
+    }
+  } else {
+    ecoMensajeEco(
+      'Esa no la sé todavía 🤔\n\nNo tengo un modelo de lenguaje detrás, así que solo entiendo lo ' +
+      'que tiene esta app. Sí puedo ayudarte con:\n\n' +
+      '· Rutas de recolección y puntos propuestos.\n' +
+      '· El punto más cercano a tu ubicación.\n' +
+      '· Cómo separar un residuo concreto.\n' +
+      '· Cómo enviar un reporte.\n' +
+      '· Comunidad, puntos e insignias.\n' +
+      '· Qué datos guarda la app.\n\nPrueba con una de las preguntas de abajo.'
+    );
+  }
+}
+
+const btnEco = $('#btnEco');
+if (btnEco) btnEco.addEventListener('click', ecoAbrir);
+const formEco = $('#ecoForm');
+if (formEco){
+  formEco.addEventListener('submit', function(e){
+    e.preventDefault();
+    const i = $('#ecoInput');
+    const q = (i.value || '').trim();
+    if (!q) return;
+    i.value = '';
+    ecoPreguntar(q);
+  });
+}
+
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
 else iniciar();
 

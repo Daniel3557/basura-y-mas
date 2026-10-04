@@ -979,6 +979,30 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modalEco" role="dialog" aria-modal="true" aria-labelledby="tEco">
+  <div class="modal eco-modal">
+    <div class="modal-cab">
+      <h3 id="tEco">🌿 Eco · Asistente de Basura y Más</h3>
+      <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
+    </div>
+    <p class="eco-aviso">
+      Eco responde solo con lo que ya está en esta app. <strong>Sin internet y sin modelo de lenguaje</strong>,
+      así que no puede inventar horarios ni datos: si no lo sabe, te lo dice.
+    </p>
+    <div class="eco-chat" id="ecoChat" role="log" aria-live="polite" aria-label="Conversación con Eco"></div>
+    <div class="eco-chips" id="ecoChips" aria-label="Preguntas sugeridas"></div>
+    <form class="eco-form" id="ecoForm" novalidate>
+      <label class="sr-only" for="ecoInput">Escribe tu pregunta</label>
+      <input type="text" id="ecoInput" placeholder="Escribe tu pregunta…" autocomplete="off" maxlength="140">
+      <button type="submit" class="btn btn-primario" id="ecoEnviar">Enviar</button>
+    </form>
+  </div>
+</div>
+
+<button type="button" class="eco-fab" id="btnEco" aria-label="Abrir a Eco, el asistente del proyecto" title="Eco · asistente">
+  <svg class="icono"><use href="#i-hoja"/></svg><span class="eco-fab-txt">Eco</span>
+</button>
+
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="toasts" aria-live="polite" aria-atomic="false"></div>
 

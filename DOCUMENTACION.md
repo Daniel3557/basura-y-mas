@@ -240,6 +240,7 @@ El orden importa, porque el JS delega eventos a IDs que deben existir:
 | `#modalConfirmar` | 1268 | Confirmación reutilizable (`confirmarAccion(texto, detalle, botón)`) |
 | `#modalShare` | 1282 | Texto para compartir manualmente (fallback sin `navigator.share`) |
 | `#modalNuevaPass` | 1300 | Formulario de nueva contraseña tras el enlace de recuperación |
+| `#modalEco` | 1326 | Chat con Eco, el asistente (ver 5.16) |
 
 9. **`<canvas id="confetti">`** (1323) y **`<div id="toasts" aria-live="polite">`** (1324) — el `aria-live` hace que los lectores de pantalla anuncien los avisos.
 
@@ -752,6 +753,53 @@ function iniciar(){
 Dos detalles que parecen menores y no lo son:
 - Los **900 ms de retardo** del onboarding evitan que el modal tape el contenido antes de que el usuario vea qué es la app.
 - El **doble ocultado del loader** (evento `load` y temporizador de 4 s) garantiza que nunca se quede una pantalla de carga eterna si un recurso externo se cuelga.
+
+### 5.16 Módulo 23 — Eco, el asistente
+
+`Eco` es el botón flotante con hoja (`#btnEco`) que abre `#modalEco`: un chat dentro de la app. Vive todo en el `app.js`, entre la línea 2938 y el final del archivo, y no necesita ni una clave ni una llamada de red.
+
+**Por qué no es un modelo de lenguaje.** Es la decisión de diseño que sostiene todo lo demás:
+
+| Si Eco fuera… | …pasaría esto |
+|---|---|
+| una IA con clave | los datos saldrían del dispositivo y habría que pagar y auditar a un tercero |
+| un modelo entrenado | podría inventar un horario de camión o un "punto oficial" que no existe |
+| un buscador determinista | responde solo con lo que hay en `app.js` y, si no lo sabe, lo dice |
+
+`ecoResponder(pregunta)` normaliza el texto, compara palabras clave en un orden fijo y devuelve `{ texto, lista?, ir?, acciones? }`. Ninguna regla llama a la red.
+
+**Orden de las reglas** (el orden es el diseño; las guardas van primero porque no pueden desactivarse):
+
+| # | Regla | Qué contesta |
+|---|---|---|
+| 0 | Guardas de seguridad | intentos de cambiar sus reglas, pedir contraseñas o tokens, datos bancarios, datos de otros usuarios, ejecutar código, y mensajes en inglés |
+| 1 | Navegación | dónde está cada sección |
+| 2 | Reportes | los 5 tipos y los 5 pasos del formulario |
+| 3 | Camión y horarios | siempre la misma respuesta honesta: no hay GPS |
+| 4 | Punto más cercano | aquí sí hay datos reales, si hay ubicación |
+| 5 | Estado de la ruta | circuito, fuente y número de puntos, si está cargada |
+| 6 | Rutas y colonias | las 6 colonias y la que tienes seleccionada |
+| 7 | Reciclaje | el residuo concreto de la guía, o las 4 categorías |
+| 8 | Categorías | los 4 grupos con su número de residuos |
+| 9 | Comunidad | publicaciones, comentarios, votos y actividades |
+| 10 | Puntos e insignias | niveles, insignias y por qué no puede regalar puntos |
+| 11 | Educación ambiental | consejos, indicando si son dato de la guía o recomendación |
+| 12 | Privacidad | qué guarda la app |
+| 13 | Cuenta | invitado, registro y recuperación |
+| 14 | Identidad | quién es Eco, lema y frase |
+| 15 | Sin coincidencia | "esa no la sé todavía" con la lista de lo que sí entiende |
+
+**Lo único que Eco calcula de verdad.** `ecoPuntoCercanoReal()` reutiliza `puntoMasCercano()`, la misma función que pinta el panel del mapa, así que el punto y la distancia que dice el chat son los mismos que se ven en el mapa. Devuelve la distancia **en línea recta** (`haversine`) y dice que el tiempo por calle lo calcula el mapa con OSRM, no ella. El botón `📍 Usar mi ubicación` pide permiso con `dataLayer.getUserLocation()`, guarda la posición solo en `estado.ubicacion` y responde con el punto encontrado.
+
+**Honestidad con los datos.** Tres reglas fijas en el código:
+
+- `ECO_NO_MUNICIPAL`: los puntos del mapa son **puntos propuestos**, nunca "puntos oficiales"; para el horario oficial hay que ir al ayuntamiento.
+- `ECO_SIN_GPS`: sin señal GPS no hay posición ni ETA del camión, y la respuesta lo dice en la primera frase.
+- `ecoPalabra()`: los términos cortos (`rfc`, `curp`) se buscan como palabra completa para que no se activen dentro de otra.
+
+**Seguridad del texto.** Todo lo que escribe la persona entra por `ecoMensajeYo()`, que usa `textContent`; lo mismo para `ecoMensajeEco()`, `ecoMensajeLista()` y los botones de `ecoPintarAcciones()`. **No hay ni un `innerHTML` en el módulo**, así que un `<img onerror=…>` pegado en el chat se ve como texto y no ejecuta nada. El atajo de navegación nunca apunta a `moderacion`.
+
+**Lo que se verificó en navegador real:** los 7 chips, `¿cuándo pasa el camión?` sin inventar, "elonso de la jirafa" → "no encontré ese residuo", `<img src=x onerror=…>` → 0 imágenes y 0 scripts, el punto más cercano (#23 a 26 m) coincidiendo con el panel del mapa, los 5 tipos de reporte, las 4 categorías, las guardas de seguridad, el modo oscuro con el interruptor de la app y 0 errores de consola.
 
 ---
 
@@ -1876,6 +1924,16 @@ Botón **⚙️** (arriba a la derecha) → `#modalConfig`:
 **Escritorio:** aparece el botón de instalación en la barra de direcciones.
 
 Queda como una app con su ícono, abre a pantalla completa y **funciona sin internet** para todo lo que ya tengas guardado.
+
+### 14.12 Preguntar a Eco
+
+1. Pulsa el botón flotante **🌿 Eco**, abajo a la derecha (en celular, en el móvil sale solo el ícono).
+2. Toca una de las **preguntas sugeridas** o escribe con tus palabras y pulsa **Enviar**.
+3. Cuando hay una acción posible, Eco pone un botón debajo de la respuesta: **→ Ir a …** para llevarte a esa sección, o **📍 Usar mi ubicación** para que te diga el punto de recolección más cercano.
+
+Lo que sí sabe: rutas y puntos propuestos, cómo separar cualquier residuo de la guía, cómo enviar un reporte, comunidad, puntos e insignias, y qué datos guarda la app. Lo que **no** puede saber y por tanto no dirá: el horario del camión, su posición en vivo ni su tiempo de llegada, y ningún "punto oficial" de recolección. Eco tampoco te pide contraseñas, datos bancarios ni los datos de otra persona.
+
+Se explica con detalle en [5.16](#516-módulo-23--eco-el-asistente).
 
 ---
 

@@ -839,3 +839,121 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
 .leaflet-container{font-family:var(--font)}
+/* ============================================================
+   ECO · ASISTENTE DE LA APP
+   ------------------------------------------------------------
+   Sin claves, sin red y sin modelo de lenguaje: este archivo solo
+   dibuja. Las respuestas salen de los datos reales de la app
+   (VER MODULO 23 en app.js), así que Eco no puede inventar horarios,
+   rutas ni posiciones.
+   ============================================================ */
+
+/* ---------- Botón flotante ---------- */
+.eco-fab{
+  position:fixed;z-index:300;
+  right:max(1rem,env(safe-area-inset-right));
+  bottom:calc(5.4rem + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:.4rem;
+  padding:.6rem .9rem;
+  border:0;border-radius:999px;
+  background:var(--primary);color:#fff;
+  font:600 .88rem var(--font);
+  box-shadow:0 6px 20px rgba(8,22,12,.28), 0 2px 6px rgba(8,22,12,.2);
+  cursor:pointer;
+  transition:transform .18s ease, background .18s ease;
+}
+.eco-fab:hover{background:var(--primary-dark);transform:translateY(-2px)}
+.eco-fab:active{transform:translateY(0)}
+.eco-fab .icono{width:20px;height:20px;fill:#fff}
+.eco-fab-txt{letter-spacing:.02em}
+/* En pantallas muy estrechas solo el icono: el texto estorba. */
+@media (max-width:380px){ .eco-fab-txt{display:none} .eco-fab{padding:.7rem} }
+
+/* ---------- Modal ---------- */
+.eco-modal{max-width:430px;display:flex;flex-direction:column;max-height:min(86vh,760px)}
+.eco-aviso{
+  margin:0;padding:.55rem .7rem;
+  background:var(--acento-suave);color:var(--acento-fuerte);
+  border-radius:.5rem;font-size:.76rem;line-height:1.45;
+}
+.eco-aviso strong{font-weight:700}
+
+/* ---------- Conversación ---------- */
+.eco-chat{
+  flex:1;min-height:180px;
+  display:flex;flex-direction:column;gap:.5rem;
+  overflow-y:auto;padding:.35rem .1rem;
+  scroll-behavior:smooth;
+}
+.eco-msg{
+  max-width:88%;
+  padding:.55rem .75rem;
+  border-radius:.85rem;
+  font-size:.87rem;line-height:1.5;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+/* Eco habla: a la izquierda, con la cola apuntando a su avatar. */
+.eco-msg-eco{
+  align-self:flex-start;
+  background:var(--g-50);
+  border:1px solid var(--border);
+  border-bottom-left-radius:.25rem;
+  color:var(--text);
+}
+/* La persona escribe: a la derecha, verde de marca. */
+.eco-msg-yo{
+  align-self:flex-end;
+  background:var(--primary);
+  color:#fff;
+  border-bottom-right-radius:.25rem;
+}
+.eco-msg b{font-weight:700}
+.eco-lista{margin:.35rem 0 0;padding-left:1.05rem}
+.eco-lista li{margin:.15rem 0}
+
+/* ---------- Preguntas sugeridas ---------- */
+.eco-chips{
+  display:flex;flex-wrap:wrap;gap:.35rem;
+  padding:.55rem 0 .1rem;
+  border-top:1px solid var(--border);
+}
+.eco-chip{
+  padding:.34rem .6rem;
+  border:1px solid var(--border-strong);
+  border-radius:999px;
+  background:var(--card-alt);
+  color:var(--muted);
+  font:500 .76rem var(--font);
+  cursor:pointer;
+  transition:border-color .15s ease, color .15s ease;
+}
+.eco-chip:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ---------- Formulario ---------- */
+.eco-form{display:flex;gap:.4rem;padding-top:.5rem}
+.eco-form input{
+  flex:1;min-width:0;
+  padding:.6rem .75rem;
+  border:1px solid var(--border-strong);
+  border-radius:.6rem;
+  background:var(--card);
+  color:var(--text);
+  font:400 .9rem var(--font);
+}
+.eco-form input:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.eco-form .btn{flex-shrink:0}
+
+/* El atajo de navegación es un .eco-chip suelto dentro del chat: sin esto
+   se estiraría a todo el ancho de la burbuja. */
+#ecoChat .eco-chip{align-self:flex-start;border-color:var(--primary);color:var(--primary);font-weight:600}
+
+/* En oscuro el verde de marca sobre blanco se apaga: el texto de las
+   burbujas de Eco necesita un fondo legible propio. Se usa [data-theme]
+   como el resto del archivo y no prefers-color-scheme, para que el modo
+   oscuro del botón de la app también cambie el chat. */
+[data-theme="dark"] .eco-msg-eco{background:var(--card-alt);border-color:var(--border-strong)}
+[data-theme="dark"] .eco-fab{background:var(--g-500);color:var(--g-900)}
+[data-theme="dark"] .eco-fab:hover{background:var(--g-400)}
+[data-theme="dark"] .eco-fab .icono{fill:var(--g-900)}
+[data-theme="dark"] .eco-aviso{background:rgba(180,83,9,.16);color:var(--g-200)}
