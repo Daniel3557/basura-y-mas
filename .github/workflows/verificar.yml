@@ -40,11 +40,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      # Medido: con checkout@v4 y setup-node@v4 el job se caía SIEMPRE en
-      # "Instalar Node", en los dos pushes, antes de ejecutar ninguna
-      # comprobación. Ambas actions corren sobre el runtime de Node 20; la
-      # v5 corre sobre Node 24. Nota: esto cambia el runtime de las actions,
-      # no el Node del proyecto, que sigue siendo el 20.
+      # Este proyecto no tiene package.json, así que setup-node no debe intentar
+      # cachear nada. No se pone `cache`: se Omite. Decir cache: 'none' hace
+      # que setup-node@v5 lo lea como el nombre de un gestor de paquetes y
+      # aborte ("No se admite la caché para 'none'"), y el job se cae ANTES
+      # de ejecutar ninguna comprobación. Sin ese campo, la caché ya está
+      # apagada.
       - name: Copiar el repositorio
         uses: actions/checkout@v5
 
@@ -52,7 +53,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '20'
-          cache: 'none'
 
       # ── Comprobaciones que no necesitan red ─────────────────────
       - name: Sintaxis de app.js y sw.js
