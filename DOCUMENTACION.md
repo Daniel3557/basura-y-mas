@@ -121,7 +121,7 @@ Este documento es el mapa completo de la aplicación: qué archivos existen, qu�
 | Archivo | Bytes / Líneas | Función |
 |---|---|---|
 | `index.html` | 210 KB · 3 640 líneas | **Toda la aplicación.** HTML + CSS + JS |
-| `sw.js` | 66 líneas | Service worker: PWA, caché `bym-v5`, red-primero |
+| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v13`, red-primero |
 | `manifest.webmanifest` | 18 líneas | Metadatos de la PWA instalable |
 | `vercel.json` | 45 líneas | Cabeceras de seguridad y de caché |
 | `supabase-schema.sql` | 228 líneas | Espejo completo del esquema de BD (para replicarlo) |
@@ -1639,9 +1639,10 @@ Cada insignia se evalúa con una **función `cond` sobre un contexto**, así que
 ### 10.2 `sw.js` — estrategia de caché
 
 ```js
-const CACHE = 'bym-v5';
-const PRECACHE = ['./', './index.html', './manifest.webmanifest',
-                  './icon.svg', './icon-192.png', './icon-512.png'];
+const CACHE = 'bym-v13';
+const PRECACHE = ['./', './index.html', './estilos.css', './app.js',
+                  './manifest.webmanifest', './icon.svg',
+                  './icon-192.png', './icon-512.png'];
 ```
 
 **Dos estrategias distintas, cada una correcta para su caso:**
@@ -1649,19 +1650,29 @@ const PRECACHE = ['./', './index.html', './manifest.webmanifest',
 | Tipo de petición | Estrategia | Por qué |
 |---|---|---|
 | **Navegación** (`req.mode === 'navigate'`) | **Red primero**, caché como respaldo | Una actualización debe verse en la **primera** recarga. Con caché-primero, el usuario veía la versión vieja y tenía que recargar dos veces. |
+| **`.js` y `.css` del mismo origen** | **Red primero**, caché como respaldo | **Arreglado en `bym-v13`.** `app.js` es un recurso (no una navegación) y seguía por caché-primero: el navegador servía el `app.js` viejo y las 77 colonias del desplegable no aparecían hasta la segunda recarga. El HTML sí se actualizaba, que es lo que hace el fallo confuso. |
 | **Recursos del mismo origen** (iconos, manifest) | **Caché primero**, revalidando en segundo plano | Son inmutables; mostrarlos al instante mejora el primer render. |
 | **Otros orígenes** (Leaflet, OSM, OSRM, Supabase) | **Sin intervención** (`if (url.origin !== self.location.origin) return;`) | Cachear APIs vivas serviría datos viejos. Es una decisión de correctitud, no de rendimiento. |
 
 ```js
-// Navegación: red primero
-fetch(req).then(res => {
-  if (res && res.ok){ const copia = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copia)); }
-  return res;
-}).catch(() => caches.match('./index.html').then(hit => hit || caches.match('./')));
+// Navegación, .js y .css: red primero
+const esCodigo = /\.(?:js|css)$/.test(url.pathname);
+if (req.mode === 'navigate' || esCodigo) {
+  const esNav = req.mode === 'navigate';
+  e.respondWith(fetch(req).then(res => {
+    if (res && res.ok){ const copia = res.clone(); caches.open(CACHE).then(c => c.put(esNav ? './index.html' : req, copia)); }
+    return res;
+  }).catch(() => caches.match(req).then(hit => {
+    if (hit) return hit;
+    if (esNav) return caches.match('./index.html').then(h => h || caches.match('./'));
+    return new Response('', { status: 504, statusText: 'Sin red y sin copia guardada' });
+  })));
+  return;
+}
 ```
 
 ```js
-// Recursos: caché primero + revalidación
+// Iconos y manifest: caché primero + revalidación
 caches.match(req).then(hit => {
   const red = fetch(req).then(res => {
     if (res && res.ok){ const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
@@ -1671,6 +1682,8 @@ caches.match(req).then(hit => {
 });
 ```
 
+> **Trampa que costó un bug real:** `return hit || red;` con la petición ya iniciada en segundo plano es cache-primero aunque parezca "revalidación": el usuario recibe **el archivo viejo** en esa carga y el nuevo solo en la siguiente. Cualquier código del mismo origen que cambie de verdad (`app.js`, `estilos.css`) tiene que ir por red primero. `tools/checks-local.sh` incluye un check (`nadie devuelve la caché antes que la red`) que falla si alguien reintroduce ese `return hit || red;` para código.
+
 **Activación:** borra todas las cachés distintas de la actual y hace `clients.claim()`, para que la versión nueva tome control de las pestañas ya abiertas sin pedir recarga.
 
 ```js
@@ -1679,7 +1692,7 @@ caches.keys()
   .then(() => self.clients.claim());
 ```
 
-> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v5`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
+> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
 
 > **Por qué `Cache-Control: public, max-age=0, must-revalidate` en `/sw.js`** (en `vercel.json`): sin esa cabecera, el navegador puede cachear el propio service worker y seguir ejecutando la versión vieja indefinidamente. Con ella, el service worker siempre se revalida.
 

@@ -1,15 +1,17 @@
 /* BASURA Y MÁS · Service worker (PWA instalable y uso offline básico)
    Estrategia:
-   · Páginas (navegación): red primero y copia guardada como respaldo, para
-     que una actualización se vea en la primera recarga (antes se servía la
-     versión vieja desde caché y había que recargar dos veces).
+   · Páginas (navegación), scripts y estilos (.js/.css): red primero y copia
+     guardada como respaldo, para que una actualización se vea en la primera
+     recarga. Antes el HTML iba por red pero app.js seguía caché-primero, así
+     que un app.js viejo seguía sirviendo la versión anterior de la app: las
+     colonias nuevas no aparecían hasta la segunda recarga.
    · Recursos del mismo origen (iconos, manifiesto): caché primero con
      refresco en segundo plano.
    · APIs externas (OSM, OSRM, Nominatim, Supabase): directo a la red.
    · /api/ (Eco con IA): nunca a la caché. Una respuesta del modelo no se
      puede guardar: sería una conversación congelada y además es lo único
      que depende de una clave del servidor. */
-const CACHE = 'bym-v12';
+const CACHE = 'bym-v13';
 const PRECACHE = [
   './',
   './index.html',
@@ -42,16 +44,24 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return; // Leaflet/OSM/OSRM/Supabase → red
   if (url.pathname.indexOf('/api/') === 0) return;  // Eco con IA → red siempre
 
-  if (req.mode === 'navigate') {
+  // .js y .css del mismo origen: red primero. app.js lleva el catálogo de
+  // colonias, así que servirlo desde caché ocultaba las actualizaciones.
+  const esCodigo = /\.(?:js|css)$/.test(url.pathname);
+  if (req.mode === 'navigate' || esCodigo) {
+    const esNav = req.mode === 'navigate';
     e.respondWith(
       fetch(req).then(function (res) {
         if (res && res.ok) {
           const copia = res.clone();
-          caches.open(CACHE).then(function (c) { c.put('./index.html', copia); });
+          caches.open(CACHE).then(function (c) { c.put(esNav ? './index.html' : req, copia); });
         }
         return res;
       }).catch(function () {
-        return caches.match('./index.html').then(function (hit) { return hit || caches.match('./'); });
+        return caches.match(req).then(function (hit) {
+          if (hit) return hit;
+          if (esNav) return caches.match('./index.html').then(function (h) { return h || caches.match('./'); });
+          return new Response('', { status: 504, statusText: 'Sin red y sin copia guardada' });
+        });
       })
     );
     return;

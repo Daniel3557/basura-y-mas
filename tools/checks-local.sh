@@ -87,7 +87,10 @@ if(n)process.exit(1);
 \""
 
 echo "13 · La caché del service worker está al día"
-chk "bym-v12" "grep -q \"const CACHE = 'bym-v12'\" sw.js"
+chk "bym-v13" "grep -q \"const CACHE = 'bym-v13'\" sw.js"
+echo "14 · El service worker no esconde las actualizaciones"
+chk "tests/sw-cache.js" "node tests/sw-cache.js"
+chk "tests/sw-cache-atrapa.js" "node tests/sw-cache-atrapa.js"
 
 echo
 echo "$ok comprobaciones en orden, $fail fallos."

@@ -59,7 +59,7 @@ jobs:
         run: node --check app.js && node --check sw.js
 
       - name: Sintaxis de la función /api/eco y de sus herramientas
-        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js
+        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js
 
       - name: La clave de la IA no está en el repositorio
         run: |
@@ -185,6 +185,19 @@ jobs:
             if(!/script-src[^;]*'self'/.test(csp)){console.error('::error::script-src no incluye self');process.exit(1)}
             console.log('OK: la CSP cubre todos los orígenes que usa la app.');
           "
+
+      - name: El service worker no esconde las actualizaciones
+        run: |
+          set -e
+          # Este fue un bug real: app.js se servía caché-primero y el
+          # navegador entregaba la versión vieja, así que las colonias
+          # nuevas no aparecían hasta la segunda recarga.
+          node tests/sw-cache.js
+          # Y esta segunda capa es la importante: comprueba que la prueba
+          # anterior sigue sirviendo, reintroduciendo el bug en una copia
+          # temporal y exigiendo que la prueba falle.
+          node tests/sw-cache-atrapa.js
+          echo "OK: app.js y estilos.css llegan por red en la primera recarga."
 
       # ── E2E real contra Supabase ───────────────────────────────
       - name: Comprobar el secreto de Supabase
