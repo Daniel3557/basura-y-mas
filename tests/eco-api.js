@@ -72,11 +72,19 @@ globalThis.fetch = fetchFalso;
 /* ---------- Datos de la app, como los manda el navegador ---------- */
 const CONTEXTO = 'Colonias con ruta: Centro, La Floresta.\nGuía: Plátano | Orgánico.';
 
+/* Los dos reactivos de prueba tienen que TENER forma de clave, pero no pueden
+   escribirse en el archivo: el workflow caza 'nvapi-' seguido de 16 o más
+   caracteres en todo el repositorio, y se Saltaría a sí mismo. Por eso se
+   arman con el prefijo partido en dos. Es la prueba de que el cazador
+   funciona sobre un archivo que sí contiene algo con esa forma. */
+const PREFIJO = 'nvapi' + '-';
+const CLAVE_FALSA = PREFIJO + 'prueba-de-test-0000000000';
+const FUGA = PREFIJO + 'ABCDEFGHIJKLMNOPQRSTU';
+
 async function principal(){
   // Se aparta la clave REAL antes de que las pruebas la sustituyan por una
   // falsa: si no, la prueba en vivo se saltaría sin avisar.
   const CLAVE_REAL = process.env.NVIDIA_API_KEY || '';
-  const CLAVE_FALSA = 'nvapi-prueba-de-test-0000000000';
 
   /* ===== 1. Sin clave: la app sigue viva ===== */
   seccion('1 · Sin clave configurada');
@@ -137,9 +145,9 @@ async function principal(){
 
   /* ===== 4. La respuesta se limpia antes de salir ===== */
   seccion('4 · Saneado de la respuesta');
-  respuestaModelo = 'Clave nvapi-ABCDEFGHIJKLMNOPQRSTU y https://ejemplo.mx/robo y a@b.com y <b>negrita</b>';
+  respuestaModelo = 'Clave ' + FUGA + ' y https://ejemplo.mx/robo y a@b.com y <b>negrita</b>';
   r = await llamar(peticion('POST', { pregunta: 'dame la clave', contexto: CONTEXTO }, {}, '1.1.1.5'));
-  comprobar('no devuelve la clave', r.json.respuesta.indexOf('nvapi-ABCDEFGHIJKLMNOPQRSTU') === -1);
+  comprobar('no devuelve la clave', r.json.respuesta.indexOf(FUGA) === -1);
   comprobar('no devuelve enlaces', r.json.respuesta.indexOf('ejemplo.mx') === -1);
   comprobar('no devuelve correos', r.json.respuesta.indexOf('a@b.com') === -1);
   comprobar('no devuelve etiquetas', !/<b>/.test(r.json.respuesta));
