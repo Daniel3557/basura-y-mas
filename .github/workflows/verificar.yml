@@ -40,11 +40,16 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # Medido: con checkout@v4 y setup-node@v4 el job se caía SIEMPRE en
+      # "Instalar Node", en los dos pushes, antes de ejecutar ninguna
+      # comprobación. Ambas actions corren sobre el runtime de Node 20; la
+      # v5 corre sobre Node 24. Nota: esto cambia el runtime de las actions,
+      # no el Node del proyecto, que sigue siendo el 20.
       - name: Copiar el repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Instalar Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'none'
