@@ -3708,9 +3708,9 @@ function ecoPintarEstadoIA(){
 
 /** Llamada a /api/eco. Nunca lanza: devuelve {ok, respuesta|error} o
     {ok:true, herramientas} cuando el modelo pide consultar algo. */
-function ecoFetchIA(pregunta, permiteDatos, ronda, resultados){
+function ecoFetchIA(pregunta, permiteDatos, ronda, resultados, historial){
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const t = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 25000);
+  const t = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 35000);
   return fetch('/api/eco', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3719,7 +3719,8 @@ function ecoFetchIA(pregunta, permiteDatos, ronda, resultados){
       contexto: ecoContextoIA(),
       permiteDatos: !!permiteDatos,
       ronda: ronda || 1,
-      resultados: resultados || []
+      resultados: resultados || [],
+      historial: historial || []
     }),
     signal: ctrl ? ctrl.signal : undefined
   }).then(function(r){
@@ -3789,12 +3790,24 @@ function ecoCalcular(entrada){
 
 /** ¿La pregunta es sobre la actividad del propio usuario? Solo entonces se
     ofrece la herramienta que lee sus datos. */
-function ecoEsPreguntaPersonal(pregunta){
+function ecoEsPreguntaPersonal(pregunta, historial){
   const t = normalizar(pregunta);
   if (ecoTiene(t, 'mis ', 'mi ', 'yo ', 'conmigo', 'he reportado', 'he publicado',
       'he registrado', 'he hecho', 'lo que he', 'cuanto llevo', 'llevo ', 'mi historial',
       'mi actividad', 'mi progreso', 'mis datos')) return true;
-  return /(^|[^a-z])(mis|mi|yo)([^a-z]|$)/.test(t);
+  if (/(^|[^a-z])(mis|mi|yo)([^a-z]|$)/.test(t)) return true;
+  // "¿y los míos?" no lleva nada de lo de arriba, pero solo tiene sentido
+  // con los datos de la persona: se pregunta con la conversación delante.
+  if (historial && historial.length){
+    for (let i = historial.length - 1; i >= 0; i--){
+      if (historial[i].rol !== 'yo') continue;
+      const h = normalizar(historial[i].texto);
+      if (/(^|[^a-z])(mis|mi|yo|mios|mias)([^a-z]|$)/.test(h) ||
+          ecoTiene(h, 'he reportado', 'he publicado', 'lo que he', 'mi actividad')) return true;
+      break;   // solo el último turno del usuario manda
+    }
+  }
+  return false;
 }
 
 /** Cuenta por campo y devuelve el total y el más repetido, YA CALCULADOS.
@@ -4027,35 +4040,55 @@ function ecoVistaSugerida(pregunta){
   return null;
 }
 
+/** La conversación que ya está pintada en pantalla, para que el modelo
+    sepa de qué se está hablando. Se lee del chat en vez de guardarse en
+    otro sitio: si el chat está vacío, no hay memoria que enviar. Solo se
+    mandan los últimos turnos y el texto va recortado. */
+const ECO_TURNOS_MEMORIA = 6;
+function ecoHistorial(){
+  const chat = $('#ecoChat');
+  if (!chat) return [];
+  const turnos = [];
+  Array.prototype.forEach.call(chat.children, function(el){
+    const clase = el.className || '';
+    const texto = (el.textContent || '').trim();
+    if (!texto) return;
+    if (clase.indexOf('eco-msg-yo') !== -1) turnos.push({ rol: 'yo', texto: texto });
+    else if (clase.indexOf('eco-msg-eco') !== -1) turnos.push({ rol: 'eco', texto: texto });
+  });
+  return turnos.slice(-ECO_TURNOS_MEMORIA).map(function(t){
+    return { rol: t.rol, texto: t.texto.slice(0, 400) };
+  });
+}
+
 /** Pregunta a la IA. El modelo puede pedir herramientas; se ejecutan
     aquí (los datos están aquí) y se le devuelven para que redacte. Si no
     hay IA o falla, se cae a las reglas: nunca se muestra una respuesta
     inventada ni se pierde la pregunta. */
-function ecoPreguntarIA(pregunta, respaldo){
-  const personal = ecoEsPreguntaPersonal(pregunta);
+function ecoPreguntarIA(pregunta, historial){
+  const personal = ecoEsPreguntaPersonal(pregunta, historial);
   ecoEstadoIA().then(function(hay){
-    if (!hay){
-      if (respaldo) ecoPintarRespuesta(respaldo);
-      else ecoMensajeEco(ecoSinRespuesta());
-      return;
-    }
+    if (!hay){ ecoResponderReglas(pregunta); return; }
     ecoBloquear(true);
     const espera = ecoMensajeEspera();
     let ronda = 1, resultados = [], usadas = [];
 
     function paso(){
-      ecoFetchIA(pregunta, personal, ronda, resultados).then(function(r){
+      ecoFetchIA(pregunta, personal, ronda, resultados, historial).then(function(r){
         if (!r.ok){
           ecoBloquear(false);
-          if (respaldo){ ecoQuitarMensaje(espera); ecoPintarRespuesta(respaldo); return; }
-          ecoMensajePoner(espera, ecoSinRespuesta(r.error));
+          ecoQuitarMensaje(espera);
+          ecoResponderReglas(pregunta, r.error);
           return;
         }
-        if (r.herramientas && ronda < 2){
+        // El modelo puede pedir herramientas y seguir pensando: se le
+        // devuelven los resultados y vuelve a redactar. El tope está en el
+        // servidor; aquí solo se respeta lo que él devuelve.
+        if (r.herramientas && ronda < ECO_RONDAS){
           resultados = r.herramientas.map(ecoEjecutarHerramienta);
           usadas = usadas.concat(r.herramientas.map(function(h){ return ecoTexto(h.nombre); }));
-          ecoMensajePoner(espera, 'Consultando tus datos…');
-          ronda = 2;
+          ecoMensajePoner(espera, usadas.length ? 'Consultando tus datos…' : 'Pensando…');
+          ronda = Math.max(ronda + 1, Number(r.ronda) || 1);
           paso();
           return;
         }
@@ -4068,6 +4101,15 @@ function ecoPreguntarIA(pregunta, respaldo){
     }
     paso();
   });
+}
+
+/** Las reglas de la app. Ahora son el RESPALDO: solo se pintan cuando la
+    IA no está, falló o se quedó sin cuota. Las cuentas y los datos los
+    sigue haciendo la app a través de las herramientas. */
+function ecoResponderReglas(pregunta, error){
+  const r = ecoResponder(pregunta);
+  if (r){ ecoPintarRespuesta(r); return; }
+  ecoMensajeEco(ecoSinRespuesta(error));
 }
 
 function ecoSinRespuesta(error){
@@ -4221,15 +4263,17 @@ function ecoPintarRespuesta(r){
   }
   return true;
 }
-/* Orden de decisión: primero las reglas, y solo si la respuesta NO es
-   verificada se consulta al modelo. Una respuesta verificada (punto más
-   cercano, horarios, puntos e insignias, privacidad, identidad) nunca se
-   delega: son datos de esta app, no opiniones. */
+/* Orden de decisión: primero el modelo, que es quien conversa. Las reglas
+   quedan como respaldo cuando no hay IA o falla. Lo que la app sabe con
+   exactitud (puntos, cuentas, patrones, el punto más cercano) no se pierde:
+   el modelo lo pide con las herramientas y se lo devolvemos ya resuelto. */
+const ECO_RONDAS = 3;
 function ecoPreguntar(pregunta){
+  // El historial se lee ANTES de pintar la pregunta nueva, para no mandar
+  // dos veces el mismo turno.
+  const historial = ecoHistorial();
   ecoMensajeYo(pregunta);
-  const r = ecoResponder(pregunta);
-  if (r && r.verificada){ ecoPintarRespuesta(r); return; }
-  ecoPreguntarIA(pregunta, r);
+  ecoPreguntarIA(pregunta, historial);
 }
 
 const btnEco = $('#btnEco');
