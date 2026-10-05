@@ -264,6 +264,20 @@ comprobar('sin permiso no se ofrece consultar_datos',
   comprobar('la cuenta se detecta también en la conversación',
     (ultimaPeticion.cuerpo.tools || []).map(function(x){ return x.function.name; }).indexOf('calcular') !== -1);
 
+  /* ===== 10. Colonias: qué se le dice al modelo ===== */
+  seccion('10 · Colonias: la regla que evita el "no tengo información"');
+  const SISTEMA = eco.SISTEMA || '';
+  comprobar('el sistema avisa de que hay colonias sin ruta',
+    /todavía no tiene ruta/.test(SISTEMA));
+  comprobar('y le dice que ofrezca reportar desde Reportes',
+    /reportar el problema desde Reportes/.test(SISTEMA));
+  comprobar('le prohíbe soltarle al usuario el "no tengo información"',
+    /NO digas que no tienes información/.test(SISTEMA));
+  const numeradas = [];
+  for (let i = 1; i <= 18; i++) if (SISTEMA.indexOf('\n' + i + '. ') !== -1) numeradas.push(i);
+  comprobar('las reglas siguen numeradas del 1 al 18 (11b y 11c intercaladas)',
+    numeradas.length === 18 && numeradas[0] === 1 && numeradas[17] === 18, numeradas.join(','));
+
   /* ===== 8. Prueba real, solo si hay clave ===== */
   seccion('8 · Herramientas: el ida y vuelta');
   respuestaModelo = 'texto';

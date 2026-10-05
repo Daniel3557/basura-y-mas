@@ -1089,6 +1089,83 @@ const ZONAS = {
 const CENTRO_CIUZ = [19.7020, -103.4640];
 const INTERVALO_PUNTOS = 400; // metros entre puntos de recolección (configurable)
 
+/* ============================================================
+   MÓDULO 10 · CATÁLOGO DE COLONIAS DE CIUDAD GUZMÁN
+   ------------------------------------------------------------
+   Los 77 nombres que entregó el equipo del proyecto. Sirven para
+   elegir colonia al reportar y para que Eco sepa de qué colonia
+   se está hablando. NO son delimitaciones: solo las 6 de ZONAS
+   (arriba) tienen polígono y ruta; el resto son nombres sueltos.
+
+   La lista llegó de un documento con dos formatos que hubo que
+   separar: "El Pastor / Colinas del Sur" eran dos colonias
+   pegadas, y el paréntesis era un alias oficial
+   ("Fovissste (José Clemente Orozco)"). Aquí se queda el nombre
+   corto; los alias van anotados en DOCUMENTACION.md §5.7b.
+
+   Sin coordenadas: una colonia sin polígono no tiene ruta, y
+   inventar un punto centro sería inventar un dato. Para eso están
+   los seis polígonos de arriba.
+   ============================================================ */
+const COLONIAS = [
+  '1 de Mayo', '1ro de Agosto', '5 de Febrero', '16 de Septiembre', 'Álamo', 'Azaleas',
+  'Benefactores', 'C.N.O.P.CTM', 'Campamento Ferrocarrilero', 'Cañadas', 'Centro', 'Chuluapan',
+  'Colinas del Sur', 'Compositores', 'Conjunto Calderón', 'Conjunto Hidalgo',
+  'Conjunto Modernidad', 'Cumbres Residencial', 'El Jazmín', 'El Nogal', 'El Pastor',
+  'El Portón Azul', 'El Retiro', 'El Tinaco', 'Emiliano Zapata', 'Empleados Municipales',
+  'Escritores', 'Esquipulas', 'Fovissste', 'Francisco I. Madero',
+  'Francisco Villalvazo Rolón', 'Gante', 'Gordiano Guzmán', 'Hijos Ilustres', 'Insurgentes',
+  'Jardines de Zapotlán', 'Jesús Reyes Heroles', 'Juan Rulfo', 'La Cantera San José',
+  'La Cebada', 'La Nueva Luz', 'La Paz', 'Las Américas', 'Las Lomas', 'Lázaro Cárdenas',
+  'Lic. A. Gándara Estrada', 'Loma Bonita', 'Lomas de San Cayetano', 'Los Bomberos',
+  'Los Camichines', 'Los Doctores', 'Los Olivos', 'Mansiones del Real', 'Mariano Otero',
+  'Miguel Hidalgo II', 'Morelos', 'Pablo Luis Juan', 'Paseos del Real', 'Pintores',
+  'Rancho Quemado', 'Revolución', 'Rinconada Hidalgo', 'San Antonio', 'San Cayetano',
+  'San José', 'Santa Cecilia', 'Senderos San Miguel', 'Teocali', 'Tlayolan',
+  'Unión de Colonos Independencia', 'Unión de Colonos Organizados de Cd. Guzmán',
+  'Universitaria', 'Valle de Zapotlán', 'Valle del Sol', 'Villa Norte', 'Villas de Calderón',
+  'Villas de San Isidro'
+];
+
+/** Las colonias del catálogo agrupadas para el desplegable de reportes:
+    primero las que sí tienen ruta en el mapa, después el resto.
+    'Centro' está en los dos sitios (ZONAS y catálogo) y se muestra
+    una sola vez, en el grupo con ruta. */
+function opcionesColonias(){
+  const conRuta = Object.keys(ZONAS).map(function(k){ return ZONAS[k].nombre; });
+  const resto = COLONIAS.filter(function(n){ return conRuta.indexOf(n) === -1; });
+  return [
+    { etiqueta: 'Con ruta en el mapa (' + conRuta.length + ')', nombres: conRuta },
+    { etiqueta: 'Resto de colonias de Ciudad Guzmán (' + resto.length + ')', nombres: resto }
+  ];
+}
+
+/** Llena #repColonia. Las opciones que trae el HTML se quedan como
+    respaldo si el script no carga; aquí se sustituyen por el catálogo. */
+function pintarSelectColonias(){
+  const sel = $('#repColonia');
+  if (!sel) return;
+  sel.textContent = '';
+  opcionesColonias().forEach(function(grupo){
+    const grp = document.createElement('optgroup');
+    grp.label = grupo.etiqueta;
+    grupo.nombres.forEach(function(nombre){
+      const o = document.createElement('option');
+      o.value = nombre; o.textContent = nombre;
+      grp.appendChild(o);
+    });
+    sel.appendChild(grp);
+  });
+  const otra = document.createElement('option');
+  otra.value = 'Otra';
+  otra.textContent = 'Otra (no aparece en la lista)';
+  sel.appendChild(otra);
+  // Preselección: la colonia guardada en el perfil, o Centro como antes.
+  const guardada = (ZONAS[estado.coloniaId] || {}).nombre || 'Centro';
+  sel.value = guardada;
+  if (sel.value !== guardada) sel.value = 'Centro';
+}
+
 function puntoDentro(p, poly){
   let dentro = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++){
@@ -2872,6 +2949,7 @@ window.addEventListener('unhandledrejection', function(e){
    ============================================================ */
 function iniciar(){
   aplicarTema(estado.tema);
+  pintarSelectColonias();
   iniciarObservabilidad();   // no hace nada mientras la DSN esté vacía
   initNube();
   actualizarHeaderNivel();
@@ -3235,14 +3313,24 @@ function ecoResponder(pregunta){
     const lista = Object.keys(ZONAS).map(function(k){ return ZONAS[k].nombre; });
     const col = ZONAS[estado.coloniaId];
     const pedida = ecoColoniaEnTexto(t);
-    const foco = pedida
-      ? 'De las colonias con ruta, ' + pedida + ' es la que mencionas.\n\n'
-      : (col ? 'Tienes seleccionada ' + col.nombre + '.\n\n' : '');
+    const tieneRuta = pedida ? lista.indexOf(pedida) !== -1 : false;
+    let foco;
+    if (pedida && !tieneRuta){
+      foco = pedida + ' sí está en el catálogo de colonias de Ciudad Guzmán, pero todavía no tiene ' +
+        'ruta: la app solo dibuja ' + lista.length + ' (' + lista.join(', ') + ').\n\n' +
+        'Lo que sí puedes hacer es reportar un problema de tu colonia en la pestaña Reportes: ' +
+        'queda guardado de qué colonia es, aunque no haya recorrido calculado.\n\n';
+    } else if (pedida){
+      foco = 'De las colonias con ruta, ' + pedida + ' es la que mencionas.\n\n';
+    } else {
+      foco = col ? 'Tienes seleccionada ' + col.nombre + '.\n\n' : '';
+    }
     return {
-      texto: foco + 'La app tiene ' + lista.length + ' colonias con ruta: ' + lista.join(', ') + '.\n\n' +
+      texto: foco + 'La app tiene ' + lista.length + ' colonias con ruta: ' + lista.join(', ') + ', ' +
+        'y puede registrar reportes en ' + (COLONIAS.length + lista.length) + ' colonias.\n\n' +
         'En el mapa eliges la tuya en el selector de arriba y ves el recorrido con los puntos ' +
         'propuestos. ' + ECO_NO_MUNICIPAL,
-      ir: 'mapa'
+      ir: (pedida && !tieneRuta) ? 'reportes' : 'mapa'
     };
   }
 
@@ -3376,12 +3464,19 @@ function ecoResponder(pregunta){
 
 /* ---------- Datos reales que usa Eco ---------- */
 
-/** Devuelve el nombre de una colonia si la persona la menciona. */
+/** Devuelve el nombre de una colonia si la persona la menciona.
+    Mira las 6 con ruta y el catálogo completo, y las prueba de más
+    larga a más corta: si no, "San José" se comería a
+    "La Cantera San José". Solo cuenta comomentionada si sale como
+    palabra suelta, no dentro de otra. */
 function ecoColoniaEnTexto(t){
-  const claves = Object.keys(ZONAS);
-  for (let i = 0; i < claves.length; i++){
-    const n = normalizar(ZONAS[claves[i]].nombre);
-    if (t.indexOf(n) !== -1) return ZONAS[claves[i]].nombre;
+  const conRuta = Object.keys(ZONAS).map(function(k){ return ZONAS[k].nombre; });
+  const todas = conRuta.concat(COLONIAS).filter(function(n, i, a){ return a.indexOf(n) === i; });
+  const orden = todas.slice().sort(function(a, b){ return b.length - a.length; });
+  for (let i = 0; i < orden.length; i++){
+    const n = normalizar(orden[i]);
+    if (n.length < 3) continue;   // más corto que eso daría falsos positivos
+    if (ecoPalabra(t, n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))) return orden[i];
   }
   return null;
 }
@@ -3643,11 +3738,21 @@ function ecoRespuestaPersonal(t){
 let ecoHayIA = false;          // ¿el servidor tiene un modelo detrás?
 let ecoEstadoCargado = false;  // ya se preguntó en esta sesión
 
-/** Datos de referencia que ve el modelo. Sin datos personales. */
-function ecoContextoIA(){
+/** Datos de referencia que ve el modelo. Sin datos personales.
+    El catálogo entero (78 nombres) solo se manda cuando la pregunta
+    habla de colonias: son ~400 tokens que en el resto de preguntas
+    serían peso muerto y tiempo de más para un modelo de 11B. */
+function ecoContextoIA(pregunta){
   const L = [];
   L.push('Colonias con ruta en la app: ' +
     Object.keys(ZONAS).map(function(k){ return ZONAS[k].nombre; }).join(', ') + '.');
+  const nPregunta = normalizar(pregunta || '');
+  if (ecoTiene(nPregunta, 'colonia', 'colonias') || ecoColoniaEnTexto(nPregunta)){
+    L.push('Estas son todas las colonias de Ciudad Guzmán que la app reconoce (' + COLONIAS.length +
+      '): ' + COLONIAS.join(', ') + '. De ellas, SOLO tienen ruta en el mapa las 6 de la lista de arriba: ' +
+      'si te preguntan por cualquier otra, dile que esa colonia todavía no tiene ruta en la app y ' +
+      'ofrécele reportar el problema desde la pestaña Reportes.');
+  }
   const col = ZONAS[estado.coloniaId];
   if (col) L.push('El usuario tiene seleccionada la colonia ' + col.nombre + '.');
   L.push(rutaActiva
@@ -3716,7 +3821,7 @@ function ecoFetchIA(pregunta, permiteDatos, ronda, resultados, historial){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       pregunta: pregunta.slice(0, 400),
-      contexto: ecoContextoIA(),
+      contexto: ecoContextoIA(pregunta),
       permiteDatos: !!permiteDatos,
       ronda: ronda || 1,
       resultados: resultados || [],

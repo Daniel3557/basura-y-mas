@@ -230,5 +230,96 @@ comprobar('cuando el ganador empata no elige a dedo', sinHoy.patrones.length > 0
 
 comprobar('el mínimo de muestra es 4, no 2 ni 3', MINIMO_PATRON === 4);
 
+/* ---------- 10. Catálogo de colonias ---------- */
+console.log('\n10 · Catálogo de colonias (el desplegable del reporte)');
+
+function literalDe(nombre, cierre){
+  const desde = SRC.indexOf('const ' + nombre + ' = ');
+  if (desde < 0) throw new Error('No se encontró const ' + nombre + ' en app.js');
+  const fin = SRC.indexOf(cierre, desde);
+  if (fin < 0) throw new Error('No se cerró const ' + nombre + ' en app.js');
+  const pre = 'const ' + nombre + ' = ';
+  const expr = SRC.slice(desde + pre.length, fin + cierre.length).replace(/;\s*$/, '');
+  return Function('return (' + expr + ');')();
+}
+const ZONAS_TEST = literalDe('ZONAS', '\n};');
+const COLONIAS = literalDe('COLONIAS', '];');
+const opcionesColonias = arrancar('opcionesColonias', ['ZONAS', 'COLONIAS'])(ZONAS_TEST, COLONIAS);
+const conRuta = Object.keys(ZONAS_TEST).map(function (k) { return ZONAS_TEST[k].nombre; });
+
+comprobar('el catálogo trae las 77 colonias que entregó el equipo',
+  COLONIAS.length === 77, COLONIAS.length + ' colonias');
+comprobar('sincolonias repetidas',
+  COLONIAS.filter(function (n, i) { return COLONIAS.indexOf(n) !== i; }).length === 0);
+comprobar('ninguna viene vacía ni con espacios de sobra',
+  COLONIAS.every(function (n) { return n.length >= 3 && n === n.trim(); }));
+comprobar('sin restos del documento de origen (barras y paréntesis)',
+  !COLONIAS.some(function (n) { return /[()/]/.test(n); }));
+comprobar('sin encabezados de sección colados ("A - C", "E - J"…)',
+  !COLONIAS.some(function (n) { return /^[A-Z]\s*-\s*[A-Z]$/.test(n); }));
+const ORDEN = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+comprobar('van en orden alfabético',
+  COLONIAS.every(function (n, i) { return i === 0 || ORDEN.compare(COLONIAS[i - 1], n) < 0; }),
+  COLONIAS.filter(function (n, i) { return i > 0 && ORDEN.compare(COLONIAS[i - 1], n) >= 0; }).join(' | '));
+comprobar('incluye Centro, la que también tiene ruta',
+  COLONIAS.indexOf('Centro') !== -1);
+comprobar('Centro sale una sola vez en el desplegable',
+  opcionesColonias()[0].nombres.concat(opcionesColonias()[1].nombres)
+    .filter(function (n) { return n === 'Centro'; }).length === 1);
+
+const GRUPOS = opcionesColonias();
+const TODAS_OPCIONES = GRUPOS.reduce(function (a, g) { return a.concat(g.nombres); }, []);
+comprobar('son dos grupos: con ruta y el resto',
+  GRUPOS.length === 2 && GRUPOS[0].nombres.length === 6);
+comprobar('el grupo con ruta son las 6 de ZONAS, en el mismo orden',
+  GRUPOS[0].nombres.join('|') === conRuta.join('|'));
+comprobar('ninguna colonia se pierde entre los dos grupos',
+  TODAS_OPCIONES.length === new Set(TODAS_OPCIONES).size &&
+  conRuta.concat(COLONIAS).every(function (n) { return TODAS_OPCIONES.indexOf(n) !== -1; }));
+comprobar('no se ofrece dos veces la misma colonia',
+  TODAS_OPCIONES.length === new Set(TODAS_OPCIONES).size);
+comprobar('total = catálogo + las 5 con ruta que no están en el catálogo',
+  TODAS_OPCIONES.length === COLONIAS.length + 5, TODAS_OPCIONES.length + '');
+comprobar('las etiquetas dicen cuántas colonias hay en cada grupo',
+  GRUPOS[0].etiqueta.indexOf('(6)') !== -1 &&
+  GRUPOS[1].etiqueta.indexOf('(' + GRUPOS[1].nombres.length + ')') !== -1,
+  GRUPOS.map(function (g) { return g.etiqueta; }).join(' / '));
+comprobar('las 6 con ruta que no están en el catálogo siguen disponibles',
+  ['La Floresta', 'Villas del Padre', 'La Estanzuela', 'El Agustín', 'San Rafael'].every(function (n) {
+    return TODAS_OPCIONES.indexOf(n) !== -1; }));
+
+const nrm = arrancar('normalizar', [])();
+const ecoPalabra = arrancar('ecoPalabra', [])();
+const ecoColoniaEnTexto = arrancar('ecoColoniaEnTexto', ['ZONAS', 'COLONIAS', 'normalizar', 'ecoPalabra'])
+  (ZONAS_TEST, COLONIAS, nrm, ecoPalabra);
+const menciona = function (frase) { return ecoColoniaEnTexto(nrm(frase)); };
+
+comprobar('reconoce una colonia del catálogo', menciona('¿hay ruta en El Nogal?') === 'El Nogal', menciona('¿hay ruta en El Nogal?'));
+comprobar('gana la más larga: La Cantera San José, no San José',
+  menciona('vivo en la cantera san jose') === 'La Cantera San José', menciona('vivo en la cantera san jose'));
+comprobar('y sola sí encuentra San José', menciona('¿y san josé?') === 'San José');
+comprobar('reconoce una colonia que solo tiene ruta (La Floresta)',
+  menciona('mi colonia es la floresta') === 'La Floresta');
+comprobar('las siglas pegadas también cuentan (C.N.O.P.CTM)',
+  menciona('hay ruta en c.n.o.p.ctm') === 'C.N.O.P.CTM', menciona('hay ruta en c.n.o.p.ctm'));
+comprobar('con puntos y acentos escritos de otro modo',
+  menciona('lic. a. gándara estrada') === 'Lic. A. Gándara Estrada');
+comprobar('las que venían con barra se reconocen por separado',
+  menciona('el pastor') === 'El Pastor' && menciona('colinas del sur') === 'Colinas del Sur');
+comprobar('no se come prefijos: "centros de acopio" no es Centro',
+  menciona('los centros de acopio') === null, menciona('los centros de acopio'));
+comprobar('una frase sin colonia no inventa ninguna',
+  menciona('¿qué hago con una botella de plástico?') === null, menciona('¿qué hago con una botella?'));
+
+/* Lo que el modelo no puede hacer (eso lo comprueba /api/eco) pero sí el
+   código de la página: el catálogo se manda solo cuando toca y la regla de
+   las colonias avisa de que no hay ruta. */
+comprobar('el catálogo solo se manda si la pregunta habla de colonias',
+  SRC.indexOf("ecoTiene(nPregunta, 'colonia', 'colonias') || ecoColoniaEnTexto(nPregunta)") !== -1);
+comprobar('la regla de colonias avisa de que no hay ruta y manda a Reportes',
+  SRC.indexOf('pero todavía no tiene ') !== -1 && SRC.indexOf("'reportes' : 'mapa'") !== -1);
+comprobar('y la respuesta dice cuántas colonias pueden registrar reportes',
+  SRC.indexOf('y puede registrar reportes en ') !== -1);
+
 console.log('\n' + (fallos ? 'FALLOS: ' + fallos : 'Todo en orden: ') + ok + ' comprobaciones, ' + fallos + ' fallos.');
 process.exit(fallos ? 1 : 0);

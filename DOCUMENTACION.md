@@ -573,6 +573,32 @@ El comentario del módulo es explícito: *"Delimitaciones APROXIMADAS generadas 
 
 `puntoDentro(p, poly)` implementa el algoritmo **ray casting** clásico para el test punto-en-polígono, usado para filtrar las vialidades que pertenecen a cada colonia.
 
+### 5.7b Módulo 10b — Catálogo de colonias (82 colonias, 83 opciones)
+
+`ZONAS` solo tiene seis colonias porque son las únicas con polígono, y el polígono es lo que permite calcular una ruta sobre calles reales. Pero eso no quiere decir que en Ciudad Guzmán solo existan seis: el equipo entregó una lista de **77 nombres** que ahora viven en `COLONIAS`, junto a las seis de `ZONAS`.
+
+| Dónde | Qué sale |
+|---|---|
+| `#repColonia` (formulario de reportes) | 83 opciones: grupo **"Con ruta en el mapa (6)"**, grupo **"Resto de colonias de Ciudad Guzmán (76)"** y **"Otra (no aparece en la lista)"** |
+| `ecoColoniaEnTexto(t)` | Eco reconoce cualquiera de los 82 nombres, escritos con o sin acentos |
+| `ecoContextoIA(pregunta)` | El catálogo completo se manda al modelo **solo si la pregunta habla de colonias** |
+
+En total son **82 colonias sin repetir**: 77 del catálogo + 5 que solo existen en `ZONAS` (La Floresta, Villas del Padre, La Estanzuela, El Agustín y San Rafael — no vienen en la lista del equipo, pero existían en la app y en los reportes ya guardados, así que no se quitaron). **"Centro" está en las dos listas** y se muestra una sola vez, en el grupo con ruta.
+
+**Cómo se limpió la lista.** Llegó de un documento, no de una fuente digital, así que hubo que separar dos formatos:
+
+- `"El Pastor / Colinas del Sur"`, `"El Retiro / El Tinaco"`, `"1 de Mayo / 1ro de Agosto"`: eran **dos colonias pegadas** por la barra. Se guardaron por separado, porque quien vive en Colinas del Sur tiene que poder elegirla.
+- `"Fovissste (José Clemente Orozco)"`, `"San Antonio (Unidad Habitacional)"`, `"Centro (Ciudad Guzmán Centro)"`: el paréntesis era un **alias oficial**. Se conserva el nombre corto y el alias queda aquí anotado:
+  - Fovissste → José Clemente Orozco
+  - San Antonio → Unidad Habitacional
+  - Centro → Ciudad Guzmán Centro
+- `"A - C"`, `"E - J"`, `"L - O"`, `"P - Z"`: son los encabezados del documento, no colonias. Se descartan (hay una prueba que lo vigila).
+- `"C.N.O.P.CTM"`: venían dos siglas pegadas y el equipo confirmó que **es una sola colonia**, así que se queda tal cual, con la T y la M pegadas.
+
+**Lo que el catálogo NO hace.** No trae coordenadas, así que **ninguna de estas colonias tiene ruta**: para dibujarla en el mapa hace falta un polígono real, y el promedio de un centroide inventado sería inventar un dato (el hero de la app presume de "0 datos inventados"). Hoy el catálogo sirve para **reportar** y para **preguntarle a Eco**, y Eco lo dice con esas palabras cuando le preguntas por una colonia sin ruta:
+
+> "El Nogal sí está en el catálogo de colonias de Ciudad Guzmán, pero todavía no tiene ruta: la app solo dibuja 6 (Centro, La Floresta, Villas del Padre, La Estanzuela, El Agustín, San Rafael)."
+
 ### 5.8 Módulo 11 — Servicios externos (2176)
 
 Ver [sección 6](#6-integraciones-externas-una-por-una) completa. Es el módulo con la arquitectura de respaldos más interesante del proyecto.

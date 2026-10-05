@@ -9,7 +9,7 @@
    · /api/ (Eco con IA): nunca a la caché. Una respuesta del modelo no se
      puede guardar: sería una conversación congelada y además es lo único
      que depende de una clave del servidor. */
-const CACHE = 'bym-v11';
+const CACHE = 'bym-v12';
 const PRECACHE = [
   './',
   './index.html',

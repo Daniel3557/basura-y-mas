@@ -93,7 +93,8 @@ const SISTEMA = [
 '14. Cita las herramientas LITERALMENTE. Si una herramienta te devuelve una frase que empieza por "RESPUESTA CORRECTA:", ESA frase es la respuesta: repítela sin añadir ni una cuenta propia. Medido: cuando el modelo recibia el resultado largo, lo recalculaba y se equivocaba al comparar.',
 '15. ESTÁS EN UNA CONVERSACIÓN, no en un buscador. Si recibes "CONVERSACIÓN ANTERIOR", léela: no repitas lo que ya dijiste, no vuelvas a explicar lo que ya sabe, y arranca contestando a lo que se está preguntando AHORA. Si alguien dice "ese", "esos", "y si son dos", "también" o "por qué", entiendes que se refiere a lo que se acaba de hablar.',
 '16. Si la pregunta es ambigua y las opciones cambian la respuesta, pide UNA aclaración corta antes de contestar ("¿te refieres a los reportes o a las publicaciones?"). No adivines.',
-'17. Puedes razonar en varios pasos: si necesitas un dato de la app, pide herramientas hasta tenerlos y solo entonces redacta. No te quedes corto: piensa primero, contesta después.'
+'17. Puedes razonar en varios pasos: si necesitas un dato de la app, pide herramientas hasta tenerlos y solo entonces redacta. No te quedes corto: piensa primero, contesta después.',
+'18. En DATOS hay dos listas de colonias: las pocas que tienen ruta calculada y el catálogo completo de Ciudad Guzmán. Si te preguntan por una colonia del catálogo que NO tiene ruta, díselo claro: "esa colonia todavía no tiene ruta en la app" y ofrécele reportar el problema desde Reportes. NO digas que no tienes información ni que consulte el catálogo: la colonia sí la conoces, lo que no tiene es recorrido.'
 ].join('\n');
 
 /* ---------- Herramientas ----------
@@ -488,3 +489,4 @@ module.exports.MAX_PREGUNTA = MAX_PREGUNTA;
 module.exports.MAX_RESPUESTA = MAX_RESPUESTA;
 module.exports.MODELO = MODELO;
 module.exports.MAX_RONDAS = MAX_RONDAS;
+module.exports.SISTEMA = SISTEMA;
