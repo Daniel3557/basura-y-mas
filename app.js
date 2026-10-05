@@ -3113,7 +3113,7 @@ function ecoResponder(pregunta){
          Va despues de las guardas y de las reglas de datos de la app, y
          antes de la IA: un núero sobre tu actividad no puede depender de
          que un modelo lo redacte bien. --- */
-  if (ecoEsPreguntaPersonal(pregunta)){
+  if (ecoEsPreguntaPersonal(pregunta) || ecoTiene(t, 'patron', 'patrones', 'cada cuanto', 'cada cuánto')){
     const r = ecoRespuestaPersonal(t);
     if (r) return r;
   }
@@ -3479,6 +3479,86 @@ function ecoConclusion(lista, campo){
   return null;
 }
 
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+/* En español no todos los días pluralizan igual: lunes, martes, miércoles,
+   jueves y viernes ya son plurales. Con un "s" a secas salía "los luness". */
+const DIAS_PLURAL = { domingo: 'domingos', lunes: 'lunes', martes: 'martes',
+  'miércoles': 'miércoles', jueves: 'jueves', viernes: 'viernes', 'sábado': 'sábados' };
+const MINIMO_PATRON = 4;   // con menos de 4 reportes no se afirma ningún patrón
+
+/** Patrones sobre tus reportes: cuándo reportas, qué combinas y cada cuánto.
+    Con pocos datos NO se inventa un patrón: se dice que no hay muestra
+    suficiente. Es la diferencia entre observar algo y suponerlo. */
+function ecoPatrones(rep){
+  if (!rep || !rep.length){
+    return { suficiente: false, patrones: [],
+      texto: 'No tienes reportes guardados, así que no hay ningún patrón que buscar.' };
+  }
+  const L = [];
+  const patrones = [];
+  const porDia = {}, porHora = {}, porPareja = {};
+  let suma = 0;
+  rep.forEach(function(r){
+    const d = new Date(Number(r.ts) || 0);
+    const dia = DIAS[d.getDay()];
+    porDia[dia] = (porDia[dia] || 0) + 1;
+    porHora[d.getHours()] = (porHora[d.getHours()] || 0) + 1;
+    const par = (r.colonia || 'sin colonia') + ' + ' + (r.tipo || 'sin tipo');
+    porPareja[par] = (porPareja[par] || 0) + 1;
+    suma += Number(r.ts) || 0;
+  });
+
+  /* Día de la semana: solo se afirma si el ganador repite. */
+  const clavesDia = Object.keys(porDia).sort(function(a, b){ return porDia[b] - porDia[a]; });
+  const diaTop = clavesDia[0];
+  if (rep.length >= MINIMO_PATRON && porDia[diaTop] >= 2 && clavesDia.length > 1 &&
+      porDia[diaTop] > (porDia[clavesDia[1]] || 0)){
+    patrones.push('reportas más los ' + (DIAS_PLURAL[diaTop] || diaTop));
+    L.push('Tu día de más reportes es el ' + diaTop + ' (' + porDia[diaTop] + ' de ' + rep.length + ').');
+  }
+
+  /* Hora del día. */
+  const clavesHora = Object.keys(porHora).sort(function(a, b){ return porHora[b] - porHora[a]; });
+  const horaTop = Number(clavesHora[0]);
+  if (rep.length >= MINIMO_PATRON && porHora[clavesHora[0]] >= 2){
+    const franja = horaTop < 12 ? 'mañana' : horaTop < 19 ? 'tarde' : 'noche';
+    patrones.push('reportas sobre todo de ' + (horaTop < 12 ? 'mañana' : horaTop < 19 ? 'tarde' : 'noche'));
+    L.push('La hora a la que más reportas son las ' + horaTop + ':00, o sea por la ' + franja + '.');
+  }
+
+  /* Colonia + tipo: la combinación que más se repite. */
+  const clavesPar = Object.keys(porPareja).sort(function(a, b){ return porPareja[b] - porPareja[a]; });
+  if (rep.length >= MINIMO_PATRON && porPareja[clavesPar[0]] >= 2){
+    patrones.push('combinas "' + clavesPar[0] + '"');
+    L.push('Lo que más se repite es "' + clavesPar[0] + '" (' + porPareja[clavesPar[0]] + ' veces).');
+  }
+
+  /* Cada cuánto reportas. */
+  const tiempos = rep.map(function(r){ return Number(r.ts) || 0; })
+    .filter(function(t){ return t > 0; }).sort(function(a, b){ return a - b; });
+  if (tiempos.length >= 2){
+    const dias = [];
+    for (let i = 1; i < tiempos.length; i++) dias.push((tiempos[i] - tiempos[i - 1]) / 86400000);
+    const media = dias.reduce(function(a, b){ return a + b; }, 0) / dias.length;
+    L.push('Entre un reporte y el siguiente pasan unos ' + (media < 1 ? 'mismo día' : media.toFixed(1) + ' días') + ' de media.');
+  }
+
+  /* antiquity del último reporte. */
+  const ultimo = Math.max.apply(null, tiempos.length ? tiempos : [0]);
+  if (ultimo){
+    const dias = Math.max(0, Math.round((Date.now() - ultimo) / 86400000));
+    L.push('Tu último reporte es de hace ' + (dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : dias + ' días') + '.');
+  }
+
+  if (!patrones.length){
+    L.unshift(rep.length < MINIMO_PATRON
+      ? 'Solo llevas ' + rep.length + ' ' + (rep.length === 1 ? 'reporte' : 'reportes') +
+        ', y con menos de ' + MINIMO_PATRON + ' no se puede ver un patrón sin inventarlo.'
+      : 'Con tus ' + rep.length + ' reportes no sale un patrón claro: reportas repartido.');
+  }
+  return { suficiente: patrones.length > 0, patrones: patrones, texto: L.join(' ') };
+}
+
 /** Las preguntas sobre TU actividad las responde la app, no el modelo.
     Motivo medido: con la herramienta "consultar_datos" el modelo daba los
     números correctos y aun así escribía la colonia equivocada. Un dato
@@ -3496,6 +3576,18 @@ function ecoRespuestaPersonal(t){
         : 'Lo conté sobre tus ' + rep.length + ' reportes guardados.'),
       ir: 'reportes'
     };
+  }
+  if (ecoTiene(t, 'patron', 'patrones', 'cada cuanto', 'cada cuánto', 'ultimo reporte', 'último reporte',
+      'reciente', 'dia de la semana', 'día de la semana', 'hora') ||
+      (ecoTiene(t, DIAS) && ecoTiene(t, 'reporto', 'reportar', 'mis', 'mi'))){
+    // Sin estas palabras la pregunta no va de tus reportes, aunque diga
+    // "patrón": "¿qué es un patrón de reciclaje?" es otra cosa.
+    if (!ecoTiene(t, 'reporto', 'reportar', 'cuando', 'cada cuanto', 'cada cuánto', 'dia', 'día',
+        'hora', 'reciente', 'ultimo', 'último', 'mis', 'mi', 'yo', 'he')){
+      return null;
+    }
+    const p = ecoPatrones(rep);
+    return { verificada: true, texto: p.texto, ir: 'reportes' };
   }
   if (ecoTiene(t, 'tipo') && ecoTiene(t, 'mas', 'repetido', 'frecuencia', 'hago', 'reporto')){
     const c = ecoConclusion(rep, 'tipo');
@@ -3824,6 +3916,9 @@ function ecoConsultarDatos(que){
     return 'Tienes ' + tiene.length + ' de ' + INSIGNIAS.length + ': ' +
       (tiene.length ? tiene.join(', ') : 'ninguna todavía') +
       '. Te faltan: ' + (faltan.length ? faltan.map(function(i){ return i.nombre; }).join(', ') : 'ninguna');
+  }
+  if (que === 'patrones'){
+    return ecoPatrones(rep).texto;
   }
   if (que === 'por_colonia' || que === 'por_tipo' || que === 'por_mes'){
     return ecoRepartos(rep);

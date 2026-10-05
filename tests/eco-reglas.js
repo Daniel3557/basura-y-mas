@@ -155,5 +155,80 @@ comprobar('el reparto ordena de mayor a menor',
   /Centro \(3\), La Floresta \(1\), El Agustín \(1\)/.test(ecoReparto(REPORTS, 'colonia', 'Por colonia')),
   ecoReparto(REPORTS, 'colonia', 'Por colonia'));
 
+/* ---------- 5. Patrones sobre tus reportes ---------- */
+console.log('\n5 · Patrones (con pocos datos NO se inventa ninguno)');
+/* DIAS y MINIMO_PATRON se leen del app.js de verdad: si cambian, cambia el test. */
+const DIAS = eval(SRC.match(/const DIAS = (\[[^\]]*\]);/)[1]);
+const MINIMO_PATRON = Number(SRC.match(/const MINIMO_PATRON = (\d+);/)[1]);
+const patrones = arrancar('ecoPatrones', ['DIAS', 'DIAS_PLURAL', 'MINIMO_PATRON'])(
+  DIAS, eval('(' + SRC.match(/const DIAS_PLURAL = (\{[^}]*\});/)[1].replace(/'/g, '"') + ')'), MINIMO_PATRON);
+
+const DIA = 86400000;
+/** Un reporte fechado en el día de la semana `diaSem` (1 = lunes), hace `semanas` semanas, a esa hora. */
+function reporteEn(diaSem, semanas, hora, colonia, tipo){
+  const d = new Date();
+  const delta = (d.getDay() - diaSem + 7) % 7;          // días hasta ese día de la semana
+  d.setDate(d.getDate() - delta - semanas * 7);
+  d.setHours(hora, 15, 0, 0);
+  return { ts: d.getTime(), colonia: colonia || 'Centro', tipo: tipo || 'Contenedor lleno' };
+}
+
+comprobar('sin reportes no hay patrón que buscar',
+  patrones([]).suficiente === false && /No tienes reportes/.test(patrones([]).texto));
+
+const uno = patrones([{ ts: Date.now() - DIA, colonia: 'Centro', tipo: 'Otro' }]);
+comprobar('con un solo reporte lo dice en vez de suponer',
+  uno.suficiente === false && /menos de 4/.test(uno.texto), uno.texto);
+
+const dos = patrones([reporteEn(1, 2, 9), reporteEn(3, 1, 10)]);
+comprobar('con dos reportes tampoco afirma patrón',
+  dos.suficiente === false && /menos de 4/.test(dos.texto), dos.texto);
+
+const repartidos = patrones([
+  reporteEn(1, 4, 9, 'Centro', 'Contenedor lleno'),
+  reporteEn(2, 3, 18, 'La Floresta', 'Basura en la calle'),
+  reporteEn(3, 2, 13, 'El Agustín', 'Camión no pasó'),
+  reporteEn(4, 1, 20, 'Centro', 'Ruta incorrecta'),
+  reporteEn(5, 0, 11, 'San Rafael', 'Otro')
+]);
+comprobar('con 5 reportes repartidos no afirma un día ni una hora',
+  repartidos.patrones.every(function (p) { return /reportas más los|sobre todo de/.test(p) === false; }),
+  JSON.stringify(repartidos.patrones));
+comprobar('y lo dice con esas palabras',
+  /no sale un patrón claro|Lo que más se repite/.test(repartidos.texto), repartidos.texto);
+
+const luneses = patrones([
+  reporteEn(1, 5, 9, 'Centro', 'Contenedor lleno'),
+  reporteEn(1, 4, 9, 'Centro', 'Basura en la calle'),
+  reporteEn(1, 3, 9, 'La Floresta', 'Contenedor lleno'),
+  reporteEn(1, 2, 9, 'Centro', 'Contenedor lleno'),
+  reporteEn(2, 1, 14, 'El Agustín', 'Otro'),
+  reporteEn(6, 0, 19, 'San Rafael', 'Camión no pasó')
+]);
+comprobar('con 4 luneses y 2 más sí lo detecta',
+  luneses.suficiente === true && luneses.patrones.indexOf('reportas más los lunes') !== -1, luneses.texto);
+comprobar('los días en plural no salen con una s de más',
+  !luneses.patrones.some(function (p) { return /luness|miercoless|juevess|sabados/.test(p); }),
+  JSON.stringify(luneses.patrones));
+const sabados = patrones([reporteEn(6, 3, 10), reporteEn(6, 2, 10), reporteEn(6, 1, 10),
+  reporteEn(6, 0, 10), reporteEn(3, 2, 15)]);
+comprobar('sábado sí pluraliza a sábados',
+  sabados.patrones.indexOf('reportas más los sábados') !== -1, JSON.stringify(sabados.patrones));
+const soloSabados = patrones([reporteEn(6, 3, 10), reporteEn(6, 2, 10), reporteEn(6, 1, 10), reporteEn(6, 0, 10)]);
+comprobar('si todos son el mismo día, no afirma un patrón de día',
+  soloSabados.patrones.every(function (p) { return !/reportas más los/.test(p); }),
+  JSON.stringify(soloSabados.patrones));
+comprobar('y nombra la hora de más reportes',
+  /9:00/.test(luneses.texto), luneses.texto);
+comprobar('y dice cada cuánto, en días',
+  /entre un reporte y el siguiente/i.test(luneses.texto), luneses.texto);
+comprobar('y dice cuándo fue el último',
+  /tu último reporte es de hace (hoy|ayer|\d+ días)/i.test(luneses.texto), luneses.texto);
+
+const sinHoy = patrones([reporteEn(1, 3, 9), reporteEn(1, 2, 9), reporteEn(1, 1, 9), reporteEn(1, 0, 9)]);
+comprobar('cuando el ganador empata no elige a dedo', sinHoy.patrones.length > 0 || /no sale un patrón/.test(sinHoy.texto));
+
+comprobar('el mínimo de muestra es 4, no 2 ni 3', MINIMO_PATRON === 4);
+
 console.log('\n' + (fallos ? 'FALLOS: ' + fallos : 'Todo en orden: ') + ok + ' comprobaciones, ' + fallos + ' fallos.');
 process.exit(fallos ? 1 : 0);

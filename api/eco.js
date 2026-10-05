@@ -107,13 +107,13 @@ const HERRAMIENTA_DATOS = {
   type: 'function',
   function: {
     name: 'consultar_datos',
-    description: 'Consulta los datos que el propio usuario tiene en la aplicación: sus reportes ciudadanos, sus publicaciones, sus acciones ecológicas, sus insignias, y cómo se reparten por colonia, tipo o mes. Devuelve filas resumidas. Úsala cuando pregunten por su actividad o sus números.',
+    description: 'Consulta los datos que el propio usuario tiene en la aplicación: sus reportes ciudadanos, sus publicaciones, sus acciones ecológicas, sus insignias, los patrones de cuándo y qué reporta, y cómo se reparten por colonia, tipo o mes. Devuelve frases ya resueltas, con totales y máximos. Úsala cuando pregunten por su actividad o sus números.',
     parameters: {
       type: 'object',
       properties: {
         que: {
           type: 'string',
-          enum: ['resumen', 'reportes', 'publicaciones', 'acciones', 'insignias', 'por_colonia', 'por_tipo', 'por_mes'],
+          enum: ['resumen', 'reportes', 'publicaciones', 'acciones', 'insignias', 'por_colonia', 'por_tipo', 'por_mes', 'patrones'],
           description: 'Qué quieres mirar. Devuelve frases ya resueltas: con el total y con el máximo de cada reparto.'
         }
       },

@@ -770,7 +770,7 @@ Dos detalles que parecen menores y no lo son:
 |---|---|---|---|
 | 0 | Guardas de seguridad | intentos de cambiar sus reglas, pedir contraseñas o tokens, datos bancarios, datos de otros usuarios, ejecutar código, y mensajes en inglés | Sí |
 | 1 | Navegación | dónde está cada sección | No |
-| 1b | **Tu actividad** | en qué colonia o tipo de reporte más has reportado, cuántos llevas, tus días de acción, tus insignias | Sí |
+| 1b | **Tu actividad** | en qué colonia o tipo de reporte más has reportado, **si hay un patrón en cuándo reportas**, cuántos llevas, cada cuánto, cuándo fue el último, tus días de acción, tus insignias | Sí |
 | 1c | **Simulación** | "si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?" → la suma y el sí/no los hace `ecoSimularAcciones()` | Sí |
 | 2 | Reportes | los 5 tipos y los 5 pasos del formulario | No |
 | 3 | Camión y horarios | siempre la misma respuesta honesta: no hay GPS | Sí |
@@ -841,7 +841,23 @@ Dos detalles que parecen menores y no lo son:
 
 **Cambiar de modelo.** Se cambia en una línea, `const MODELO = '…'` en `api/eco.js`, y todo lo demás sigue igual. Si NVIDIA retira el modelo, la respuesta es un `4xx` mapeado a `400 modelo`, la app cae a las reglas y sigue funcionando.
 
-### 5.18 Herramientas: cómo se le da capacidad de pensar
+### 5.18 Detectar patrones en vez de responder
+
+Responder "¿en qué colonia reporto más?" es contar. Detectar un patrón es mirar **el conjunto** y ver si dice algo que nadie ha dicho en voz alta: que reportas más los lunes por la mañana, que en el Agustín siempre es por el camión, que pasan tres semanas entre reporte y reporte.
+
+Lo hace `ecoPatrones()`, en la app, sin modelo. Devuelve **frases ya escritas**, no números para que otro los interprete:
+
+- **Día de la semana**: solo si el ganador llega a 2 y hay más de un día distinto. Si todos tus reportes caen el mismo día, no dice nada: es cierto de forma trivial y no informa nada.
+- **Franja del día**: mañana (0–11), tarde (12–18) o noche (19–23), no una hora cruda.
+- **Colonia + tipo**: la combinación que más se repite (*"Centro + Contenedor lleno"*).
+- **Cada cuánto**: la media de días entre reportes consecutivos.
+- **Antigüedad del último**: hoy, ayer o hace N días.
+
+**La regla de honestidad que manda sobre todas:** `MINIMO_PATRON = 4`. Con menos de cuatro reportes la respuesta es *"Solo llevas N reportes, y con menos de 4 no se puede ver un patrón sin inventarlo"* — más el dato del último reporte, que sí es verdad con uno solo. Es la diferencia entre una observación y una suposición, y es justo lo que un modelo de lenguaje hace mal: con dos datos te diría "parece que reportas los fines de semana".
+
+**Un bug que encontró la batería:** los días en español no pluralizan todos con `-s`. El código decía *"reportas más los luness"*. Ahora hay un mapa `DIAS_PLURAL` (lunes, martes, miércoles, jueves y viernes ya son plurales; domingo, sábado sí cambian) y una comprobación que lo vigila.
+
+### 5.19 Herramientas: cómo se le da capacidad de pensar
 
 El modelo **pide**, el navegador **responde**. Nunca es al revés: la clave está en el servidor y los datos están en el dispositivo, así que el ida y vuelta son dos rondas como máximo.
 
@@ -2033,6 +2049,7 @@ Queda como una app con su ícono, abre a pantalla completa y **funciona sin inte
 - *"¿Qué tipo de reporte hago más veces?"* → lo mismo por tipo, y avisa si hay empate.
 - *"Si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?"* → la suma y el sí/no los hace la app, no el modelo.
 - *"¿Cuántos días llevo registrando acciones?"* → cuenta tus días distintos y te dice cuánto falta para la insignia.
+- *"¿Hay algún patrón en cuándo reporto?"* → busca el día, la franja, la combinación más repetida y cada cuánto reportas. **Con menos de 4 reportes te dice que no hay muestra suficiente**, en vez de suponer (ver 5.19).
 
 **Lo que hay arriba del chat** es el estado real del asistente, y conviene leerlo una vez:
 
