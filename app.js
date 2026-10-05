@@ -2528,6 +2528,7 @@ function mostrarPrivacidad(){
     '<strong>Tus datos y los de otros:</strong> puedes borrar tu propia publicación y tu propio reporte desde la app. No puedes borrar ni editar lo de otras personas, ni el contenido que el equipo del proyecto haya moderado.',
     '<strong>Dónde viven:</strong> en una base de datos Supabase (PostgreSQL) con políticas de seguridad a nivel de fila, y también en tu navegador (para que la app funcione sin conexión). Puedes borrar lo local en <em>Configuración → Restablecer datos locales</em>.',
     '<strong>Eco y la IA:</strong> si preguntas algo que las reglas de la app no saben, tu pregunta y los datos que la app ya te enseña (colonias, guía de residuos, tus puntos y el nombre del punto más cercano) se mandan al servidor de la aplicación, que los pasa a un modelo de lenguaje de NVIDIA para redactar la respuesta. <strong>Nunca</strong> se envían tu nombre, tu correo ni tus coordenadas. La clave de ese servicio está en el servidor y no se puede leer desde el navegador. Si el servidor no está disponible, Eco contesta solo con las reglas de la app.',
+    '<strong>Cuando preguntas por tu actividad:</strong> si escribes algo como "¿en qué colonia he reportado más?", Eco puede consultar tus propios reportes y publicaciones, tus acciones y tus insignias. Solo se consulta en ese caso: preguntar por un residuo o por un horario no manda nada tuyo. Lo que vuelve al servidor son resúmenes ya contados (por ejemplo "por colonia: Centro 3, La Floresta 1") y, si se necesitan, hasta 110 caracteres del texto de tus últimos reportes. <strong>No</strong> sale tu nombre de perfil, tu correo ni las coordenadas. Cuando esto ocurre, el chat lo escribe debajo de la respuesta.',
     '<strong>Errores de la app:</strong> si el proyecto activa <span title="Sentry, servicio de seguimiento de errores">Sentry</span> para detectar fallos técnicos, se envían solo el tipo de error y el navegador. <strong>Nunca</strong> se envía tu nombre, tu correo ni el texto de lo que escribes. Ahora mismo está <strong>desactivado</strong>: no se envía nada a ningún servicio de ese tipo.',
     '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas. Si ves algo que no debería estar publicado, dilo por el enlace de contacto y lo ocultamos.'
   ]);
@@ -3107,6 +3108,33 @@ function ecoResponder(pregunta){
     };
   }
 
+
+  /* --- 1b. Preguntas sobre TU actividad: las contesta la app, no el modelo.
+         Va despues de las guardas y de las reglas de datos de la app, y
+         antes de la IA: un núero sobre tu actividad no puede depender de
+         que un modelo lo redacte bien. --- */
+  if (ecoEsPreguntaPersonal(pregunta)){
+    const r = ecoRespuestaPersonal(t);
+    if (r) return r;
+  }
+
+  /* --- 1c. Simulación: "si hago esto, ¿qué nivel alcanzo?" ---
+     Esto lo resuelve la app, no el modelo. Medido: con la herramienta
+     "simular_acciones" el modelo recibía el sí/no correcto y aun así
+     recalculaba y se equivocaba ("255 es menor que 220"). Sumar y
+     comparar es determinista; por eso va aquí y no en la IA. */
+  if (ecoTiene(t, 'alcanzo', 'alcanzare', 'llegaria', 'me quedaria') &&
+      ecoTiene(t, 'nivel', 'puntos', 'si hago', 'si mando', 'si publico', 'si registro', 'si envio')){
+    const r = ecoSimularAcciones(pregunta);
+    if (r.indexOf('No entendi') === 0 || r.indexOf('No entendí') === 0){
+      return {
+        verificada: true,
+        texto: 'Puedo calcularlo, pero no entendí qué acciones planeas hacer. Dímelo así: ' +
+          '"si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?".'
+      };
+    }
+    return { verificada: true, texto: r.replace('RESPUESTA CORRECTA: ', ''), ir: 'perfil' };
+  }
   /* --- 2. Reportes ciudadanos (antes que camión: "el camión no pasó" también
         se reporta, y ahí toca explicar cómo, no el horario) --- */
   if (ecoTiene(t, 'reportar', 'reporte', 'reportes', 'quejarse', 'avisar', 'contenedor lleno',
@@ -3340,7 +3368,9 @@ function ecoResponder(pregunta){
     };
   }
 
-  /* --- 15. Si ninguna regla entiende la pregunta, no se improvisa: lo dice --- */
+
+
+  /* --- 17. Si ninguna regla entiende la pregunta, no se improvisa: lo dice --- */
   return null;
 }
 
@@ -3436,6 +3466,88 @@ function buscarEcoResiduo(t){
    Lo que se manda al servidor es lo MÍNIMO y todo público: la pregunta
    y los datos que la app ya enseña en pantalla. Nunca el nombre, ni el
    correo, ni las coordenadas: para eso no hay nada que mandar. */
+/** Conclusión de un reparto, en una frase: el más y cuántos. */
+function ecoConclusion(lista, campo){
+  if (!lista || !lista.length) return null;
+  const c = ecoReparto(lista, campo, '');
+  // Sin ancla al principio: ecoReparto antepone " (total N): ".
+  const primero = /el más es ([^,]+), con (\d+)/.exec(c);
+  if (primero) return primero[1] + ', con ' + primero[2] + ' de ' +
+    (lista.length === 1 ? 'tu único dato' : 'tus ' + lista.length + ' datos');
+  const empate = /hay empate entre ([^,]+) y ([^,]+), con (\d+) cada uno/.exec(c);
+  if (empate) return empate[1] + ' y ' + empate[2] + ', con ' + empate[3] + ' cada uno';
+  return null;
+}
+
+/** Las preguntas sobre TU actividad las responde la app, no el modelo.
+    Motivo medido: con la herramienta "consultar_datos" el modelo daba los
+    números correctos y aun así escribía la colonia equivocada. Un dato
+    sobre tu actividad no puede depender de que un modelo redacte bien. */
+function ecoRespuestaPersonal(t){
+  const rep = ecoMisReportes();
+  const acc = estado.acciones || [];
+  if (ecoTiene(t, 'colonia') && ecoTiene(t, 'mas', 'reparto', 'reporto', 'reportar')){
+    const c = ecoConclusion(rep, 'colonia');
+    if (!c) return { texto: 'Todavía no hay ningún reporte guardado, así que no hay colonia donde más hayas reportado.' };
+    return {
+      verificada: true,
+      texto: 'Es en ' + c + '.\n\n' + (rep.length === 1
+        ? 'Solo llevas un reporte, así que no hay comparación que hacer.'
+        : 'Lo conté sobre tus ' + rep.length + ' reportes guardados.'),
+      ir: 'reportes'
+    };
+  }
+  if (ecoTiene(t, 'tipo') && ecoTiene(t, 'mas', 'repetido', 'frecuencia', 'hago', 'reporto')){
+    const c = ecoConclusion(rep, 'tipo');
+    if (!c) return { texto: 'No tienes reportes guardados todavía, así que no hay ningún tipo que se repita.' };
+    return {
+      verificada: true,
+      texto: 'El tipo que más has reportado es ' + c + '.\n\nConté tus ' + rep.length + ' reportes guardados.',
+      ir: 'reportes'
+    };
+  }
+  if (ecoTiene(t, 'cuantos reportes', 'cuantas veces he reportado', 'mis reportes', 'cuantos he reportado')){
+    return {
+      verificada: true,
+      texto: 'Llevas ' + rep.length + ' ' + (rep.length === 1 ? 'reporte guardado' : 'reportes guardados') + '.\n\n' +
+        (sesion.usuario ? 'Con la sesión iniciada, son los tuyos.'
+          : 'Aviso: sin cuenta no puedo decir cuáles son tuyos y cuáles son de otros vecinos.'),
+      ir: 'reportes'
+    };
+  }
+  if (ecoTiene(t, 'insignia', 'insignias', 'medalla')){
+    const faltan = INSIGNIAS.filter(function(i){ return (estado.insignias || []).indexOf(i.id) === -1; });
+    return {
+      verificada: true,
+      texto: 'Tienes ' + (estado.insignias || []).length + ' de ' + INSIGNIAS.length + ' insignias.\n\n' +
+        (faltan.length
+          ? 'Te faltan: ' + faltan.map(function(i){ return i.icono + ' ' + i.nombre; }).join(', ') + '.'
+          : '¡Las tienes todas!'),
+      ir: 'perfil'
+    };
+  }
+  if (ecoTiene(t, 'accion', 'acciones', 'dias', 'días', 'racha')){
+    if (!acc.length){
+      return {
+        verificada: true,
+        texto: 'Todavía no has registrado ninguna acción ecológica. La primera te da ' + PTS.accion +
+          ' puntos y la insignia "Primera acción".',
+        ir: 'perfil'
+      };
+    }
+    const dias = (estado.diasAccion || []).length;
+    return {
+      verificada: true,
+      texto: 'Llevas ' + acc.length + ' ' + (acc.length === 1 ? 'acción ecológica' : 'acciones ecológicas') +
+        ' registradas en ' + dias + ' ' + (dias === 1 ? 'día' : 'días') + ' distinto' + (dias === 1 ? '' : 's') + '.\n\n' +
+        'La insignia "Separador responsable" se desbloquea con 3 días distintos: ' +
+        (dias >= 3 ? 'ya la tienes.' : 'te faltan ' + (3 - dias) + '.'),
+      ir: 'perfil'
+    };
+  }
+  return null;
+}
+
 let ecoHayIA = false;          // ¿el servidor tiene un modelo detrás?
 let ecoEstadoCargado = false;  // ya se preguntó en esta sesión
 
@@ -3497,23 +3609,33 @@ function ecoPintarEstadoIA(){
   e.className = 'eco-estado ' + (ecoHayIA ? 'con-ia' : 'sin-ia');
   e.textContent = ecoHayIA
     ? 'IA disponible: lo que no esté en mis reglas lo redacta un modelo de lenguaje en el servidor de la app. ' +
-      'De aquí salen tu pregunta y datos que ya están a la vista (colonias, guía de residuos, tus puntos y el nombre del punto más cercano). Nunca tu nombre, tu correo ni tu ubicación.'
+      'De aquí salen tu pregunta y datos que ya están a la vista (colonias, guía de residuos, tus puntos y el nombre del punto más cercano). Nunca tu nombre, tu correo ni tu ubicación. ' +
+      'Y si le preguntas algo sobre tu propia actividad ("¿en qué colonia he reportado más?"), puede consultar tus reportes y publicaciones: solo en ese caso, y te aviso debajo de la respuesta.'
     : 'Sin IA en el servidor: contesto solo con las reglas de esta app, sin conexión. Si una regla no entiende tu pregunta, te lo digo en vez de inventar.';
 }
 
-/** Llamada a /api/eco. Nunca lanza: devuelve {ok, respuesta|error}. */
-function ecoFetchIA(pregunta){
+/** Llamada a /api/eco. Nunca lanza: devuelve {ok, respuesta|error} o
+    {ok:true, herramientas} cuando el modelo pide consultar algo. */
+function ecoFetchIA(pregunta, permiteDatos, ronda, resultados){
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const t = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 25000);
   return fetch('/api/eco', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pregunta: pregunta.slice(0, 400), contexto: ecoContextoIA() }),
+    body: JSON.stringify({
+      pregunta: pregunta.slice(0, 400),
+      contexto: ecoContextoIA(),
+      permiteDatos: !!permiteDatos,
+      ronda: ronda || 1,
+      resultados: resultados || []
+    }),
     signal: ctrl ? ctrl.signal : undefined
   }).then(function(r){
     return r.json().catch(function(){ return null; }).then(function(j){
-      if (r.ok && j && j.ok && j.respuesta) return { ok: true, respuesta: j.respuesta };
-      return { ok: false, error: (j && j.error) || 'red' };
+      if (!r.ok || !j || !j.ok) return { ok: false, error: (j && j.error) || 'red' };
+      if (j.herramientas && j.herramientas.length) return { ok: true, herramientas: j.herramientas };
+      if (j.respuesta) return { ok: true, respuesta: j.respuesta };
+      return { ok: false, error: 'vacia' };
     });
   }).catch(function(){
     return { ok: false, error: 'red' };
@@ -3522,6 +3644,277 @@ function ecoFetchIA(pregunta){
     return r;
   });
 }
+
+/* ---------- Herramientas que ejecuta el navegador ----------
+   El modelo solo PIDE; los datos y las cuentas están aquí. Por eso la
+   calculadora no es un eval: es un analizador propio que solo entiende
+   números y + - * / % ( ), y devuelve null ante cualquier otra cosa. */
+function ecoCalcular(entrada){
+  const s = ecoTexto(entrada).replace(/\s+/g, '');
+  if (!s || s.length > 120 || !/^[0-9+\-*/%().]+$/.test(s)) return null;
+  let i = 0;
+  const fin = function(){ return i >= s.length; };
+  const numero = function(){
+    const t = s.slice(i).match(/^\d+(\.\d+)?/);
+    if (!t){ i = -1; return null; }
+    i += t[0].length;
+    return Number(t[0]);
+  };
+  const factor = function(){
+    if (fin()){ i = -1; return null; }
+    if (s[i] === '+' || s[i] === '-'){ const signo = s[i] === '-' ? -1 : 1; i++; const v = factor(); return v === null ? null : signo * v; }
+    if (s[i] === '('){ i++; const v = expresion(); if (s[i] !== ')'){ i = -1; return null; } i++; return v; }
+    return numero();
+  };
+  const termino = function(){
+    let v = factor();
+    if (v === null) return null;
+    while (!fin() && '*/%'.indexOf(s[i]) !== -1){
+      const op = s[i]; i++;
+      const d = factor();
+      if (d === null) return null;
+      if ((op === '/' || op === '%') && d === 0) return null;   // dividir entre cero no da resultado
+      v = op === '*' ? v * d : op === '/' ? v / d : v % d;
+    }
+    return v;
+  };
+  const expresion = function(){
+    let v = termino();
+    if (v === null) return null;
+    while (!fin() && (s[i] === '+' || s[i] === '-')){
+      const op = s[i]; i++;
+      const d = termino();
+      if (d === null) return null;
+      v = op === '+' ? v + d : v - d;
+    }
+    return v;
+  };
+  if (i < 0) return null;
+  const r = expresion();
+  if (r === null || !isFinite(r)) return null;
+  return Math.round(r * 1e6) / 1e6;
+}
+
+/** ¿La pregunta es sobre la actividad del propio usuario? Solo entonces se
+    ofrece la herramienta que lee sus datos. */
+function ecoEsPreguntaPersonal(pregunta){
+  const t = normalizar(pregunta);
+  if (ecoTiene(t, 'mis ', 'mi ', 'yo ', 'conmigo', 'he reportado', 'he publicado',
+      'he registrado', 'he hecho', 'lo que he', 'cuanto llevo', 'llevo ', 'mi historial',
+      'mi actividad', 'mi progreso', 'mis datos')) return true;
+  return /(^|[^a-z])(mis|mi|yo)([^a-z]|$)/.test(t);
+}
+
+/** Cuenta por campo y devuelve el total y el más repetido, YA CALCULADOS.
+    La app elige el máximo; el modelo no tiene que comparar nada. */
+function ecoReparto(lista, campo, etiqueta){
+  if (!lista || !lista.length) return etiqueta + ': no hay nada.';
+  const c = {};
+  lista.forEach(function(x){
+    const k = ecoTexto(x[campo] || 'sin dato').slice(0, 40);
+    c[k] = (c[k] || 0) + 1;
+  });
+  const claves = Object.keys(c).sort(function(a, b){ return c[b] - c[a]; });
+  const max = c[claves[0]];
+  const tope = claves.filter(function(k){ return c[k] === max; });
+  const resto = claves.map(function(k){ return k + ' (' + c[k] + ')'; }).join(', ');
+  return etiqueta + ' (total ' + lista.length + '): ' +
+    (tope.length > 1
+      ? 'hay empate entre ' + tope.join(' y ') + ', con ' + max + ' cada uno'
+      : 'el más es ' + claves[0] + ', con ' + max) +
+    '. Todos: ' + resto + '.';
+}
+function ecoContar(lista, campo){
+  const c = {};
+  lista.forEach(function(x){
+    const k = ecoTexto(x[campo] || 'sin dato').slice(0, 40);
+    c[k] = (c[k] || 0) + 1;
+  });
+  return Object.keys(c).sort(function(a, b){ return c[b] - c[a]; })
+    .map(function(k){ return k + ': ' + c[k]; }).join(', ');
+}
+function ecoMisReportes(){
+  const todos = (estado.reportes || []).filter(function(r){ return !r.oculto; });
+  if (sesion.usuario){
+    return todos.filter(function(r){ return r.usuario_id && r.usuario_id === sesion.usuario.id; });
+  }
+  return todos;
+}
+function ecoMes(ts){
+  const d = new Date(Number(ts) || 0);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+/** Los tres repartos de golpe, cada uno YA CONCLUIDO (con su máximo).
+    El modelo no compara ni cuenta: solo lee. */
+function ecoRepartos(rep){
+  if (!rep || !rep.length) return 'Sin repartos: no hay reportes.';
+  return ecoReparto(rep, 'colonia', 'Por colonia') + '\n' +
+    ecoReparto(rep, 'tipo', 'Por tipo de reporte') + '\n' +
+    ecoReparto(rep.map(function(r){ return { m: ecoMes(r.ts) }; }), 'm', 'Por mes');
+}
+
+/** La herramienta "consultar_datos". Devuelve texto, nunca objetos: lo que
+    sale de aquí es lo único que el modelo ve de la actividad del usuario. */
+function ecoConsultarDatos(que){
+  const rep = ecoMisReportes();
+  const mine = (estado.publicaciones || []).filter(function(p){
+    return !p.ejemplo && sesion.usuario && p.usuario_id && p.usuario_id === sesion.usuario.id;
+  });
+  const acc = estado.acciones || [];
+  if (que === 'resumen'){
+    const quien = sesion.usuario ? 'con tu cuenta iniciada' : 'sin cuenta: no puedo separar lo tuyo de lo de los demás';
+    return 'Reportes visibles en la app: ' + rep.length + '. Publicaciones tuyas: ' + mine.length +
+      '. Acciones ecológicas registradas: ' + acc.length + ' en ' + (estado.diasAccion || []).length +
+      ' días distintos. Puntos: ' + (estado.puntos || 0) + '. Insignias: ' + (estado.insignias || []).length +
+      ' de ' + INSIGNIAS.length + '. (' + quien + ')\n' + ecoRepartos(rep);
+  }
+  if (que === 'reportes'){
+    if (!rep.length) return 'No hay ningún reporte en la app todavía.';
+    const cuenta = sesion.usuario ? '' : ' (sin cuenta no puedo decir cuáles son tuyos)';
+    // Las CONCLUSIONES van primero: si el modelo lee de arriba abajo y ve
+    // primero las filas, se confunde y dice "no tengo información".
+    return ecoRepartos(rep) + '\nUltimos reportes:\n' + rep.slice(0, 6).map(function(r){
+      return ecoMes(r.ts) + ' · ' + (r.colonia || 'sin colonia') + ' · ' + (r.tipo || 'sin tipo') +
+        ' · ' + ((ESTADOS_REPORTE[r.estado] || {}).txt || 'sin estado') +
+        (r.foto ? ' · con foto' : '') +
+        (r.texto ? ' · dice: "' + ecoTexto(r.texto).slice(0, 110) + '"' : '');
+    }).join('\n') + cuenta;
+  }
+  if (que === 'publicaciones'){
+    if (!mine.length) return 'No tienes publicaciones propias guardadas en este dispositivo.';
+    return mine.slice(0, 8).map(function(p){
+      return ecoMes(p.ts) + ' · ' + (p.colonia || 'sin colonia') + ' · ' + (p.tipo || 'sin tipo') +
+        ' · ' + p.likes + ' me gusta · ' + ((p.comentarios || []).length) + ' comentarios' +
+        (p.texto ? ' · dice: "' + ecoTexto(p.texto).slice(0, 110) + '"' : '');
+    }).join('\n');
+  }
+  if (que === 'acciones'){
+    if (!acc.length) return 'Todavía no has registrado ninguna acción ecológica.';
+    const dias = (estado.diasAccion || []).length;
+    // Racha: días consecutivos hacia atrás desde el último registro.
+    let racha = 0;
+    const marcas = acc.map(function(a){ return ecoTexto(ecoMes(a.ts)); })
+      .filter(function(v, i, a){ return a.indexOf(v) === i; }).sort();
+    if (marcas.length){
+      const hoy = new Date();
+      const claveHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+      let dia = hoy;
+      while (racha < marcas.length){
+        const k = dia.getFullYear() + '-' + String(dia.getMonth() + 1).padStart(2, '0');
+        if (marcas.indexOf(k) === -1) break;
+        racha++;
+        dia.setDate(dia.getDate() - 1);
+      }
+      if (racha === 0 && marcas.indexOf(claveHoy) === -1){
+        // No registraste hoy: la racha se corta en 0 pero los dias siguen contando.
+        racha = 0;
+      }
+    }
+    return 'Llevas ' + acc.length + ' acciones ecológicas registradas en ' + dias + ' días distintos. ' +
+      (racha > 0 ? 'Tu racha actual es de ' + racha + ' días seguidos. ' : 'Hoy todavía no registraste una acción, así que tu racha está en 0. ') +
+      'La insignia "Separador responsable" se desbloquea con 3 días distintos, así que ' +
+      (dias >= 3 ? 'ya la tienes.' : 'te faltan ' + (3 - dias) + '.' ) + '\n' +
+      acc.slice(0, 6).map(function(a){
+        return new Date(Number(a.ts) || 0).toLocaleDateString('es-MX') + ' · ' + (a.texto || a.tipo || 'acción');
+      }).join('\n');
+  }
+  if (que === 'insignias'){
+    const tiene = estado.insignias || [];
+    const faltan = INSIGNIAS.filter(function(i){ return tiene.indexOf(i.id) === -1; });
+    return 'Tienes ' + tiene.length + ' de ' + INSIGNIAS.length + ': ' +
+      (tiene.length ? tiene.join(', ') : 'ninguna todavía') +
+      '. Te faltan: ' + (faltan.length ? faltan.map(function(i){ return i.nombre; }).join(', ') : 'ninguna');
+  }
+  if (que === 'por_colonia' || que === 'por_tipo' || que === 'por_mes'){
+    return ecoRepartos(rep);
+  }
+  // Cualquier otra cosa ("reportes", "mis datos", "todo") cae en el
+  // resumen completo: es mejor darle de más que quedarse corto.
+  const quien = sesion.usuario ? 'con tu cuenta iniciada' : 'sin cuenta: no puedo separar lo tuyo de lo de los demás';
+  return 'No reconozco "' + que + '", así que te paso el resumen completo. ' +
+    'Reportes visibles en la app: ' + rep.length + '. Publicaciones tuyas: ' + mine.length +
+    '. Acciones ecológicas: ' + acc.length + ' en ' + (estado.diasAccion || []).length +
+    ' días distintos. Puntos: ' + (estado.puntos || 0) + '. Insignias: ' + (estado.insignias || []).length +
+    ' de ' + INSIGNIAS.length + '. (' + quien + ')\n' + ecoRepartos(rep);
+}
+
+/** Simula lo que pasaría con las acciones que el usuario propone y DEVUELVE
+    LA CONCLUSIÓN. Sumar y comparar es trabajo de la app: el modelo solo la
+    lee. Medido: con "calcular" el modelo acertaba la suma y luego se
+    equivocaba al comparar ("275 es menor que 220"). */
+function ecoSimularAcciones(entrada){
+  const cuenta = { accion: 0, reporte: 0, participacion: 0, ayuda: 0 };
+  const texto = ecoTexto(Array.isArray(entrada) ? entrada.join(' ') : entrada).toLowerCase();
+  const meter = function(cantidad, tipo){
+    cuenta[tipo] += Math.min(cantidad, 99);
+  };
+  const clase = function(palabra){
+    if (/reporte|queja/.test(palabra)) return 'reporte';
+    if (/publicacion|comentario|publico/.test(palabra)) return 'participacion';
+    if (/accion|ecologica/.test(palabra)) return 'accion';
+    if (/ayud|comparto/.test(palabra)) return 'ayuda';
+    return null;
+  };
+  // "2 reportes y 3 publicaciones" cuenta dos y tres, no uno y uno.
+  let m;
+  const conNumero = /(\d+)\s*([a-z]+)/g;
+  let encontró = false;
+  while ((m = conNumero.exec(texto)) !== null){
+    const t = clase(m[2]);
+    if (t){ meter(Number(m[1]), t); encontró = true; }
+  }
+  if (!encontró){
+    texto.split(/[^a-z]+/).forEach(function(p){
+      const t = clase(p);
+      if (t) meter(1, t);
+    });
+  }
+  if (!(cuenta.accion || cuenta.reporte || cuenta.participacion || cuenta.ayuda)){
+    return 'No entendí qué acciones quieres simular. Nómbralas así: "2 reportes y 3 publicaciones".';
+  }
+  const gana = cuenta.accion * PTS.accion + cuenta.reporte * PTS.reporte +
+    cuenta.participacion * PTS.participacion + cuenta.ayuda * PTS.ayuda;
+  const antes = estado.puntos || 0;
+  const despues = antes + gana;
+  const n1 = nivelDe(antes), n2 = nivelDe(despues);
+  const partes = [];
+  if (cuenta.reporte) partes.push(cuenta.reporte + ' reporte(s) (+' + (cuenta.reporte * PTS.reporte) + ')');
+  if (cuenta.participacion) partes.push(cuenta.participacion + ' publicación(es) o comentario(s) (+' + (cuenta.participacion * PTS.participacion) + ')');
+  if (cuenta.accion) partes.push(cuenta.accion + ' acción(es) ecológica(s) (+' + (cuenta.accion * PTS.accion) + ')');
+  if (cuenta.ayuda) partes.push(cuenta.ayuda + ' ayuda(s) (+' + (cuenta.ayuda * PTS.ayuda) + ')');
+  const veredicto = n2.nivel > n1.nivel
+    ? 'SÍ, alcanzarías el nivel ' + n2.nivel + ' ("' + n2.nombre + '").'
+    : 'NO, no alcanzarías otro nivel todavía: te quedarías en "' + n1.nombre + '".';
+  // Corto y con la respuesta al principio. Medido: con un texto largo el
+  // modelo se lo releía, lo recalculaba y acababa equivocándose.
+  return 'RESPUESTA CORRECTA: ' + veredicto + ' Llevas ' + antes + ' puntos; con ' +
+    partes.join(' + ') + ' ganarías ' + gana + ' y quedarías en ' + despues + '.';
+}
+
+/** Ejecuta lo que el modelo pidió y devuelve el texto que vuelve al servidor. */
+function ecoEjecutarHerramienta(h){
+  const nombre = ecoTexto(h && h.nombre).slice(0, 40);
+  let resultado;
+  try {
+    if (nombre === 'calcular'){
+      const n = ecoCalcular(h.datos && h.datos.expresion);
+      resultado = (n === null)
+        ? 'No pude calcular esa expresión: solo admito números y los operadores + - * / % y paréntesis.'
+        : 'Resultado: ' + n;
+    } else if (nombre === 'simular_acciones'){
+      resultado = ecoSimularAcciones(h.datos && h.datos.acciones);
+    } else if (nombre === 'consultar_datos'){
+      resultado = ecoConsultarDatos(ecoTexto(h.datos && h.datos.que).slice(0, 30));
+    } else {
+      resultado = 'Esa herramienta no existe en esta app.';
+    }
+  } catch(e){
+    resultado = 'La herramienta falló al ejecutarse.';
+  }
+  return { nombre: nombre, argumentos: ecoTexto(h && h.argumentos).slice(0, 300),
+    resultado: ecoTexto(resultado).slice(0, 1200) };
+}
+
 function ecoBloquear(b){
   const i = $('#ecoInput'), btn = $('#ecoEnviar');
   if (i) i.disabled = b;
@@ -3539,9 +3932,12 @@ function ecoVistaSugerida(pregunta){
   return null;
 }
 
-/** Pregunta a la IA. Si no hay IA o falla, se cae a las reglas: nunca
-    se muestra una respuesta inventada ni se pierde la pregunta. */
+/** Pregunta a la IA. El modelo puede pedir herramientas; se ejecutan
+    aquí (los datos están aquí) y se le devuelven para que redacte. Si no
+    hay IA o falla, se cae a las reglas: nunca se muestra una respuesta
+    inventada ni se pierde la pregunta. */
 function ecoPreguntarIA(pregunta, respaldo){
+  const personal = ecoEsPreguntaPersonal(pregunta);
   ecoEstadoIA().then(function(hay){
     if (!hay){
       if (respaldo) ecoPintarRespuesta(respaldo);
@@ -3550,18 +3946,32 @@ function ecoPreguntarIA(pregunta, respaldo){
     }
     ecoBloquear(true);
     const espera = ecoMensajeEspera();
-    ecoFetchIA(pregunta).then(function(r){
-      ecoBloquear(false);
-      if (r.ok){
+    let ronda = 1, resultados = [], usadas = [];
+
+    function paso(){
+      ecoFetchIA(pregunta, personal, ronda, resultados).then(function(r){
+        if (!r.ok){
+          ecoBloquear(false);
+          if (respaldo){ ecoQuitarMensaje(espera); ecoPintarRespuesta(respaldo); return; }
+          ecoMensajePoner(espera, ecoSinRespuesta(r.error));
+          return;
+        }
+        if (r.herramientas && ronda < 2){
+          resultados = r.herramientas.map(ecoEjecutarHerramienta);
+          usadas = usadas.concat(r.herramientas.map(function(h){ return ecoTexto(h.nombre); }));
+          ecoMensajePoner(espera, 'Consultando tus datos…');
+          ronda = 2;
+          paso();
+          return;
+        }
+        ecoBloquear(false);
         ecoMensajePoner(espera, r.respuesta);
-        ecoMensajeFuente();
+        ecoMensajeFuente(usadas.length);
         const v = ecoVistaSugerida(pregunta);
         if (v) ecoPintarAcciones([{ etiqueta: '→ Ir a ' + (ECO_ETIQUETA_VISTA[v] || 'esa sección'), ir: v }]);
-        return;
-      }
-      if (respaldo){ ecoQuitarMensaje(espera); ecoPintarRespuesta(respaldo); return; }
-      ecoMensajePoner(espera, ecoSinRespuesta(r.error));
-    });
+      });
+    }
+    paso();
   });
 }
 
@@ -3628,9 +4038,16 @@ function ecoQuitarMensaje(d){
   if (d && d.parentNode) d.parentNode.removeChild(d);
 }
 /** Nota al pie de una respuesta redactada por el modelo. */
-function ecoMensajeFuente(){
+function ecoMensajeFuente(herramientas){
   const chat = $('#ecoChat');
   if (!chat) return;
+  if (herramientas && herramientas.length){
+    const n = document.createElement('div');
+    n.className = 'eco-fuente eco-fuente-datos';
+    n.textContent = '🔎 Para contestarte, Eco consultó ' + ecoTexto(herramientas.join(', ')).slice(0, 120) +
+      '. Salieron del dispositivo solo esos datos, y solo porque la pregunta era sobre tu actividad.';
+    chat.appendChild(n);
+  }
   const d = document.createElement('div');
   d.className = 'eco-fuente';
   d.textContent = '✍️ Redactado por un modelo de lenguaje en el servidor, con los datos de esta app. Si te da un horario del camión, no le creas: aquí no hay ese dato.';

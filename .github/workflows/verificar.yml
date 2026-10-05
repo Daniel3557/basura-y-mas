@@ -54,7 +54,7 @@ jobs:
         run: node --check app.js && node --check sw.js
 
       - name: Sintaxis de la función /api/eco y de sus herramientas
-        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js
+        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js
 
       - name: La clave de la IA no está en el repositorio
         run: |
@@ -76,6 +76,18 @@ jobs:
 
       - name: /api/eco aguanta sus propias defensas
         run: node tests/eco-api.js
+
+      - name: Las cuentas de Eco las hace la app, no el modelo
+        run: |
+          set -e
+          node tests/eco-reglas.js
+          # Si alguien mete un eval en la calculadora, deja de ser una cuenta
+          # y pasa a ser código del sitio: esto lo para.
+          if sed -n '/function ecoCalcular/,/^}/p' app.js | grep -qE 'eval\(|new Function'; then
+            echo "::error::ecoCalcular no puede usar eval ni Function: es una calculadora, no un intérprete."
+            exit 1
+          fi
+          echo "OK: la calculadora y el simulador son aritmética pura."
 
       - name: La CSP no se abre para la IA
         run: |

@@ -980,6 +980,9 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
   border-left:2px solid var(--border-strong);
   padding:.1rem 0 .1rem .5rem;
 }
+/* Cuando el bot consultó los datos del propio usuario: no pasar
+   desapercibido. Va con su propio borde para que se distinga. */
+.eco-fuente-datos{border-left-color:var(--primary);color:var(--muted);margin-bottom:.15rem}
 
 /* En oscuro el verde de marca sobre blanco se apaga: el texto de las
    burbujas de Eco necesita un fondo legible propio. Se usa [data-theme]

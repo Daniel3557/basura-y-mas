@@ -770,6 +770,8 @@ Dos detalles que parecen menores y no lo son:
 |---|---|---|---|
 | 0 | Guardas de seguridad | intentos de cambiar sus reglas, pedir contraseñas o tokens, datos bancarios, datos de otros usuarios, ejecutar código, y mensajes en inglés | Sí |
 | 1 | Navegación | dónde está cada sección | No |
+| 1b | **Tu actividad** | en qué colonia o tipo de reporte más has reportado, cuántos llevas, tus días de acción, tus insignias | Sí |
+| 1c | **Simulación** | "si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?" → la suma y el sí/no los hace `ecoSimularAcciones()` | Sí |
 | 2 | Reportes | los 5 tipos y los 5 pasos del formulario | No |
 | 3 | Camión y horarios | siempre la misma respuesta honesta: no hay GPS | Sí |
 | 4 | Punto más cercano | aquí sí hay datos reales, si hay ubicación | Sí |
@@ -783,7 +785,8 @@ Dos detalles que parecen menores y no lo son:
 | 12 | Privacidad | qué guarda la app y qué sale hacia el modelo | Sí |
 | 13 | Cuenta | invitado, registro y recuperación | No |
 | 14 | Identidad | quién es Eco, sus dos niveles, lema y frase | Sí |
-| 15 | Sin coincidencia | pregunta al modelo; sin él, "esa no la sé todavía" con la lista de lo que sí entiende | — |
+| 15 | Simulación | (movida a 1c, porque "si mando 2 reportes" la pesca antes la regla de reportes) | — |
+| 17 | Sin coincidencia | pregunta al modelo; sin él, "esa no la sé todavía" con la lista de lo que sí entiende | — |
 
 **Lo único que Eco calcula de verdad.** `ecoPuntoCercanoReal()` reutiliza `puntoMasCercano()`, la misma función que pinta el panel del mapa, así que el punto y la distancia que dice el chat son los mismos que se ven en el mapa. Devuelve la distancia **en línea recta** (`haversine`) y dice que el tiempo por calle lo calcula el mapa con OSRM, no ella. El botón `📍 Usar mi ubicación` pide permiso con `dataLayer.getUserLocation()`, guarda la posición solo en `estado.ubicacion` y responde con el punto encontrado.
 
@@ -838,18 +841,49 @@ Dos detalles que parecen menores y no lo son:
 
 **Cambiar de modelo.** Se cambia en una línea, `const MODELO = '…'` en `api/eco.js`, y todo lo demás sigue igual. Si NVIDIA retira el modelo, la respuesta es un `4xx` mapeado a `400 modelo`, la app cae a las reglas y sigue funcionando.
 
-**Lo que el modelo NO es, medido contra el real.** No es un buscador y no es una calculadora. Tres pruebas con los mismos datos en el contexto:
+### 5.18 Herramientas: cómo se le da capacidad de pensar
+
+El modelo **pide**, el navegador **responde**. Nunca es al revés: la clave está en el servidor y los datos están en el dispositivo, así que el ida y vuelta son dos rondas como máximo.
+
+| Ronda | Qué pasa |
+|---|---|
+| 1 | El navegador manda la pregunta. Si lleva números, se ofrecen `calcular` y `simular_acciones`; si además es sobre la actividad del usuario, se ofrece `consultar_datos`. |
+| 1 | El modelo puede pedir una herramienta. La respuesta es `{ ok:true, ronda:2, herramientas:[…] }`: **todavía no hay texto**. |
+| 2 | El navegador ejecuta lo pedido y devuelve los resultados. **En ronda 2 ya no se ofrece ninguna herramienta**, así que no puede pedir cosas en bucle ni la factura se dispara. |
+| 2 | El modelo escribe la respuesta final con esos resultados. |
+
+`MAX_RONDAS = 2` está en el servidor, y `ronda: 3` o cualquier número mayor se trata como ronda final: un cliente que mienta con la ronda no consigue volver a pedir herramientas.
+
+| Herramienta | Qué devuelve | Por qué la ejecuta el navegador |
+|---|---|---|
+| `calcular` | El resultado de una expresión | `ecoCalcular()` es un analizador propio: acepta solo `0-9 + - * / % ( )`, corta a 120 caracteres y devuelve `null` ante cualquier otra cosa. **No hay `eval` ni `new Function`**, y el workflow lo comprueba. |
+| `simular_acciones` | *"RESPUESTA CORRECTA: SÍ, alcanzarías el nivel 3. Llevas 145 puntos; con 2 reporte(s) (+40) + 3 publicación(es) (+90) ganarías 130 y quedarías en 275."* | Sumar y comparar es determinista. Además, la pregunta "si hago esto, ¿qué nivel?" la resuelve **una regla de Eco** (`verificada: true`), sin pasar por el modelo. |
+| `consultar_datos` | Frases **ya resueltas**: *"Por colonia (total 5): el más es Centro, con 3."* | Los datos viven en el navegador. Filtra, recorta a 1200 caracteres y decide qué se puede ver. Solo se ofrece si la pregunta es sobre la actividad del usuario. |
+
+**La regla que salió de medir, no de pensar.** Tres versiones fallaron antes de llegar a esta:
+
+| Versión | Qué pasó | Arreglo |
+|---|---|---|
+| Solo prompt | *"No puedo calcular… necesitaría saber cuántos puntos tienes"*, con los tres números delante | Herramientas |
+| `calcular` siempre | Ante "¿qué hago con una botella?" llamó `calcular("220 - 145")` y contestó sobre puntos | `pideCuenta()`: sin números en la pregunta, no se ofrece ninguna herramienta de cálculo |
+| Herramientas con datos crudos | Calculó bien 275 y luego escribió *"275 es menor que 220"* | Que **la app resuelva y devuelva la conclusión**, no los datos. El veredicto va en mayúsculas y primero, porque el modelo lo cita mucho mejor |
+
+Y una cuarta, defensiva: a veces este modelo **escribe la llamada a herramienta como texto** (`{"name": "calcular", …}`). Si eso llegara al chat, el usuario vería un JSON, así que `pareceLlamadaATool()` lo detecta, repite la petición sin herramientas y, si insiste, devuelve `502` para que la app caiga a sus reglas.
+
+**Qué sale del dispositivo y cuándo.** `consultar_datos` solo se ofrece cuando `ecoEsPreguntaPersonal()` ve "mis", "mi", "yo", "he reportado"… Preguntar por un residuo no manda nada tuyo. Lo que vuelve al servidor son frases ya contadas y, si hacen falta, hasta 110 caracteres del texto de tus últimos reportes. **Nunca** el nombre de perfil, el correo ni las coordenadas. Cuando ocurre, `ecoMensajeFuente()` lo escribe debajo de la respuesta: *"Para contestarte, Eco consultó…"*.
+
+**Lo que el modelo NO es, medido contra el real.** No es un buscador: no consulta nada por su cuenta, los datos se le escriben en el prompt. Y tampoco razona sobre números: con la conclusión ya calculada, el único trabajo que le queda es ponerla en palabras.
 
 | Prueba | Resultado | Qué demuestra |
 |---|---|---|
-| "Si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?" (145 + 2×20 + 3×30 = 275, y el nivel 3 pide 220) | *"No puedo calcular exactamente… necesitaría saber cuántos puntos tienes"* | **No razona en aritmética** aun con los tres números escritos delante |
-| "¿Cuántos puntos me faltan para el nivel 3?" (220 − 145) | *"Te faltan 75 puntos"* | Una resta simple sí la saca; y además esa pregunta **nunca llega al modelo**, la responde `nivelDe()` |
-| "Busca en mis reportes el más reciente" | *"No puedo acceder a tus reportes personales"* | **No busca nada**: no hay base de datos, ni índice, ni consulta. Los datos se le **escriben** en el prompt |
-| "De los residuos que me diste, ¿cuántos son especiales?" | *"Hay un residuo especial, que son las pilas"* | Cuenta bien sobre lo que tiene delante |
+| "¿En qué colonia he reportado más?" (Centro 3, La Floresta 1, El Agustín 1) | *"En la colonia donde más has reportado es el Centro, con un total de 3 reportes."* | Con la conclusión ya hecha, acierta |
+| "¿Qué hago con una botella de plástico?" | *"Puedes depositarla en un contenedor de reciclaje de plásticos."* | Sin herramientas de cálculo, contesta del contexto y no se desvía |
+| "Busca en mis reportes el más reciente" (sin herramientas) | *"No puedo acceder a tus reportes personales"* | Sin `consultar_datos` no inventa acceso a nada |
+| "Si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?" | *"SÍ, alcanzarías el nivel 3. Llevas 145 puntos; con 2 reportes (+40) + 3 publicaciones (+90) ganarías 130 y quedarías en 275."* | Sin modelo: lo resuelve `ecoSimularAcciones()` en 1 ms |
 
 De ahí salen las tres decisiones de diseño: (1) todo lo verificable se calcula en la app; (2) lo que el modelo redacta lleva siempre su nota de fuente; (3) **no se le da contexto que no quepa**. Con 21 residuos cabe todo; si el chat llegara a consultar reportes reales, haría falta recuperación de verdad, no un prompt más largo.
 
-**El salto pendiente, si algún día se quiere que de verdad razone**, no es un prompt mejor: son **herramientas** que el modelo pueda pedir (`calcular`, `consultar_guia`), igual que se le dio a la base de datos sus funciones en SQL. Eso obliga a mover parte de `ecoContextoIA()` a `api/eco.js`.
+**Pendiente, y es un techo real.** Cuando `consultar_datos` pide una fila cruda y el modelo tiene que interpretarla, todavía se le va: *"¿Qué tipo de reporte hago más veces?"* devolvió los números correctos pero antepuso un "No tengo suficiente información" inútil. Hoy se mitiga poniendo **primero** la conclusión y después las filas. Arreglarlo de verdad es un modelo con mejores herramientas, no más instrucciones.
 
 **Puesta en marcha:**
 
@@ -1993,6 +2027,13 @@ Queda como una app con su ícono, abre a pantalla completa y **funciona sin inte
 2. Toca una de las **preguntas sugeridas** o escribe con tus palabras y pulsa **Enviar**.
 3. Cuando hay una acción posible, Eco pone un botón debajo de la respuesta: **→ Ir a …** para llevarte a esa sección, o **📍 Usar mi ubicación** para que te diga el punto de recolección más cercano.
 
+**Preguntas que sí puede responder de verdad**, porque las cuenta la propia app:
+
+- *"¿En qué colonia he reportado más?"* → cuenta tus reportes y te dice el más repetido.
+- *"¿Qué tipo de reporte hago más veces?"* → lo mismo por tipo, y avisa si hay empate.
+- *"Si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?"* → la suma y el sí/no los hace la app, no el modelo.
+- *"¿Cuántos días llevo registrando acciones?"* → cuenta tus días distintos y te dice cuánto falta para la insignia.
+
 **Lo que hay arriba del chat** es el estado real del asistente, y conviene leerlo una vez:
 
 - **"IA disponible…"** significa que lo que no esté en las reglas de la app lo redacta un modelo de lenguaje **en el servidor**. En ese caso salen de tu dispositivo tu pregunta y datos que la app ya te enseña (colonias, guía de residuos, tus puntos, el nombre del punto más cercano). **Nunca** tu nombre, tu correo ni tu ubicación.
@@ -2076,6 +2117,14 @@ NVIDIA_API_KEY=… node tests/eco-api.js                 # y además contra el m
 
 **38 comprobaciones** en 8 secciones, con la función real y la respuesta del modelo simulada: que sin clave la app siga viva, validación de entrada, lo que se le pide al modelo (endpoint, cabecera `Authorization`, el sistema fijo, la pregunta marcada como no confiable, temperatura y ausencia de herramientas), el saneado de la respuesta, los fallos del proveedor (429, 500, 401, sin red), el límite por IP, y qué datos salen del dispositivo. La última sección, con clave de verdad, pregunta algo sobre una botella y comprueba que la respuesta menciona el envase y no trae enlaces ni claves. Sin `NVIDIA_API_KEY` esa sección se salta **y lo dice**.
 
+### 16.1c Las pruebas de las cuentas de Eco
+
+```bash
+node tests/eco-reglas.js
+```
+
+**36 comprobaciones** que extraen el código real de `app.js` y lo prueban tal cual (si alguien cambia la cuenta, el test lo ve): 23 casos de `ecoCalcular` —sumas, precedencia, paréntesis, división entre cero, y ocho entradas maliciosas (`fetch(1)`, `alert(1)+2`, `constructor`, `this`, `1;2`, exponenciales, cadenas de 200 caracteres)— y 11 de `ecoSimularAcciones` con su total y su sí/no. Además comprueba que la calculadora **no contiene `eval` ni `new Function`**, y que el simulador no necesita ni nombre ni correo.
+
 ### 16.2 Verificación automática en cada push
 
 `.github/workflows/verificar.yml` corre en cada push y pull request:
@@ -2153,6 +2202,7 @@ Escrito sin adornos, porque un proyecto honesto vale más que uno que parezca pe
 - **Las fotos son públicas** en el bucket `reportes-fotos`. Quien tenga la URL puede verlas y no hay forma de borrarlas desde la app.
 - **El `IP` se usa para limitar**, no se guarda como columna, pero sí queda en los registros del servidor de Supabase mientras dura la petición.
 - **Con la IA activada, la pregunta y una referencia de la app salen del dispositivo** hacia el servidor de `/api/eco` y de ahí al modelo de NVIDIA. La referencia se arma con lo que la app ya enseña: colonias, guía de residuos, tus puntos y nivel, y el **nombre y la distancia** del punto más cercano. **No** viajan el nombre de perfil, el correo ni las coordenadas. El `IP` también lo ve el servidor, para el límite de 20 peticiones por minuto (en memoria, mientras viva la instancia; no se guarda en ningún sitio). Está escrito en la política de privacidad de la app y en el aviso del chat.
+- **Si preguntas por tu actividad, salen resúmenes de tus reportes y publicaciones.** `consultar_datos` solo se ofrece cuando la pregunta lleva "mis", "mi", "yo" o "he reportado" (ver `ecoEsPreguntaPersonal()`). Lo que vuelve al servidor son frases **ya contadas** ("Por colonia: el más es Centro, con 3") y, si hacen falta, hasta 110 caracteres del texto de tus últimos 6 reportes. Es tu propio texto, y la app lo dice bajo cada respuesta. Preguntar por un residuo, un horario o una sección **no** manda nada tuyo.
 - **El modelo puede equivocarse.** Por eso las respuestas que dependen de un dato medido (punto más cercano, horarios, puntos e insignias, privacidad) nunca se delegan, y las del modelo llevan siempre su nota de fuente. Aun así, una respuesta redactada por el modelo es texto generado, no un dato oficial.
 
 ### 17.3 Técnico
@@ -2168,6 +2218,7 @@ Escrito sin adornos, porque un proyecto honesto vale más que uno que parezca pe
 - **`/api/eco` aún no está desplegada.** La función, las pruebas y el servidor local están listos y verificados, pero mientras no se suba a Vercel con `NVIDIA_API_KEY` en las variables de entorno, la producción sigue con Eco sin IA: contesta con las reglas de siempre y no dice nada falso.
 - **El límite de peticiones es en memoria.** En Vercel cada instancia tiene la suya, así que el tope real es mayor que 20/min si hay varias instancias en marcha. Para un tope global harían falta KV o Upstash; no está puesto porque para este proyecto no compensa.
 - **`tests/eco-api.js` corre sin clave en CI**, así que su prueba contra el modelo real se salta sola. Las defensas sí se comprueban en cada push; la calidad del modelo se verifica en local.
+- **El modelo todavía se le va cuando interpreta datos crudos.** Con `consultar_datos` pidiéndole una fila y teniendo que sacar la conclusión, responde los números correctos pero antepone un "No tengo suficiente información". Se mitiga poniendo la conclusión primero, pero el techo es del modelo: con 11B, la calidad depende más de qué se le da resuelto que de qué se le deja hacer.
 
 ### 17.4 Seguridad — lo que hay que hacer a mano
 

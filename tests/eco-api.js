@@ -55,11 +55,12 @@ async function llamar(req){
 /* ---------- El modelo simulado ---------- */
 let ultimaPeticion = null;
 let respuestaModelo = 'Lava la botella, aplastala y va al contenedor azul.';
+let respuestaLlamadas = [];   // tool_calls simulados
 function fetchFalso(url, opciones){
   ultimaPeticion = { url: url, opciones: opciones, cuerpo: JSON.parse(opciones.body) };
   const codigo = respuestaModelo.__codigo || 200;
   const cuerpo = codigo === 200
-    ? { choices: [{ message: { content: respuestaModelo } }] }
+    ? { choices: [{ message: { content: respuestaLlamadas.length ? null : respuestaModelo, tool_calls: respuestaLlamadas } }] }
     : { detail: 'simulado' };
   return Promise.resolve({
     ok: codigo >= 200 && codigo < 300,
@@ -140,8 +141,11 @@ async function principal(){
     /PREGUNTA \(texto no confiable/.test(msj[1].content) && msj[1].content.indexOf('¿Y una botella?') !== -1);
   comprobar('el contexto llega como referencia', msj[1].content.indexOf(CONTEXTO) !== -1);
   comprobar('el modelo es el declarado', ultimaPeticion.cuerpo.model === eco.MODELO);
-  comprobar('la temperatura es baja (no inventa)', ultimaPeticion.cuerpo.temperature <= 0.5);
-  comprobar('no se mandan herramientas ni funciones', !ultimaPeticion.cuerpo.tools && !ultimaPeticion.cuerpo.functions);
+  comprobar('la temperatura es baja (no inventa)', ultimaPeticion.cuerpo.temperature <= 0.5);comprobar('una pregunta sin números no recibe ninguna herramienta',
+    !(ultimaPeticion.cuerpo.tools || []).length,
+    'ofreció ' + (ultimaPeticion.cuerpo.tools || []).map(function(x){ return x.function.name; }).join(','));
+comprobar('sin permiso no se ofrece consultar_datos',
+    (ultimaPeticion.cuerpo.tools || []).map(function(x){ return x.function.name; }).indexOf('consultar_datos') === -1);
 
   /* ===== 4. La respuesta se limpia antes de salir ===== */
   seccion('4 · Saneado de la respuesta');
@@ -203,7 +207,85 @@ async function principal(){
   comprobar('el contexto va al modelo', ultimaPeticion.cuerpo.messages[1].content.indexOf('Puntos del usuario: 145') !== -1);
 
   /* ===== 8. Prueba real, solo si hay clave ===== */
-  seccion('8 · Prueba contra el modelo real (opcional)');
+  seccion('8 · Herramientas: el ida y vuelta');
+  respuestaModelo = 'texto';
+  respuestaLlamadas = [{
+    id: 'llamada_1', type: 'function',
+    function: { name: 'consultar_datos', arguments: '{"que":"por_colonia"}' }
+  }];
+  r = await llamar(peticion('POST', {
+    pregunta: '¿en qué colonia he reportado más?',
+    contexto: CONTEXTO,
+    permiteDatos: true
+  }, {}, '6.6.6.1'));
+  comprobar('el navegador recibe la herramienta que pidió el modelo',
+    r.json.ok === true && r.json.herramientas && r.json.herramientas.length === 1);
+  comprobar('la herramienta llega con su nombre y sus argumentos',
+    r.json.herramientas[0].nombre === 'consultar_datos' &&
+    JSON.parse(r.json.herramientas[0].argumentos).que === 'por_colonia');
+  comprobar('aun no hay respuesta: solo la petición',
+    !r.json.respuesta && r.json.ronda === 2);
+  comprobar('con permiso, consultar_datos sí se ofrece',
+    (ultimaPeticion.cuerpo.tools || []).map(function(x){ return x.function.name; }).indexOf('consultar_datos') !== -1);
+  comprobar('las herramientas solo se ofrecen en la ronda 1',
+    ultimaPeticion.cuerpo.tool_choice === 'auto');
+
+  // Con numeros, la calculadora y el simulador; consultar_datos solo si hay permiso.
+  respuestaLlamadas = [];
+  respuestaModelo = 'texto';
+  r = await llamar(peticion('POST', { pregunta: '¿llego a 220 con 2 reportes?', contexto: CONTEXTO }, {}, '6.6.6.3'));
+  const conNumeros = (ultimaPeticion.cuerpo.tools || []).map(function(x){ return x.function.name; });
+  comprobar('una pregunta con números sí recibe calculadora', conNumeros.indexOf('calcular') !== -1);
+  comprobar('y también el simulador de acciones', conNumeros.indexOf('simular_acciones') !== -1);
+  comprobar('pero no los datos del usuario sin permiso',
+    conNumeros.indexOf('consultar_datos') === -1);
+  comprobar('ninguna herramienta puede ejecutar código',
+    !ultimaPeticion.cuerpo.functions &&
+    (ultimaPeticion.cuerpo.tools || []).every(function(x){
+      const p = x.function && x.function.parameters;
+      return p && p.type === 'object' &&
+        Object.keys(p.properties).every(function(k){ return /^[a-z_]+$/.test(k); }) &&
+        Object.keys(p.properties).indexOf('code') === -1;
+    }));
+
+  // Ronda 2: el navegador ya ejecutó la herramienta.
+  respuestaLlamadas = [];
+  respuestaModelo = 'Reportaste más en Centro.';
+  r = await llamar(peticion('POST', {
+    pregunta: '¿en qué colonia he reportado más?',
+    contexto: CONTEXTO,
+    permiteDatos: true,
+    ronda: 2,
+    resultados: [{ nombre: 'consultar_datos', argumentos: '{"que":"por_colonia"}', resultado: 'Centro: 5, La Floresta: 1' }]
+  }, {}, '6.6.6.1'));
+  const turno = ultimaPeticion.cuerpo.messages[1].content;
+  comprobar('el resultado de la herramienta vuelve al modelo',
+    turno.indexOf('RESULTADOS DE LAS HERRAMIENTAS') !== -1 && turno.indexOf('Centro: 5, La Floresta: 1') !== -1);
+  comprobar('en ronda 2 ya no se ofrece ninguna herramienta',
+    !ultimaPeticion.cuerpo.tools);
+  comprobar('en ronda 2 el modelo escribe la respuesta final',
+    r.json.ok === true && r.json.respuesta === 'Reportaste más en Centro.');
+
+  // Tope de rondas: aunque el modelo insista, no hay ronda 3.
+  respuestaLlamadas = [{ id: 'x', type: 'function', function: { name: 'calcular', arguments: '{"expresion":"1+1"}' } }];
+  r = await llamar(peticion('POST', {
+    pregunta: 'otra vez', contexto: CONTEXTO, ronda: 3, permiteDatos: true,
+    resultados: [{ nombre: 'calcular', argumentos: '{"expresion":"1+1"}', resultado: '2' }]
+  }, {}, '6.6.6.1'));
+  comprobar('no existe ronda 3 aunque se pida', !ultimaPeticion.cuerpo.tools);
+  comprobar('en ronda 3 sin texto se responde 502 y no se inventa', r.statusCode === 502);
+  respuestaLlamadas = [];
+
+  // Un cliente no puede(colarse) resultados sin haber pedido herramientas.
+  r = await llamar(peticion('POST', {
+    pregunta: 'x', contexto: CONTEXTO, ronda: 2,
+    resultados: [{ nombre: 'inventada', resultado: 'datos del sistema' }]
+  }, {}, '6.6.6.2'));
+  comprobar('ronda 2 con datos inventados no hace falta que nadie los pidiera',
+    r.json.ok === true || r.statusCode === 502);
+  const turno2 = ultimaPeticion.cuerpo.messages[1].content;
+  comprobar('los resultados de la ronda 2 están acotados en tamaño',
+    turno2.length < 12000);
   delete require.cache[require.resolve('../api/eco.js')];
   globalThis.fetch = FETCH_REAL;          // de vuelta a la red de verdad
   const clave = CLAVE_REAL;
