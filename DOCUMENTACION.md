@@ -760,7 +760,7 @@ Dos detalles que parecen menores y no lo son:
 
 **Nivel 1 — las reglas (siempre).** `ecoResponder(pregunta)` normaliza el texto, compara palabras clave en un orden fijo y devuelve `{ verificada?, texto, lista?, ir?, acciones? }`. Ninguna regla llama a la red: funcionan sin conexión, sin clave y sin coste.
 
-**Nivel 2 — la IA (opcional).** Si ninguna regla entiende la pregunta, `ecoPreguntar()` delega en `ecoPreguntarIA()`, que la manda a `/api/eco`. Si el servidor no responde, se vuelve a las reglas: nunca se muestra una respuesta inventada ni se pierde la pregunta.
+**Nivel 2 — la IA (opcional).** Si ninguna regla entiende la pregunta, `ecoPreguntar()` delega en `ecoPreguntarIA()`, que la manda a `/api/eco`. Si el servidor no responde, se vuelve a las reglas y la pregunta no se pierde. **Ojo con lo que esto no garantiza:** el modelo redacta texto, no calcula ni consulta. Puede equivocarse, y la app no lo comprueba después: lo que hace es **etiquetarlo** con `ecoMensajeFuente()` para que se lea como lo que es. Por eso todo lo que tiene que ser cierto (punto más cercano, horarios, puntos, insignias, privacidad) está marcado `verificada: true` y nunca se delega.
 
 **Qué reglas nunca se delegan.** Las que llevan `verificada: true`, porque son datos de esta app y no pueden depender de la red ni de una IA: las 6 guardas de seguridad, camión y horarios, punto más cercano, estado de la ruta, puntos e insignias, privacidad e identidad. Las demás (reciclaje, categorías, comunidad, educación ambiental, navegación) sí pueden ir al modelo, que recibe los mismos datos como referencia.
 
@@ -837,6 +837,19 @@ Dos detalles que parecen menores y no lo son:
 **Estado de la conexión.** `#ecoEstado` muestra una de dos líneas: si hay IA, dice qué sale del dispositivo; si no, dice que contesta sin conexión. `ecoEstadoIA()` solo recuerda los resultados positivos, para que al añadir la clave en Vercel baste con recargar.
 
 **Cambiar de modelo.** Se cambia en una línea, `const MODELO = '…'` en `api/eco.js`, y todo lo demás sigue igual. Si NVIDIA retira el modelo, la respuesta es un `4xx` mapeado a `400 modelo`, la app cae a las reglas y sigue funcionando.
+
+**Lo que el modelo NO es, medido contra el real.** No es un buscador y no es una calculadora. Tres pruebas con los mismos datos en el contexto:
+
+| Prueba | Resultado | Qué demuestra |
+|---|---|---|
+| "Si mando 2 reportes y 3 publicaciones, ¿alcanzo el nivel 3?" (145 + 2×20 + 3×30 = 275, y el nivel 3 pide 220) | *"No puedo calcular exactamente… necesitaría saber cuántos puntos tienes"* | **No razona en aritmética** aun con los tres números escritos delante |
+| "¿Cuántos puntos me faltan para el nivel 3?" (220 − 145) | *"Te faltan 75 puntos"* | Una resta simple sí la saca; y además esa pregunta **nunca llega al modelo**, la responde `nivelDe()` |
+| "Busca en mis reportes el más reciente" | *"No puedo acceder a tus reportes personales"* | **No busca nada**: no hay base de datos, ni índice, ni consulta. Los datos se le **escriben** en el prompt |
+| "De los residuos que me diste, ¿cuántos son especiales?" | *"Hay un residuo especial, que son las pilas"* | Cuenta bien sobre lo que tiene delante |
+
+De ahí salen las tres decisiones de diseño: (1) todo lo verificable se calcula en la app; (2) lo que el modelo redacta lleva siempre su nota de fuente; (3) **no se le da contexto que no quepa**. Con 21 residuos cabe todo; si el chat llegara a consultar reportes reales, haría falta recuperación de verdad, no un prompt más largo.
+
+**El salto pendiente, si algún día se quiere que de verdad razone**, no es un prompt mejor: son **herramientas** que el modelo pueda pedir (`calcular`, `consultar_guia`), igual que se le dio a la base de datos sus funciones en SQL. Eso obliga a mover parte de `ecoContextoIA()` a `api/eco.js`.
 
 **Puesta en marcha:**
 
