@@ -986,9 +986,12 @@
       <button type="button" class="modal-cerrar" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
     </div>
     <p class="eco-aviso">
-      Eco responde solo con lo que ya está en esta app. <strong>Sin internet y sin modelo de lenguaje</strong>,
-      así que no puede inventar horarios ni datos: si no lo sabe, te lo dice.
+      Eco contesta primero con las reglas de esta app: guías, rutas, reportes, puntos e insignias.
+      Esas respuestas <strong>no necesitan internet</strong> y no pueden fallar. Si una pregunta no la
+      entiende ninguna regla, se la reescribe el servidor de la app. Sin conexión, se queda en las reglas:
+      no puede inventar horarios ni datos, así que si no lo sabe, te lo dice.
     </p>
+    <p class="eco-estado sin-ia" id="ecoEstado" role="status">Comprobando si el servidor tiene IA…</p>
     <div class="eco-chat" id="ecoChat" role="log" aria-live="polite" aria-label="Conversación con Eco"></div>
     <div class="eco-chips" id="ecoChips" aria-label="Preguntas sugeridas"></div>
     <form class="eco-form" id="ecoForm" novalidate>

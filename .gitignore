@@ -5,6 +5,11 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Secretos locales: la clave de /api/eco nunca se versiona
+.env
+.env.*
+!.env.example
+
 # Capturas y material personal del autor
 WhatsApp Image *.jpeg
 WhatsApp Image *.png
@@ -15,3 +20,6 @@ ecoruta-viva.html
 
 # Grabación de pantalla en webm (el .mp4 sí está versionado)
 video-demo-basura-y-mas.webm
+
+# Servidor de desarrollo y sus registros
+serve.log

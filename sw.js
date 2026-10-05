@@ -5,8 +5,11 @@
      versión vieja desde caché y había que recargar dos veces).
    · Recursos del mismo origen (iconos, manifiesto): caché primero con
      refresco en segundo plano.
-   · APIs externas (OSM, OSRM, Nominatim, Supabase): directo a la red. */
-const CACHE = 'bym-v9';
+   · APIs externas (OSM, OSRM, Nominatim, Supabase): directo a la red.
+   · /api/ (Eco con IA): nunca a la caché. Una respuesta del modelo no se
+     puede guardar: sería una conversación congelada y además es lo único
+     que depende de una clave del servidor. */
+const CACHE = 'bym-v10';
 const PRECACHE = [
   './',
   './index.html',
@@ -37,6 +40,7 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Leaflet/OSM/OSRM/Supabase → red
+  if (url.pathname.indexOf('/api/') === 0) return;  // Eco con IA → red siempre
 
   if (req.mode === 'navigate') {
     e.respondWith(

@@ -53,6 +53,42 @@ jobs:
       - name: Sintaxis de app.js y sw.js
         run: node --check app.js && node --check sw.js
 
+      - name: Sintaxis de la función /api/eco y de sus herramientas
+        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js
+
+      - name: La clave de la IA no está en el repositorio
+        run: |
+          set -e
+          # /api/eco lee NVIDIA_API_KEY del entorno del servidor. Si algún día
+          # alguien pega una clave en app.js, en un HTML o en vercel.json, la
+          # clave queda pública para todo el mundo: esto lo para.
+          if git ls-files -z | xargs -0 grep -lE 'nvapi-[A-Za-z0-9_-]{16,}|sb_secret_[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9_-]{20,}' 2>/dev/null; then
+            echo "::error::hay una clave de API versionada. Quítala, rótala en el proveedor y usa la variable de entorno NVIDIA_API_KEY."
+            exit 1
+          fi
+          if [ -f .env ]; then
+            echo "::error::.env no debe estar en el repositorio (está en .gitignore; revisa si se llegó a commitear)."
+            exit 1
+          fi
+          grep -q 'process.env.NVIDIA_API_KEY' api/eco.js || {
+            echo "::error::api/eco.js debe leer la clave de process.env, nunca tenerla escrita."; exit 1; }
+          echo "OK: no hay ninguna clave de IA en el repositorio."
+
+      - name: /api/eco aguanta sus propias defensas
+        run: node tests/eco-api.js
+
+      - name: La CSP no se abre para la IA
+        run: |
+          set -e
+          # El modelo se llama desde el servidor, no desde el navegador: si
+          # alguien añade el dominio del proveedor a connect-src, la clave
+          # tendría que estar en el cliente para poder usarla.
+          if grep -E 'integrate\.api\.nvidia|openai\.com|anthropic\.com|generativelanguage\.googleapis' vercel.json; then
+            echo "::error::la IA se llama desde /api/eco, no desde el navegador. No abras la CSP a esos dominios."
+            exit 1
+          fi
+          echo "OK: la IA no necesita abrir la CSP."
+
       - name: index.html no lleva CSS ni JS incrustados
         run: |
           set -e
@@ -66,14 +102,27 @@ jobs:
           fi
           echo "OK: sin estilos ni scripts incrustados."
 
+      - name: El módulo Eco no usa HTML ni código peligroso
+        run: |
+          set -e
+          for patron in 'innerHTML *=' 'document\.write' 'eval\(' 'new Function' 'insertAdjacentHTML'; do
+            if sed -n '/MÓDULO 23/,/^})();/p' app.js | grep -nE "$patron"; then
+              echo "::error::el módulo Eco usa $patron: lo que escribe el usuario nunca se interpreta como código."
+              exit 1
+            fi
+          done
+          echo "OK: Eco pinta todo con textContent."
+
       - name: Archivos referenciados existen
         run: |
           set -e
-          for f in estilos.css app.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png; do
+          for f in estilos.css app.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png api/eco.js; do
             test -f "$f" || { echo "::error::falta $f"; exit 1; }
           done
           grep -q "'./estilos.css'" sw.js || { echo "::error::sw.js no precarga estilos.css"; exit 1; }
           grep -q "'./app.js'" sw.js || { echo "::error::sw.js no precarga app.js"; exit 1; }
+          grep -q "pathname.indexOf('/api/')" sw.js || {
+            echo "::error::sw.js debe dejar pasar /api/ a la red: una respuesta del modelo no se cachea"; exit 1; }
           echo "OK: el service worker precarga todo lo nuevo."
 
       - name: La sincronización no puede reventar contra la nube

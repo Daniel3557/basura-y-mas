@@ -948,6 +948,39 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
    se estiraría a todo el ancho de la burbuja. */
 #ecoChat .eco-chip{align-self:flex-start;border-color:var(--primary);color:var(--primary);font-weight:600}
 
+/* ---------- Estado de la IA y de la espera ---------- */
+/* Dice si el servidor tiene un modelo detrás y, si lo tiene, qué sale de
+   aquí. Con el punto delante, sin animación: el texto es la información. */
+.eco-estado{
+  margin:.4rem 0 0;padding:.45rem .6rem;
+  border-radius:.5rem;font-size:.72rem;line-height:1.45;
+  border:1px solid var(--border);color:var(--muted);
+  background:var(--card-alt);
+}
+.eco-estado.con-ia{border-color:var(--primary);color:var(--text)}
+.eco-estado.sin-ia{color:var(--muted)}
+
+/* La burbuja de espera: tres puntitos.Es contenido, no una animación que
+   bloquee: si el servidor tarda, el texto "Pensando…" sigue siendo legible. */
+.eco-msg-eco.eco-espera{color:var(--muted);font-style:italic}
+.eco-msg-eco.eco-espera::after{
+  content:"";display:inline-block;width:1.4em;overflow:hidden;
+  vertical-align:bottom;animation:eco-puntos 1.2s steps(4,end) infinite;
+}
+@keyframes eco-puntos{from{width:0}to{width:1.4em}}
+@media (prefers-reduced-motion: reduce){
+  .eco-msg-eco.eco-espera::after{animation:none}
+}
+
+/* Pie de las respuestas que escribe el modelo: de dónde viene, para que
+   nadie la tome por un dato medido. */
+.eco-fuente{
+  align-self:flex-start;max-width:92%;
+  font-size:.68rem;line-height:1.4;color:var(--text-tenue);
+  border-left:2px solid var(--border-strong);
+  padding:.1rem 0 .1rem .5rem;
+}
+
 /* En oscuro el verde de marca sobre blanco se apaga: el texto de las
    burbujas de Eco necesita un fondo legible propio. Se usa [data-theme]
    como el resto del archivo y no prefers-color-scheme, para que el modo
@@ -957,3 +990,4 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
 [data-theme="dark"] .eco-fab:hover{background:var(--g-400)}
 [data-theme="dark"] .eco-fab .icono{fill:var(--g-900)}
 [data-theme="dark"] .eco-aviso{background:rgba(180,83,9,.16);color:var(--g-200)}
+[data-theme="dark"] .eco-fuente{color:var(--muted)}
