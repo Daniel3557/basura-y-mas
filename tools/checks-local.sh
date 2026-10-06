@@ -62,11 +62,11 @@ JSON.parse(m[1]);
 \""
 
 echo "11 · La CSP cubre lo que la app usa"
-chk "los 8 orígenes y sin unsafe-eval" "node -e \"
+chk "los 11 orígenes y sin unsafe-eval" "node -e \"
 const fs=require('fs');
 const v=JSON.parse(fs.readFileSync('vercel.json','utf8'));
 const csp=(v.headers[0].headers.find(h=>h.key==='Content-Security-Policy')||{}).value||'';
-const obligatorios=['https://unpkg.com','fonts.googleapis.com','fonts.gstatic.com','*.supabase.co','*.tile.openstreetmap.org','router.project-osrm.org','nominatim.openstreetmap.org','api.mapbox.com'];
+const obligatorios=['https://unpkg.com','fonts.googleapis.com','fonts.gstatic.com','*.supabase.co','*.tile.openstreetmap.org','router.project-osrm.org','nominatim.openstreetmap.org','api.mapbox.com','overpass-api.de','overpass.kumi.systems','overpass.private.coffee'];
 const falta=obligatorios.filter(d=>!csp.includes(d));
 if(falta.length){console.error('falta: '+falta.join(', '));process.exit(1)}
 if(csp.includes(\\\"'unsafe-eval'\\\")){console.error('unsafe-eval');process.exit(1)}

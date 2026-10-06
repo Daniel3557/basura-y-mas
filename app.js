@@ -1804,7 +1804,7 @@ async function cargarRedCiudad(forzar){
     pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', vias.length + ' vialidades de OpenStreetMap');
     ajustarVistaRedCiudad();
   } catch(e){
-    pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió, toca el botón de capas para reintentar', '');
+    pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió; vuelve a entrar al mapa en un minuto para reintentar', '');
   } finally {
     redCargando = false;
   }
