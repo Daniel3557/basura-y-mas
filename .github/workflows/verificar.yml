@@ -59,7 +59,7 @@ jobs:
         run: node --check app.js && node --check sw.js
 
       - name: Sintaxis de la función /api/eco y de sus herramientas
-        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js && node --check tests/red-ciudad.js
+        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js && node --check tests/red-ciudad.js && node --check tests/colonias-mapa.js && node --check tools/ubicar-colonias.js
 
       - name: La clave de la IA no está en el repositorio
         run: |
@@ -208,6 +208,16 @@ jobs:
           # "propuesto por el sistema" (no es un contenedor confirmado).
           node tests/red-ciudad.js
           echo "OK: el reparto de la red urbana es correcto."
+
+      - name: Las colonias del catálogo están en el mapa
+        run: |
+          set -e
+          # Las 77 colonias del equipo aparecen etiquetadas: 6 con polígono,
+          # 13 con lugar verificado de OSM y el resto colocables por el
+          # equipo. Una CALLE con el nombre de la colonia NUNCA se usa
+          # como ubicación de la colonia: solo como sugerencia.
+          node tests/colonias-mapa.js
+          echo "OK: el catálogo de colonias está en el mapa sin inventar datos."
 
       # ── E2E real contra Supabase ───────────────────────────────
       - name: Comprobar el secreto de Supabase

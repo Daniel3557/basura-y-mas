@@ -994,3 +994,49 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
 [data-theme="dark"] .eco-fab .icono{fill:var(--g-900)}
 [data-theme="dark"] .eco-aviso{background:rgba(180,83,9,.16);color:var(--g-200)}
 [data-theme="dark"] .eco-fuente{color:var(--muted)}
+
+/* ============================================================
+   COLONIAS EN EL MAPA · etiquetas del catálogo completo
+   ------------------------------------------------------------
+   Un punto violeta por colonia con su nombre encima. El violeta
+   se distingue del verde de los puntos de recolección y del azul
+   de la ruta del usuario: es información de contexto, no acción.
+   La etiqueta lleva halo blanco (y halo oscuro en tema oscuro)
+   para leerse sobre el mapa sin caja.
+   ============================================================ */
+.et-colonia{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  color:#5E35B1;
+  font-size:.62rem;
+  font-weight:700;
+  line-height:1.1;
+  padding:0;
+  text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;
+}
+.et-colonia::before{display:none}   /* sin flecha del tooltip */
+[data-theme="dark"] .et-colonia{
+  color:#B39DDB;
+  text-shadow:-1px -1px 0 #10201a,1px -1px 0 #10201a,-1px 1px 0 #10201a,1px 1px 0 #10201a;
+}
+
+/* Bloque para que el equipo ubique las colonias que OSM no tiene:
+   se elige la colonia, se toca el punto en el mapa y queda guardado
+   en el navegador. El botón de copiar entrega el JSON para hornearlo
+   al repositorio (la fuente queda anotada: equipo del proyecto). */
+.colocar-colonias{
+  margin:.2rem 0 .8rem;
+  padding:.6rem .7rem;
+  border:1px dashed var(--border);
+  border-radius:10px;
+  font-size:.8rem;
+  color:var(--muted);
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+.colocar-colonias label{font-weight:700;color:var(--primary)}
+.fila-colocar{display:flex;gap:.4rem;align-items:center}
+.fila-colocar select{flex:1}
+.colocar-colonias small{font-size:.72rem}

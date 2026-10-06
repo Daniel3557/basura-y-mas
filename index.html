@@ -330,6 +330,7 @@
           <button type="button" class="mapa-ctrl" id="btnVerRuta" aria-label="Ver ruta de recolección" title="Ver ruta de recolección"><svg class="icono"><use href="#i-mapa"/></svg></button>
           <button type="button" class="mapa-ctrl" id="btnRecargarRuta" aria-label="Recargar ruta desde OpenStreetMap" title="Recargar ruta"><svg class="icono"><use href="#i-refresh"/></svg></button>
           <button type="button" class="mapa-ctrl activo" id="btnRed" aria-label="Ver u ocultar los puntos de toda la ciudad" title="Red urbana: puntos de recolección en toda la ciudad"><svg class="icono"><use href="#i-capas"/></svg></button>
+          <button type="button" class="mapa-ctrl activo" id="btnColonias" aria-label="Ver u ocultar los nombres de todas las colonias" title="Colonias: el catálogo completo sobre el mapa"><svg class="icono"><use href="#i-pin"/></svg></button>
         </div>
         <div class="mapa-leyenda" aria-hidden="true">
           <span><span class="lg-ruta"></span> Ruta de recolección</span>
@@ -356,6 +357,18 @@
 
           <div class="estado-ruta" id="estadoRutaChip"><span class="chip gris">Estado: sin ruta cargada</span></div>
           <div class="estado-ruta" id="estadoRedChip"><span class="chip gris">Red urbana: se carga al abrir el mapa</span></div>
+
+          <div class="colocar-colonias" id="bloqueColocar" hidden>
+            <label for="coloniaColocar">🏘️ Ubicar colonias del catálogo</label>
+            <div class="fila-colocar">
+              <select id="coloniaColocar" aria-label="Colonia por ubicar"></select>
+              <button type="button" class="btn btn-secundario btn-chico" id="btnColocarColonia">Colocar</button>
+            </div>
+            <small id="ayudaColocar"></small>
+            <div class="fila-colocar">
+              <button type="button" class="btn btn-chico" id="btnCopiarUbicaciones">📋 Copiar ubicaciones colocadas</button>
+            </div>
+          </div>
           <div class="info-grid">
             <div class="info-caja"><small>Ruta</small><strong id="infoRutaNombre">—</strong></div>
             <div class="info-caja"><small>Punto más cercano</small><strong id="infoPuntoCercano">—</strong></div>
@@ -374,7 +387,7 @@
             </button>
           </div>
           <div class="aviso-fuente" id="fuenteDatosTexto">
-            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong>: de la colonia activa (cada 400 m aprox. sobre su ruta) y de la <strong>red urbana de toda la ciudad</strong> (cada 400 m sobre las calles de OSM). No son contenedores municipales confirmados. GPS de vehículo municipal: <strong>no conectado</strong>.
+            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong>: de la colonia activa (cada 400 m aprox. sobre su ruta) y de la <strong>red urbana de toda la ciudad</strong> (cada 400 m sobre las calles de OSM). No son contenedores municipales confirmados. Las etiquetas 🏘️ de colonias son ubicaciones aproximadas (OpenStreetMap o el equipo del proyecto), no límites oficiales. GPS de vehículo municipal: <strong>no conectado</strong>.
           </div>
         </div>
 

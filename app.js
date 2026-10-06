@@ -1112,9 +1112,12 @@ const INTERVALO_PUNTOS = 400; // metros entre puntos de recolección (configurab
    ("Fovissste (José Clemente Orozco)"). Aquí se queda el nombre
    corto; los alias van anotados en DOCUMENTACION.md §5.7b.
 
-   Sin coordenadas: una colonia sin polígono no tiene ruta, y
-   inventar un punto centro sería inventar un dato. Para eso están
-   los seis polígonos de arriba.
+   Ubicación en el mapa: las 6 de ZONAS (arriba) tienen polígono y
+   ruta. Para el resto, UBICACION_COLONIAS (abajo) trae puntos de
+   OpenStreetMap verificados dentro de la ciudad (parques, deportivos
+   y edificios con el nombre de la colonia) y sugerencias por calle
+   con el mismo nombre, que SOLO se dibujan si el equipo confirma el
+   punto tocando el mapa. Nada se inventa: cada punto dice su fuente.
    ============================================================ */
 const COLONIAS = [
   '1 de Mayo', '1ro de Agosto', '5 de Febrero', '16 de Septiembre', 'Álamo', 'Azaleas',
@@ -1134,6 +1137,46 @@ const COLONIAS = [
   'Unión de Colonos Independencia', 'Unión de Colonos Organizados de Cd. Guzmán',
   'Universitaria', 'Valle de Zapotlán', 'Valle del Sol', 'Villa Norte', 'Villas de Calderón',
   'Villas de San Isidro'
+];
+
+/** Ubicaciones de colonias sin polígono. Generadas por
+    tools/ubicar-colonias.js (Nominatim, validadas dentro del límite
+    urbano). Tercer campo: 'lugar' = parque/deportivo/edificio con el
+    nombre de la colonia (se dibuja como punto aproximado);
+    'calle' = solo existe una calle con ese nombre (NO se dibuja como
+    colonia; sirve de sugerencia al colocarlas a mano). */
+const UBICACION_COLONIAS = [
+  ["Compositores", [19.717963, -103.468408], "lugar"],
+  ["El Nogal", [19.696011, -103.455397], "lugar"],
+  ["Emiliano Zapata", [19.688576, -103.476077], "lugar"],
+  ["Escritores", [19.688785, -103.458114], "lugar"],
+  ["Francisco I. Madero", [19.692391, -103.46972], "lugar"],
+  ["Gordiano Guzmán", [19.726123, -103.456806], "lugar"],
+  ["Jesús Reyes Heroles", [19.688671, -103.466158], "lugar"],
+  ["La Paz", [19.685214, -103.469164], "lugar"],
+  ["Loma Bonita", [19.710249, -103.460061], "lugar"],
+  ["Pablo Luis Juan", [19.700765, -103.477279], "lugar"],
+  ["Revolución", [19.70487, -103.478977], "lugar"],
+  ["San José", [19.691039, -103.463376], "lugar"],
+  ["Tlayolan", [19.677882, -103.472882], "lugar"],
+  ["5 de Febrero", [19.705296, -103.475129], "calle"],
+  ["16 de Septiembre", [19.7049, -103.474893], "calle"],
+  ["Álamo", [19.693163, -103.455965], "calle"],
+  ["Colinas del Sur", [19.680069, -103.46904], "calle"],
+  ["Esquipulas", [19.716418, -103.466564], "calle"],
+  ["Gante", [19.719874, -103.472035], "calle"],
+  ["Insurgentes", [19.707984, -103.470761], "calle"],
+  ["Juan Rulfo", [19.678497, -103.470426], "calle"],
+  ["Las Lomas", [19.706602, -103.455315], "calle"],
+  ["Lázaro Cárdenas", [19.703856, -103.459279], "calle"],
+  ["Los Camichines", [19.695193, -103.454642], "calle"],
+  ["Mariano Otero", [19.675142, -103.469851], "calle"],
+  ["Morelos", [19.721478, -103.464989], "calle"],
+  ["Rancho Quemado", [19.731065, -103.461217], "calle"],
+  ["San Antonio", [19.684802, -103.479612], "calle"],
+  ["Santa Cecilia", [19.720923, -103.465676], "calle"],
+  ["Valle de Zapotlán", [19.688794, -103.484695], "calle"],
+  ["Valle del Sol", [19.706279, -103.470987], "calle"]
 ];
 
 /** Las colonias del catálogo agrupadas para el desplegable de reportes:
@@ -1649,6 +1692,7 @@ let puntoSeleccionado = null;
 let capaRed = null, lienzoRed = null;   // red urbana: puntos de toda la ciudad
 let redPuntos = [];                     // puntos de la red urbana (Módulo 11b)
 let redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false;
+let capaColonias, coloniasVisible = true, coloniaPorColocar = null, capaSugerencia = null;
 
 function iconoPunto(num, seleccion){
   return L.divIcon({
@@ -1694,6 +1738,7 @@ function initMapa(){
   capaRuta = L.layerGroup();
   capaPuntos = L.layerGroup();
   initCapaRed();
+  initCapaColonias();
   mapa.on('click', function(e){
     if (!estado.modoElegirMapa) return;
     const latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -1705,6 +1750,8 @@ function initMapa(){
       actualizarCoordenadasReporte();
       estado.modoElegirMapa = null;
       toast('📍 Ubicación del reporte asignada.', 'exito', 2600);
+    } else if (estado.modoElegirMapa === 'colonia' && coloniaPorColocar){
+      guardarUbicacionEquipo(coloniaPorColocar, latlng);
     }
   });
 
@@ -1774,6 +1821,169 @@ function alternarRedCiudad(){
   toast(redVisible
     ? '🟢 Red urbana visible' + (redPuntos.length ? ': ' + redPuntos.length + ' puntos en toda la ciudad.' : '.')
     : 'Red urbana oculta.', 'info', 3000);
+}
+
+/* ---------- Colonias del catálogo: etiquetas en el mapa ---------- */
+const CLAVE_UBICACIONES_EQUIPO = 'bym.colonias.ubicaciones.v1';
+
+function leerUbicacionesEquipo(){
+  try {
+    const u = JSON.parse(localStorage.getItem(CLAVE_UBICACIONES_EQUIPO));
+    return (u && typeof u === 'object') ? u : {};
+  } catch(e){ return {}; }
+}
+
+function centroDeZona(z){
+  // Punto medio del polígono aproximado (solo las 6 colonias de ZONAS).
+  let lat = 0, lng = 0;
+  z.poly.forEach(function(p){ lat += p[0]; lng += p[1]; });
+  return [lat / z.poly.length, lng / z.poly.length];
+}
+
+function initCapaColonias(){
+  if (!mapa || capaColonias) return;
+  capaColonias = L.layerGroup();
+  pintarCapaColonias();
+  llenarSelectColocar();
+  const b = $('#btnColonias');
+  if (b) b.classList.toggle('activo', coloniasVisible);
+  if (coloniasVisible) capaColonias.addTo(mapa);
+  $('#btnColonias').addEventListener('click', alternarColonias);
+  $('#btnColocarColonia').addEventListener('click', activarColocarColonia);
+  $('#btnCopiarUbicaciones').addEventListener('click', copiarUbicacionesEquipo);
+}
+
+/** Dibuja una etiqueta por colonia. Fuente de cada punto, en orden de
+    confianza: polígono de ZONAS, ubicación aportada por el equipo
+    (en este navegador) y lugar con el mismo nombre en OpenStreetMap.
+    Las que solo tienen una CALLE con su nombre NO se dibujan como
+    colonia: una calle puede estar lejos de la colonia a la que dio
+    nombre. Cada punto dice su fuente en el popup. */
+function pintarCapaColonias(){
+  if (!capaColonias) return;
+  capaColonias.clearLayers();
+  const fuentes = {};
+  Object.keys(ZONAS).forEach(function(id){
+    fuentes[ZONAS[id].nombre] = { c: centroDeZona(ZONAS[id]), fuente: 'polígono aproximado de la colonia' };
+  });
+  const equipo = leerUbicacionesEquipo();
+  Object.keys(equipo).forEach(function(n){
+    if (COLONIAS.indexOf(n) !== -1) fuentes[n] = { c: equipo[n], fuente: 'ubicación aportada por el equipo del proyecto' };
+  });
+  UBICACION_COLONIAS.forEach(function(u){
+    if (u[2] === 'calle' || fuentes[u[0]]) return;
+    fuentes[u[0]] = { c: u[1], fuente: 'aproximada: lugar con su nombre en OpenStreetMap' };
+  });
+  Object.keys(fuentes).forEach(function(nombre){
+    const f = fuentes[nombre];
+    L.circleMarker(f.c, {
+      radius: 4.5, color: '#5E35B1', weight: 1.5, fillColor: '#7E57C2', fillOpacity: .8,
+      bubblingMouseEvents: false
+    }).addTo(capaColonias)
+      .bindTooltip(nombre, { permanent: true, direction: 'top', offset: [0, -6], className: 'et-colonia' })
+      .bindPopup(function(){
+        const cont = document.createElement('div');
+        const t = document.createElement('strong'); t.textContent = '🏘️ Colonia ' + nombre;
+        const d = document.createElement('div'); d.style.fontSize = '.78rem'; d.style.marginTop = '.3rem';
+        d.textContent = 'Ubicación: ' + f.fuente + '. Ninguna colonia del catálogo tiene límites oficiales públicos: el punto es orientativo, no una delimitación.';
+        cont.append(t, d);
+        return cont;
+      }, { className: 'pz-popup' });
+  });
+}
+
+function alternarColonias(){
+  coloniasVisible = !coloniasVisible;
+  const b = $('#btnColonias');
+  if (b) b.classList.toggle('activo', coloniasVisible);
+  if (capaColonias){
+    if (coloniasVisible) capaColonias.addTo(mapa); else mapa.removeLayer(capaColonias);
+  }
+  const bloque = $('#bloqueColocar');
+  if (bloque) bloque.hidden = !coloniasVisible;
+  toast(coloniasVisible
+    ? '🏘️ Colonias visibles: el catálogo completo sobre el mapa.'
+    : 'Colonias ocultas.', 'info', 2600);
+}
+
+/** Colonias del catálogo que aún no tienen punto en el mapa. */
+function coloniasPendientes(){
+  const ubicadas = {};
+  Object.keys(ZONAS).forEach(function(id){ ubicadas[ZONAS[id].nombre] = true; });
+  UBICACION_COLONIAS.forEach(function(u){ if (u[2] !== 'calle') ubicadas[u[0]] = true; });
+  Object.keys(leerUbicacionesEquipo()).forEach(function(n){ ubicadas[n] = true; });
+  return COLONIAS.filter(function(n){ return !ubicadas[n]; });
+}
+
+function llenarSelectColocar(){
+  const sel = $('#coloniaColocar');
+  if (!sel) return;
+  const pend = coloniasPendientes();
+  sel.innerHTML = '';
+  pend.forEach(function(n){
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  });
+  const bloque = $('#bloqueColocar');
+  if (bloque) bloque.hidden = !coloniasVisible || pend.length === 0;
+  const ayuda = $('#ayudaColocar');
+  if (ayuda) ayuda.textContent = pend.length
+    ? 'Faltan ' + pend.length + ' colonias por ubicar (solo se guarda en este navegador).'
+    : '¡Catálogo completo! Las ' + COLONIAS.length + ' colonias están en el mapa.';
+}
+
+function activarColocarColonia(){
+  const sel = $('#coloniaColocar');
+  coloniaPorColocar = sel ? sel.value : null;
+  if (!coloniaPorColocar){ toast('Ya no quedan colonias por ubicar.', 'info', 2600); return; }
+  estado.modoElegirMapa = 'colonia';
+  if (estado.vista !== 'mapa') irA('mapa');
+  toast('👆 Toca el punto exacto de la colonia ' + coloniaPorColocar + '.', 'info', 4600);
+  mostrarSugerencia(coloniaPorColocar);
+}
+
+/** Si OpenStreetMap solo tiene una CALLE con el nombre de la colonia,
+    se muestra como sugerencia punteada: el equipo confirma o corrige
+    tocando el punto correcto. */
+function mostrarSugerencia(nombre){
+  limpiarSugerencia();
+  if (!mapa) return;
+  const u = UBICACION_COLONIAS.filter(function(x){ return x[0] === nombre && x[2] === 'calle'; })[0];
+  if (!u) return;
+  capaSugerencia = L.circle(u[1], {
+    radius: 200, color: '#5E35B1', weight: 1.5, dashArray: '6 6', fillOpacity: .05, interactive: false
+  }).addTo(mapa);
+}
+function limpiarSugerencia(){
+  if (capaSugerencia && mapa){ mapa.removeLayer(capaSugerencia); }
+  capaSugerencia = null;
+}
+
+function guardarUbicacionEquipo(nombre, latlng){
+  const u = leerUbicacionesEquipo();
+  u[nombre] = [Number(latlng.lat.toFixed(6)), Number(latlng.lng.toFixed(6))];
+  try { localStorage.setItem(CLAVE_UBICACIONES_EQUIPO, JSON.stringify(u)); } catch(e){ /* sin espacio: se puede repetir */ }
+  coloniaPorColocar = null;
+  estado.modoElegirMapa = null;
+  limpiarSugerencia();
+  pintarCapaColonias();
+  llenarSelectColocar();
+  const falta = coloniasPendientes().length;
+  toast('📍 Colonia ' + nombre + ' guardada.' + (falta ? ' Faltan ' + falta + '.' : ' ¡Catálogo completo en el mapa!'), 'exito', 3800);
+}
+
+/** Las ubicaciones colocadas a mano viven solo en este navegador;
+    este botón las copia como JSON para hornearlas al repositorio. */
+function copiarUbicacionesEquipo(){
+  const datos = leerUbicacionesEquipo();
+  if (!Object.keys(datos).length){ toast('Aún no has colocado colonias en este navegador.', 'info', 3000); return; }
+  const texto = JSON.stringify({ fuente: 'equipo del proyecto BASURA Y MÁS', colonias: datos }, null, 1);
+  navigator.clipboard.writeText(texto).then(function(){
+    toast('📋 Ubicaciones copiadas. Pégalas en el chat para hornearlas al mapa.', 'exito', 5200);
+  }, function(){
+    toast('No se pudo copiar automáticamente.', 'error', 3600);
+  });
 }
 
 /** Carga la red urbana: copia local primero, Overpass solo si toca. */

@@ -121,7 +121,7 @@ Este documento es el mapa completo de la aplicación: qué archivos existen, qu�
 | Archivo | Bytes / Líneas | Función |
 |---|---|---|
 | `index.html` | 210 KB · 3 640 líneas | **Toda la aplicación.** HTML + CSS + JS |
-| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v14`, red-primero |
+| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v15`, red-primero |
 | `manifest.webmanifest` | 18 líneas | Metadatos de la PWA instalable |
 | `vercel.json` | 45 líneas | Cabeceras de seguridad y de caché |
 | `supabase-schema.sql` | 228 líneas | Espejo completo del esquema de BD (para replicarlo) |
@@ -595,7 +595,7 @@ En total son **82 colonias sin repetir**: 77 del catálogo + 5 que solo existen 
 - `"A - C"`, `"E - J"`, `"L - O"`, `"P - Z"`: son los encabezados del documento, no colonias. Se descartan (hay una prueba que lo vigila).
 - `"C.N.O.P.CTM"`: venían dos siglas pegadas y el equipo confirmó que **es una sola colonia**, así que se queda tal cual, con la T y la M pegadas.
 
-**Lo que el catálogo NO hace.** No trae coordenadas, así que **ninguna de estas colonias tiene ruta**: para dibujarla en el mapa hace falta un polígono real, y el promedio de un centroide inventado sería inventar un dato (el hero de la app presume de "0 datos inventados"). Hoy el catálogo sirve para **reportar** y para **preguntarle a Eco**, y Eco lo dice con esas palabras cuando le preguntas por una colonia sin ruta:
+**Lo que el catálogo NO hace.** No trae coordenadas, así que **ninguna de estas colonias tiene ruta**: para dibujarla en el mapa hace falta un polígono real, y el promedio de un centroide inventado sería inventar un dato (el hero de la app presume de "0 datos inventados"). Hoy el catálogo sirve para **reportar**, para **preguntarle a Eco** y — desde la capa de colonias del mapa ([§5.8c](#58c-módulo-11c-—-colonias-del-catálogo-en-el-mapa)) — para **ver el nombre de cada colonia sobre el mapa** con una ubicación aproximada verificada, nunca inventada. Eco lo dice con esas palabras cuando le preguntas por una colonia sin ruta:
 
 > "El Nogal sí está en el catálogo de colonias de Ciudad Guzmán, pero todavía no tiene ruta: la app solo dibuja 6 (Centro, La Floresta, Villas del Padre, La Estanzuela, El Agustín, San Rafael)."
 
@@ -629,6 +629,39 @@ En el mapa (Módulo 12) la capa se dibuja con un **renderer `L.canvas`** —cien
 
 **Pruebas:** `tests/red-ciudad.js` — 43 comprobaciones con calles sintéticas de longitud conocida: reparto, encadenado de tramos, calles paralelas, techo, etiquetado honesto y encuadre de la vista.
 
+### 5.8c Módulo 11c — Colonias del catálogo en el mapa
+
+El pedido del equipo: **que en el mapa aparezcan todas las colonias que se entregaron en el catálogo**. El obstáculo se comprobó con datos, no con suposiciones: **OSM no tiene las colonias de Ciudad Guzmán como lugares**. Una consulta Overpass sobre toda la zona devuelve solo 5 `place=neighbourhood` / `landuse` con nombre, y ninguno pertenece al catálogo. La regla del proyecto es no inventar coordenadas, así que la capa se alimenta de **tres fuentes verificadas**:
+
+| Fuente | Qué aporta | Cuántas |
+|---|---|---|
+| Polígonos de `ZONAS` | El centroide del polígono (el mismo que dibuja la ruta) | 6 |
+| Ubicaciones del equipo (`localStorage`, clave `bym.colonias.ubicaciones.v1`) | Puntos colocados a mano en este navegador, redondeados a 6 decimales | 0 al inicio; crecen con el flujo de colocación |
+| `UBICACION_COLONIAS` (horneada en `app.js`) | Lugares de OSM que llevan exactamente el nombre de la colonia (parque, edificio, unidad deportiva) | 31 |
+
+```js
+const UBICACION_COLONIAS = [
+  ['Compositores', [19.6928, -103.4685], 'lugar'],   // parque/deportivo con su nombre: SÍ se dibuja
+  ['Gante',        [19.6984, -103.4652], 'calle'],  // solo una calle homónima: NO se dibuja como colonia
+  /* … 31 entradas generadas por tools/ubicar-colonias.js … */
+];
+```
+
+**La regla central — la calle no es la colonia.** De las 31 ubicaciones de OSM, 13 tienen un **lugar** con el nombre de la colonia (se dibujan) y 18 tienen **solo una calle** con ese nombre. Dibujar la calle como si fuera la colonia sería inventar: una calle puede correr a kilómetros de la colonia a la que dio nombre (o repetirse en otra colonia). Las 18 de tipo `calle` **nunca se dibujan como colonia**: solo aparecen como **sugerencia** dentro del modo de colocación (círculo punteado de 200 m sobre la calle homónima) para que el equipo confirme o corrija tocando el punto real.
+
+Piezas del módulo:
+
+- **`tools/ubicar-colonias.js`** (generador versionado, procedencia reproducible) — geocodifica el catálogo contra Nominatim con `User-Agent` identificable, `viewbox` acotado a la ciudad y `bounded=1`, 1.1 s entre peticiones (límite de uso justo), y valida estrictamente cada resultado: bbox urbano `19.675,-103.500,19.735,-103.430`, rechazo de `boundary`/ciudad entera y coincidencia de nombre normalizada sin acentos. Salida: 31/76 colonias ubicadas con su tipo `lugar` | `calle`.
+- **`pintarCapaColonias()`** — un `circleMarker` violeta (`#5E35B1`/`#7E57C2`) por colonia ubicada, con tooltip permanente (`.et-colonia`, sin caja, halo con `text-shadow`) y popup que declara su fuente y avisa: *"Ninguna colonia del catálogo tiene límites oficiales públicos: el punto es orientativo, no una delimitación"*.
+- **`alternarColonias()`** — el botón `#btnColonias` muestra u oculta la capa completa.
+- **`coloniasPendientes()` / `llenarSelectColocar()`** — el bloque de colocación lista las colonias que aún no tienen punto (63 al inicio) y su texto de ayuda cuenta cuántas faltan.
+- **`activarColocarColonia()` + clic del mapa (modo `'colonia'`)** — el equipo elige una colonia del select, el mapa entra en modo colocación (con sugerencia de calle si existe) y el toque guarda `guardarUbicacionEquipo()` en `localStorage`, saca la colonia de pendientes y repinta la capa.
+- **`copiarUbicacionesEquipo()`** — copia al portapapeles un JSON `{fuente: 'equipo del proyecto BASURA Y MÁS', colonias: {…}}` listo para pegarle al asistente y **hornear las ubicaciones verificadas** a `UBICACION_COLONIAS` en el repositorio.
+
+Al abrir el mapa por primera vez quedan **19 etiquetas** (6 de ZONAS + 13 de OSM), **63 colonias pendientes** y, cuando el equipo haya colocado y el equipo hornee los puntos, el contador baja hasta "¡Catálogo completo!".
+
+**Pruebas:** `tests/colonias-mapa.js` — 25 comprobaciones: datos horneados dentro del límite urbano, la regla calle-no-colonia, el flujo de guardado (6 decimales, sale de pendientes, entra al mapa), el popup honesto y la conexión con el mapa (botón, bloque y estilos).
+
 ### 5.9 Módulo 12 — Mapa Leaflet (2440)
 
 Variables de estado del mapa:
@@ -636,6 +669,8 @@ Variables de estado del mapa:
 let mapa = null;
 let capaRuta, capaPuntos, capaZonas, marcadorUsuario, marcadorCamion, marcadorSeleccion, rutaUsuario;
 let capaRed, lienzoRed;      // red urbana de toda la ciudad (Módulo 11b)
+let capaColonias, coloniaPorColocar, capaSugerencia;  // colonias del catálogo (Módulo 11c)
+let coloniasVisible = true;  // el botón #btnColonias la alterna
 let redPuntos = [];          // sus puntos (también los usa puntoMasCercano)
 let puntosActuales = [];    // puntos de la colonia activa
 let rutaActiva = null;      // ruta de la colonia activa
@@ -655,6 +690,7 @@ mapa.on('click', function(e){
   if (!estado.modoElegirMapa) return;
   if (estado.modoElegirMapa === 'usuario')  fijarUbicacionManual(e.latlng);
   else if (estado.modoElegirMapa === 'reporte'){ … }
+  else if (estado.modoElegirMapa === 'colonia') guardarUbicacionEquipo(coloniaPorColocar, e.latlng); // Módulo 11c
 });
 ```
 
@@ -1680,7 +1716,7 @@ Cada insignia se evalúa con una **función `cond` sobre un contexto**, así que
 ### 10.2 `sw.js` — estrategia de caché
 
 ```js
-const CACHE = 'bym-v14';
+const CACHE = 'bym-v15';
 const PRECACHE = ['./', './index.html', './estilos.css', './app.js',
                   './manifest.webmanifest', './icon.svg',
                   './icon-192.png', './icon-512.png'];
@@ -1733,7 +1769,7 @@ caches.keys()
   .then(() => self.clients.claim());
 ```
 
-> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
+> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14` → `bym-v15`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
 
 > **Por qué `Cache-Control: public, max-age=0, must-revalidate` en `/sw.js`** (en `vercel.json`): sin esa cabecera, el navegador puede cachear el propio service worker y seguir ejecutando la versión vieja indefinidamente. Con ella, el service worker siempre se revalida.
 

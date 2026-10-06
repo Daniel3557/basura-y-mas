@@ -87,12 +87,15 @@ if(n)process.exit(1);
 \""
 
 echo "13 · La caché del service worker está al día"
-chk "bym-v14" "grep -q \"const CACHE = 'bym-v14'\" sw.js"
+chk "bym-v15" "grep -q \"const CACHE = 'bym-v15'\" sw.js"
 echo "14 · El service worker no esconde las actualizaciones"
 chk "tests/sw-cache.js" "node tests/sw-cache.js"
 chk "tests/sw-cache-atrapa.js" "node tests/sw-cache-atrapa.js"
 echo "15 · La red urbana de puntos reparte bien"
 chk "tests/red-ciudad.js" "node tests/red-ciudad.js"
+
+echo "16 · Las colonias del catálogo están en el mapa"
+chk "tests/colonias-mapa.js" "node tests/colonias-mapa.js"
 
 echo
 echo "$ok comprobaciones en orden, $fail fallos."
