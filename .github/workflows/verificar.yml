@@ -59,7 +59,7 @@ jobs:
         run: node --check app.js && node --check sw.js
 
       - name: Sintaxis de la función /api/eco y de sus herramientas
-        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js
+        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js && node --check tests/red-ciudad.js
 
       - name: La clave de la IA no está en el repositorio
         run: |
@@ -198,6 +198,16 @@ jobs:
           # temporal y exigiendo que la prueba falle.
           node tests/sw-cache-atrapa.js
           echo "OK: app.js y estilos.css llegan por red en la primera recarga."
+
+      - name: La red urbana de puntos reparte bien
+        run: |
+          set -e
+          # Puntos cada 400 m sobre las calles reales de TODA la ciudad.
+          # Prueba el encadenado de tramos de OSM, que las calles paralelas
+          # no se borren entre sí y que cada punto se etiquete como
+          # "propuesto por el sistema" (no es un contenedor confirmado).
+          node tests/red-ciudad.js
+          echo "OK: el reparto de la red urbana es correcto."
 
       # ── E2E real contra Supabase ───────────────────────────────
       - name: Comprobar el secreto de Supabase

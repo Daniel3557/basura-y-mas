@@ -792,7 +792,16 @@ function irA(v){
     else b.removeAttribute('aria-current');
   });
   window.scrollTo({ top: 0, behavior: REDUCIR.matches ? 'auto' : 'smooth' });
-  if (v === 'mapa' && mapa) setTimeout(function(){ mapa.invalidateSize(); }, 80);
+  if (v === 'mapa' && mapa){
+    setTimeout(function(){
+      mapa.invalidateSize();
+      // Si la red urbana ya está lista, encuadrar toda la ciudad (una sola vez)
+      if (redPuntos.length) ajustarVistaRedCiudad();
+    }, 80);
+    // La red de toda la ciudad se pide al abrir el mapa por primera vez
+    // (una sola consulta), no al arrancar la app.
+    setTimeout(function(){ cargarRedCiudad(false); }, 2000);
+  }
   if (v === 'perfil') renderPerfil();
 }
 $$('[data-nav]').forEach(function(b){ b.addEventListener('click', function(){ irA(b.getAttribute('data-nav')); }); });
@@ -1201,7 +1210,7 @@ async function osrmRuta(puntos){
 }
 
 function polilineaAPuntos(way){
-  return (way.geometry || []).map(function(g){ return { lat: g.lat, lng: g.lon }; });
+  return (way.geometry || []).map(function(g){ return { lat: g.lat, lng: (g.lng !== undefined ? g.lng : g.lon) }; });
 }
 
 // Espejos públicos de Overpass: si uno falla se intenta el siguiente.
@@ -1431,6 +1440,196 @@ async function distribuirPuntos(geometria, intervalo){
   return puntos;
 }
 
+/* ============================================================
+   MÓDULO 11b · RED URBANA DE PUNTOS (toda la ciudad)
+   ------------------------------------------------------------
+   Los puntos de recolección por colonia nacen de la ruta de esa colonia,
+   y solo 6 colonias tienen ruta. Para cubrir toda Ciudad Guzmán sin
+   inventar fronteras (OSM no tiene los límites de las colonias: se
+   comprobó con Overpass y Nominatim), se piden LAS CALLES reales de
+   toda la ciudad en una sola consulta y se reparten puntos cada
+   INTERVALO_PUNTOS metros sobre ellas. Cada punto se etiqueta
+   "propuesto por el sistema": no es un contenedor municipal confirmado.
+   ============================================================ */
+const RED_CIUDAD = {
+  bbox: '19.675,-103.500,19.735,-103.430',        // Ciudad Guzmán con margen
+  tags: ['primary', 'secondary', 'tertiary', 'residential'],
+  intervaloM: INTERVALO_PUNTOS,                    // 400 m, igual que por colonia
+  maxPuntos: 1500,                                 // techo de seguridad para el navegador
+  separacionMinM: 60,                              // solo duplicados reales: 300 m borraría puntos legítimos de calles paralelas
+  colonia: 'Red urbana de Ciudad Guzmán',
+  cacheClave: 'bym.osm.red.v1',
+  cacheDias: 7                                     // las calles cambian poco
+};
+
+function leerCacheRed(){
+  try {
+    const c = JSON.parse(localStorage.getItem(RED_CIUDAD.cacheClave));
+    if (!c || !c.puntos || !c.puntos.length) return null;
+    if (Date.now() - (c.ts || 0) > RED_CIUDAD.cacheDias * 86400000) return null;
+    if (!Array.isArray(c.puntos) || typeof c.puntos[0].lat !== 'number') return null;
+    return c;
+  } catch(e){ return null; }
+}
+function guardarCacheRed(puntos){
+  try {
+    localStorage.setItem(RED_CIUDAD.cacheClave, JSON.stringify({ ts: Date.now(), puntos: puntos }));
+  } catch(e){ /* sin espacio: la red se vuelve a pedir la próxima vez */ }
+}
+
+/** Una sola consulta por TODA la ciudad (no 82 por colonia). */
+async function overpassRedCiudad(){
+  const q = '[out:json][timeout:60];way["highway"~"^(' + RED_CIUDAD.tags.join('|') +
+    ')$"](' + RED_CIUDAD.bbox + ');out geom;';
+  const servidores = SERVIDORES_OVERPASS.concat([SERVIDORES_OVERPASS[0]]);
+  let ultimoError = null;
+  for (const servidor of servidores){
+    try {
+      const r = await fetchConTimeout(servidor + encodeURIComponent(q), 45000);
+      if (!r.ok) throw new Error('Overpass no respondió (' + r.status + ')');
+      const j = await r.json();
+      const vias = (j.elements || []).filter(function(e){ return e.type === 'way' && e.geometry && e.geometry.length > 1; });
+      if (!vias.length) throw new Error('El espejo respondió sin vialidades; probando otro servidor…');
+      return vias;
+    } catch (err){ ultimoError = err; }
+  }
+  throw ultimoError || new Error('Overpass no disponible');
+}
+
+/** Encadena vías que se tocan (en OSM una avenida larga viene partida en
+    tramos por cada cruce) para que la cuenta de metros siga por la calle
+    en vez de reiniciarse en cada tramo. Devuelve CADENAS: listas de
+    vértices {lat, lng, via}. Es la idea de encadenarVialidades, pero en
+    vez de una sola ruta para la zona, todas las cadenas que haga falta:
+    la ciudad entera no es un recorrido único. */
+function encadenarVias(vias, toleranciaM){
+  const pendientes = [];
+  (vias || []).forEach(function(v){
+    const pts = polilineaAPuntos(v);
+    if (pts.length > 1){
+      const nombre = (v.tags && v.tags.name) || null;
+      pendientes.push(pts.map(function(p){ return { lat: p.lat, lng: p.lng, via: nombre }; }));
+    }
+  });
+  // Cubos espaciales para no comparar cada extremo contra todas las vías:
+  // solo se miran las que tienen un extremo en las 9 celdas vecinas.
+  const lado = Math.max(1, toleranciaM);
+  const cubos = new Map();
+  function clave(p){
+    return Math.round(p.lat * 110540 / lado) + ':' + Math.round(p.lng * 104797 / lado);
+  }
+  function registrar(item){
+    [item[0], item[item.length - 1]].forEach(function(p){
+      const k = clave(p);
+      if (!cubos.has(k)) cubos.set(k, []);
+      cubos.get(k).push(item);
+    });
+  }
+  pendientes.forEach(function(p){ p.viva = true; });
+  pendientes.forEach(registrar);
+
+  const cadenas = [];
+  while (pendientes.length){
+    let cadena = null;
+    while (pendientes.length && !cadena){
+      const cand = pendientes.shift();
+      if (cand.viva){ cadena = cand; cadena.viva = false; }
+    }
+    if (!cadena) break;   // solo quedaban vías ya consumidas
+    for(;;){
+      const fin = cadena[cadena.length - 1];
+      let mejor = null, mejorD = toleranciaM, invertir = false;
+      const cx = Math.round(fin.lat * 110540 / lado), cy = Math.round(fin.lng * 104797 / lado);
+      for (let i = cx - 1; i <= cx + 1 && !mejor; i++){
+        for (let j = cy - 1; j <= cy + 1 && !mejor; j++){
+          const lista = cubos.get(i + ':' + j);
+          if (!lista) continue;
+          for (let k = 0; k < lista.length; k++){
+            const cand = lista[k];
+            if (!cand.viva) continue;
+            const dIni = haversine(fin, cand[0]);
+            const dFin = haversine(fin, cand[cand.length - 1]);
+            if (dIni <= mejorD){ mejorD = dIni; mejor = cand; invertir = false; }
+            if (dFin < mejorD){ mejorD = dFin; mejor = cand; invertir = true; }
+          }
+        }
+      }
+      if (!mejor) break;
+      mejor.viva = false;
+      cadena = cadena.concat(invertir ? mejor.slice().reverse() : mejor);
+    }
+    cadenas.push(cadena);
+  }
+  return cadenas;
+}
+
+/** Reparte puntos cada intervaloM sobre cada cadena y descarta los que
+    caen a menos de separacionMinM de otro ya aceptado (vías duplicadas
+    en OSM). Puro y sin red: se prueba en tests/red-ciudad.js. */
+function puntosDesdeCadenas(cadenas, opciones){
+  const intervalo = (opciones && opciones.intervaloM) || RED_CIUDAD.intervaloM;
+  const max = (opciones && opciones.maxPuntos) || RED_CIUDAD.maxPuntos;
+  const sep = (opciones && opciones.separacionMinM) || RED_CIUDAD.separacionMinM;
+  // Rejilla en grados equivalente a celdas de `sep` metros (Ciudad Guzmán,
+  // lat ~19.7°): cualquier punto a menos de sep está en las 9 celdas vecinas.
+  const METRO_POR_GRADO_LAT = 110540;
+  const METRO_POR_GRADO_LNG = 111320 * Math.cos(19.7 * Math.PI / 180);
+  const celdas = Object.create(null);
+
+  function ocupada(lat, lng){
+    const cx = Math.floor(lat * METRO_POR_GRADO_LAT / sep);
+    const cy = Math.floor(lng * METRO_POR_GRADO_LNG / sep);
+    for (let i = cx - 1; i <= cx + 1; i++){
+      for (let j = cy - 1; j <= cy + 1; j++){
+        const lista = celdas[i + ':' + j];
+        if (!lista) continue;
+        for (let k = 0; k < lista.length; k++){
+          if (haversine({ lat: lat, lng: lng }, lista[k]) < sep) return true;
+        }
+      }
+    }
+    return false;
+  }
+  function aceptar(lat, lng, distanciaM, via){
+    const p = {
+      numero: null, lat: lat, lng: lng, distanciaM: Math.round(distanciaM),
+      estado: 'Punto propuesto por el sistema', confirmado: false,
+      colonia: RED_CIUDAD.colonia
+    };
+    if (via) p.via = via;
+    const cx = Math.floor(lat * METRO_POR_GRADO_LAT / sep);
+    const cy = Math.floor(lng * METRO_POR_GRADO_LNG / sep);
+    const clave = cx + ':' + cy;
+    (celdas[clave] || (celdas[clave] = [])).push(p);
+    return p;
+  }
+
+  const puntos = [];
+  for (let c = 0; c < cadenas.length && puntos.length < max; c++){
+    const cadena = cadenas[c];
+    if (!cadena || cadena.length < 2) continue;
+    let acumulado = 0, siguiente = intervalo / 2;   // el primero a mitad del primer tramo
+    for (let i = 1; i < cadena.length && puntos.length < max; i++){
+      const a = cadena[i - 1], b = cadena[i];
+      const seg = haversine(a, b);
+      if (seg <= 0) continue;
+      while (acumulado + seg >= siguiente && puntos.length < max){
+        const t = (siguiente - acumulado) / seg;
+        const lat = a.lat + (b.lat - a.lat) * t, lng = a.lng + (b.lng - a.lng) * t;
+        if (!ocupada(lat, lng)) puntos.push(aceptar(lat, lng, siguiente, b.via || a.via || null));
+        siguiente += intervalo;
+      }
+      acumulado += seg;
+    }
+  }
+  puntos.forEach(function(p, i){ p.numero = i + 1; });
+  return puntos;
+}
+
+function puntosDesdeVias(vias, opciones){
+  return puntosDesdeCadenas(encadenarVias(vias, 30), opciones);
+}
+
 /** Geocodificación (Nominatim) — preparada para búsqueda de direcciones. */
 async function nominatimBuscar(texto){
   const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(texto + ', Ciudad Guzmán, Jalisco');
@@ -1447,6 +1646,9 @@ let capaRuta = null, capaPuntos = null, capaZonas = null, marcadorUsuario = null
 let puntosActuales = [];   // puntos de la colonia activa
 let rutaActiva = null;     // ruta de la colonia activa
 let puntoSeleccionado = null;
+let capaRed = null, lienzoRed = null;   // red urbana: puntos de toda la ciudad
+let redPuntos = [];                     // puntos de la red urbana (Módulo 11b)
+let redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false;
 
 function iconoPunto(num, seleccion){
   return L.divIcon({
@@ -1491,6 +1693,7 @@ function initMapa(){
 
   capaRuta = L.layerGroup();
   capaPuntos = L.layerGroup();
+  initCapaRed();
   mapa.on('click', function(e){
     if (!estado.modoElegirMapa) return;
     const latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -1508,7 +1711,103 @@ function initMapa(){
   $('#btnGPS').addEventListener('click', usarMiUbicacion);
   $('#btnVerRuta').addEventListener('click', centrarEnRuta);
   $('#btnRecargarRuta').addEventListener('click', function(){ delete rutas[estado.coloniaId]; cargarRutaColonia(true); });
+  $('#btnRed').addEventListener('click', alternarRedCiudad);
   $('#rutaSelect').addEventListener('change', function(){ seleccionarColonia(this.value, true); });
+}
+
+/* ---------- Red urbana: capa, pintado y carga ---------- */
+function initCapaRed(){
+  if (!mapa || capaRed) return;
+  capaRed = L.layerGroup();
+  // Lienzo (canvas): dibuja cientos de círculos sin crear un nodo del DOM
+  // por punto, que es lo que haría lento el mapa con toda la ciudad.
+  lienzoRed = L.canvas({ padding: 0.5 });
+  const b = $('#btnRed');
+  if (b) b.classList.toggle('activo', redVisible);
+  if (redVisible) capaRed.addTo(mapa);
+}
+
+function pintarRedCiudad(){
+  if (!capaRed) return;
+  capaRed.clearLayers();
+  redPuntos.forEach(function(p){
+    L.circleMarker([p.lat, p.lng], {
+      renderer: lienzoRed, radius: 4.5, color: '#1B5E20', weight: 1,
+      fillColor: '#2E7D32', fillOpacity: .55,
+      bubblingMouseEvents: false   // para no colocar tu ubicación al tocar un punto
+    }).addTo(capaRed).bindPopup(function(){ return construirPopupPunto(p); }, { className: 'pz-popup' });
+  });
+}
+
+function pintarChipRed(titulo, detalle, fuente){
+  const cont = $('#estadoRedChip');
+  if (!cont) return;
+  cont.innerHTML = '';
+  const c1 = document.createElement('span');
+  c1.className = 'chip ' + (redPuntos.length ? 'verde' : 'ambar');
+  c1.textContent = titulo + (detalle ? ': ' + detalle : '');
+  cont.appendChild(c1);
+  if (fuente){
+    const c2 = document.createElement('span'); c2.className = 'chip gris'; c2.textContent = fuente;
+    cont.appendChild(c2);
+  }
+}
+
+/** Encuadra toda la red urbana (una sola vez por carga de página), para que
+  * al abrir el mapa se vea la ciudad completa con sus puntos de recolección.
+  */
+function ajustarVistaRedCiudad(){
+  if (redAjustada || !mapa || !redPuntos.length || !redVisible) return;
+  if (estado.vista !== 'mapa') return;
+  const bounds = L.latLngBounds(redPuntos.map(function(p){ return [p.lat, p.lng]; }));
+  mapa.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  redAjustada = true;
+}
+
+function alternarRedCiudad(){
+  redVisible = !redVisible;
+  const b = $('#btnRed');
+  if (b) b.classList.toggle('activo', redVisible);
+  if (capaRed){
+    if (redVisible) capaRed.addTo(mapa); else mapa.removeLayer(capaRed);
+  }
+  toast(redVisible
+    ? '🟢 Red urbana visible' + (redPuntos.length ? ': ' + redPuntos.length + ' puntos en toda la ciudad.' : '.')
+    : 'Red urbana oculta.', 'info', 3000);
+}
+
+/** Carga la red urbana: copia local primero, Overpass solo si toca. */
+async function cargarRedCiudad(forzar){
+  if (!capaRed || redCargando) return;
+  if (!forzar){
+    const c = leerCacheRed();
+    if (c){
+      redPuntos = c.puntos;
+      pintarRedCiudad();
+      pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', 'copia local de OpenStreetMap');
+      ajustarVistaRedCiudad();
+      return;
+    }
+  }
+  if (!forzar && Date.now() - redUltimoIntento < 60000) return;  // no insistir en cada visita
+  redUltimoIntento = Date.now();
+  redCargando = true;
+  pintarChipRed('⏳ Red urbana', 'consultando OpenStreetMap…', '');
+  try {
+    const vias = await overpassRedCiudad();
+    redPuntos = puntosDesdeVias(vias, {
+      intervaloM: RED_CIUDAD.intervaloM, maxPuntos: RED_CIUDAD.maxPuntos,
+      separacionMinM: RED_CIUDAD.separacionMinM
+    });
+    guardarCacheRed(redPuntos);
+    pintarRedCiudad();
+    pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', vias.length + ' vialidades de OpenStreetMap');
+    ajustarVistaRedCiudad();
+  } catch(e){
+    pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió, toca el botón de capas para reintentar', '');
+  } finally {
+    redCargando = false;
+  }
 }
 
 function pintarRuta(){
@@ -1532,7 +1831,10 @@ function pintarRuta(){
 function construirPopupPunto(p){
   const cont = document.createElement('div');
   const t = document.createElement('strong'); t.textContent = '📍 Punto de recolección #' + String(p.numero).padStart(2,'0');
-  const col = document.createElement('div'); col.style.fontSize = '.78rem'; col.textContent = 'Colonia: ' + (rutaActiva ? rutaActiva.zona : '');
+  const col = document.createElement('div'); col.style.fontSize = '.78rem';
+  col.textContent = p.colonia
+    ? ('Zona: ' + p.colonia + (p.via ? ' · ' + p.via : ''))
+    : ('Colonia: ' + (rutaActiva ? rutaActiva.zona : '—'));
   const est = document.createElement('div'); est.style.fontSize = '.78rem'; est.textContent = 'Estado: ' + p.estado;
   const d = document.createElement('div'); d.style.fontSize = '.78rem';
   d.textContent = estado.ubicacion ? ('Distancia: ' + fmtDistancia(haversine(estado.ubicacion, p))) : 'Selecciona tu ubicación para ver la distancia';
@@ -1621,6 +1923,7 @@ async function cargarRutaColonia(avisar){
 
 function centrarEnRuta(){
   if (!rutaActiva) return;
+  if (estado.vista !== 'mapa') return;  // arranque en segundo plano: no mover una vista oculta
   const bounds = L.latLngBounds(rutaActiva.geometria.map(function(p){ return [p.lat, p.lng]; }));
   mapa.fitBounds(bounds, { padding: [30, 30] });
 }
@@ -1659,9 +1962,10 @@ function abrirModalPunto(p){
     const b = document.createElement('strong'); b.textContent = valor;
     d.append(s, b); det.appendChild(d);
   }
-  fila('Colonia', rutaActiva ? rutaActiva.zona : '—');
+  fila('Colonia', p.colonia ? p.colonia : (rutaActiva ? rutaActiva.zona : '—'));
+  if (p.via) fila('Calle (OpenStreetMap)', p.via);
   fila('Estado', (p.confirmado ? '✓ Punto confirmado' : '📍 ' + p.estado));
-  fila('Distancia en ruta desde el inicio', fmtDistancia(p.distanciaM));
+  if (!p.colonia) fila('Distancia en ruta desde el inicio', fmtDistancia(p.distanciaM));
   fila('Distancia hasta ti', estado.ubicacion ? fmtDistancia(haversine(estado.ubicacion, p)) : 'Selecciona tu ubicación');
   fila('Próxima atención', 'GPS del vehículo no conectado — no disponible' + (estado.demo ? ' (disponible en modo demostración)' : ''));
   abrirModal('modalPunto');
@@ -1714,9 +2018,13 @@ function activarElegirMapa(modo){
 $('#btnGPS').addEventListener('click', function(){ /* manejado en initMapa */ });
 
 function puntoMasCercano(){
-  if (!estado.ubicacion || !puntosActuales.length) return null;
+  if (!estado.ubicacion) return null;
+  // Busca en TODA la ciudad (red urbana) además de la ruta de la colonia
+  // activa: el punto más cercano ya no depende de qué colonia tengas cargada.
+  const candidatas = redPuntos.concat(puntosActuales);
+  if (!candidatas.length) return null;
   let mejor = null;
-  puntosActuales.forEach(function(p){
+  candidatas.forEach(function(p){
     const d = haversine(estado.ubicacion, p);
     if (!mejor || d < mejor.d) mejor = { p: p, d: d };
   });
@@ -1730,7 +2038,7 @@ function evaluarPuntoCercano(){
     $('#infoTiempoLlegada').textContent = 'No disponible';
     return;
   }
-  $('#infoPuntoCercano').textContent = '#' + String(cerca.p.numero).padStart(2,'0');
+  $('#infoPuntoCercano').textContent = '#' + String(cerca.p.numero).padStart(2,'0') + (cerca.p.colonia ? ' · red' : '');
   $('#infoDistanciaPunto').textContent = fmtDistancia(cerca.d);
   $('#infoTiempoLlegada').textContent = 'No disponible';
   calcularRutaHastaPunto(cerca.p);
@@ -2590,7 +2898,7 @@ function mostrarAcerca(){
   mostrarInfo('Acerca del proyecto', [
     '<strong>BASURA Y MÁS</strong> es una plataforma cívica y ecológica desarrollada como proyecto de <strong>Filosofía II (FILOSOFARTE)</strong> por <strong>Daniel Alvarez</strong> para el <strong>CBTis 226</strong>.',
     'Propone una forma de conectar a la ciudadanía de <strong>Ciudad Guzmán, Jalisco</strong> con la información de recolección, la separación de residuos y la participación comunitaria.',
-    'Fuentes de datos: mapa y vialidades de <strong>OpenStreetMap</strong>, rutas calculadas con <strong>OSRM</strong>, geocodificación con <strong>Nominatim</strong>. Los puntos de recolección son <strong>generados por el sistema</strong> y el GPS de vehículos <strong>no está conectado</strong>; cuando exista una fuente municipal, la app está preparada para integrarla.',
+    'Fuentes de datos: mapa y vialidades de <strong>OpenStreetMap</strong>, rutas calculadas con <strong>OSRM</strong>, geocodificación con <strong>Nominatim</strong>. Los puntos de recolección son <strong>generados por el sistema</strong> sobre las calles reales de toda la ciudad y sobre la ruta de cada colonia (cada 400 m aprox.); no son contenedores municipales confirmados, y el GPS de vehículos <strong>no está conectado</strong>; cuando exista una fuente municipal, la app está preparada para integrarla.',
     '<strong>Lo que NO hace:</strong> no está conectada a ningún sistema del municipio, no manda correos ni notificaciones automáticas, y no recoge datos personales de terceros. No inventa horarios ni tarifas que no estén en las fuentes citadas.',
     '<strong>Código abierto:</strong> todo el proyecto está en <a href="https://github.com/Daniel3557/basura-y-mas" target="_blank" rel="noopener noreferrer">GitHub</a>.',
     '“El progreso sin conciencia no es progresión.”'

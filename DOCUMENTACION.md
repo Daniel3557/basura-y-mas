@@ -121,7 +121,7 @@ Este documento es el mapa completo de la aplicación: qué archivos existen, qu�
 | Archivo | Bytes / Líneas | Función |
 |---|---|---|
 | `index.html` | 210 KB · 3 640 líneas | **Toda la aplicación.** HTML + CSS + JS |
-| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v13`, red-primero |
+| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v14`, red-primero |
 | `manifest.webmanifest` | 18 líneas | Metadatos de la PWA instalable |
 | `vercel.json` | 45 líneas | Cabeceras de seguridad y de caché |
 | `supabase-schema.sql` | 228 líneas | Espejo completo del esquema de BD (para replicarlo) |
@@ -603,12 +603,40 @@ En total son **82 colonias sin repetir**: 77 del catálogo + 5 que solo existen 
 
 Ver [sección 6](#6-integraciones-externas-una-por-una) completa. Es el módulo con la arquitectura de respaldos más interesante del proyecto.
 
+### 5.8b Módulo 11b — Red urbana de puntos (toda la ciudad)
+
+Después del catálogo de colonias quedó claro el límite: **solo 6 colonias tienen ruta** (las que tienen polígono en `ZONAS`). Para cubrir **toda Ciudad Guzmán** sin inventar fronteras (se comprobó con Overpass y Nominatim: OSM no tiene los límites de las colonias de la ciudad), este módulo pide a OpenStreetMap **las calles reales de toda la ciudad en UNA sola consulta** y reparte puntos cada 400 m sobre ellas:
+
+```js
+const RED_CIUDAD = {
+  bbox: '19.675,-103.500,19.735,-103.430',   // la ciudad con margen
+  tags: ['primary','secondary','tertiary','residential'],
+  intervaloM: INTERVALO_PUNTOS,              // 400 m, igual que por colonia
+  maxPuntos: 1500,                           // techo de seguridad para el navegador
+  separacionMinM: 60,                        // solo duplicados reales de OSM
+  cacheClave: 'bym.osm.red.v1', cacheDias: 7
+};
+```
+
+Piezas del módulo:
+
+- **`overpassRedCiudad()`** — una consulta `way["highway"~"^(primary|secondary|tertiary|residential)$"](bbox);out geom;` contra los espejos de Overpass (con reintento del principal). Real: ~1 900 vías → **~884 puntos** en Ciudad Guzmán, el 86 % con nombre de calle.
+- **`encadenarVias(vias, toleranciaM)`** — OSM parte cada avenida en tramos por cada cruce; sin encadenar, cada tramo reiniciaba la cuenta de metros y las avenidas salían con puntos de más. Une los tramos que se tocan usando cubos espaciales, tolerancia 30 m.
+- **`puntosDesdeCadenas()` / `puntosDesdeVias()`** — reparte cada 400 m (el primero a mitad del primer tramo, igual que `distribuirPuntos`), filtra duplicados a **60 m** — un filtro de 300 m borraba puntos legítimos de calles paralelas de la cuadrícula del centro — y respeta el techo de puntos.
+- **Caché local de 7 días** (`localStorage`) — Overpass tarda y a veces falla; con copia local el mapa no vuelve a pedir nada en cada visita.
+
+En el mapa (Módulo 12) la capa se dibuja con un **renderer `L.canvas`** —cientos de círculos sin un nodo DOM por punto—, el botón `#btnRed` la oculta/muestra y el chip de estado informa honestamente ("copia local de OpenStreetMap" / "consultando OpenStreetMap…"). Cada punto lleva la calle real (`p.via`) y el estado **"Punto propuesto por el sistema"**: nunca se presentan como contenedores confirmados.
+
+**Pruebas:** `tests/red-ciudad.js` — 43 comprobaciones con calles sintéticas de longitud conocida: reparto, encadenado de tramos, calles paralelas, techo, etiquetado honesto y encuadre de la vista.
+
 ### 5.9 Módulo 12 — Mapa Leaflet (2440)
 
 Variables de estado del mapa:
 ```js
 let mapa = null;
 let capaRuta, capaPuntos, capaZonas, marcadorUsuario, marcadorCamion, marcadorSeleccion, rutaUsuario;
+let capaRed, lienzoRed;      // red urbana de toda la ciudad (Módulo 11b)
+let redPuntos = [];          // sus puntos (también los usa puntoMasCercano)
 let puntosActuales = [];    // puntos de la colonia activa
 let rutaActiva = null;      // ruta de la colonia activa
 let puntoSeleccionado = null;
@@ -630,10 +658,19 @@ mapa.on('click', function(e){
 });
 ```
 
-**`mapa.invalidateSize()`** — imprescindible al volver a la vista de mapa, porque el contenedor tenía `display: none` y Leaflet midió un tamaño de 0:
+**`mapa.invalidateSize()`** — imprescindible al volver a la vista de mapa, porque el contenedor tenía `display: none` y Leaflet midió un tamaño de 0. Al entrar al mapa también se pide la red urbana y, si ya está lista, se encuadra la ciudad:
+
 ```js
-if (v === 'mapa' && mapa) setTimeout(() => mapa.invalidateSize(), 80);
+if (v === 'mapa' && mapa){
+  setTimeout(function(){
+    mapa.invalidateSize();                          // el contenedor estuvo oculto
+    if (redPuntos.length) ajustarVistaRedCiudad();  // encuadrar la ciudad (una vez)
+  }, 80);
+  setTimeout(function(){ cargarRedCiudad(false); }, 2000);  // red urbana al entrar al mapa
+}
 ```
+
+**Lección de depuración (bug real):** al arrancar, `cargarRutaColonia()` terminaba llamando a `centrarEnRuta()`, que hacía `fitBounds()` **con el mapa aún oculto**. La vista quedaba encerrada en una esquina con zoom 18; al entrar al mapa, la red urbana entera quedaba fuera del encuadre y parecía que "el lienzo no pintaba". Dos arreglos: `centrarEnRuta()` no mueve la vista si `estado.vista !== 'mapa'`, y `ajustarVistaRedCiudad()` encuadra la red urbana completa una sola vez por carga de página (con `maxZoom: 14`, es una vista de ciudad, no de calle).
 
 ### 5.10 Módulo 13 — Ubicación (2673)
 
@@ -1073,6 +1110,10 @@ async function distribuirPuntos(geometria, intervalo){
 }
 ```
 Interpolar linealmente sobre la geometría, cada **400 m**, con tope de **40 puntos**. El campo `confirmado: false` y el `estado` textual son la garantía de honestidad: nadie puede confundir un punto calculado con un punto oficial del servicio de recolección.
+
+### 6.3 La red urbana — puntos en toda la ciudad, no solo en 6 colonias
+
+Ver [Módulo 11b](#58b-módulo-11b--red-urbana-de-puntos-toda-la-ciudad). La decisión de diseño que importa: **no se pide una consulta de Overpass por colonia** (82 consultas, lentísimo y con fronteras inexistentes); se piden las **calles reales de toda la ciudad** y los puntos nacen sobre ellas. El resultado se une a la colonia activa en `puntoMasCercano()` (`redPuntos.concat(puntosActuales)`), así que el punto más cercano ya no depende de qué colonia tengas cargada.
 
 ---
 
@@ -1639,7 +1680,7 @@ Cada insignia se evalúa con una **función `cond` sobre un contexto**, así que
 ### 10.2 `sw.js` — estrategia de caché
 
 ```js
-const CACHE = 'bym-v13';
+const CACHE = 'bym-v14';
 const PRECACHE = ['./', './index.html', './estilos.css', './app.js',
                   './manifest.webmanifest', './icon.svg',
                   './icon-192.png', './icon-512.png'];
@@ -1692,7 +1733,7 @@ caches.keys()
   .then(() => self.clients.claim());
 ```
 
-> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
+> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
 
 > **Por qué `Cache-Control: public, max-age=0, must-revalidate` en `/sw.js`** (en `vercel.json`): sin esa cabecera, el navegador puede cachear el propio service worker y seguir ejecutando la versión vieja indefinidamente. Con ella, el service worker siempre se revalida.
 

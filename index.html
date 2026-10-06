@@ -329,6 +329,7 @@
           <button type="button" class="mapa-ctrl" id="btnGPS" aria-label="Usar mi ubicación" title="Usar mi ubicación"><svg class="icono"><use href="#i-target"/></svg></button>
           <button type="button" class="mapa-ctrl" id="btnVerRuta" aria-label="Ver ruta de recolección" title="Ver ruta de recolección"><svg class="icono"><use href="#i-mapa"/></svg></button>
           <button type="button" class="mapa-ctrl" id="btnRecargarRuta" aria-label="Recargar ruta desde OpenStreetMap" title="Recargar ruta"><svg class="icono"><use href="#i-refresh"/></svg></button>
+          <button type="button" class="mapa-ctrl activo" id="btnRed" aria-label="Ver u ocultar los puntos de toda la ciudad" title="Red urbana: puntos de recolección en toda la ciudad"><svg class="icono"><use href="#i-capas"/></svg></button>
         </div>
         <div class="mapa-leyenda" aria-hidden="true">
           <span><span class="lg-ruta"></span> Ruta de recolección</span>
@@ -354,6 +355,7 @@
           </div>
 
           <div class="estado-ruta" id="estadoRutaChip"><span class="chip gris">Estado: sin ruta cargada</span></div>
+          <div class="estado-ruta" id="estadoRedChip"><span class="chip gris">Red urbana: se carga al abrir el mapa</span></div>
           <div class="info-grid">
             <div class="info-caja"><small>Ruta</small><strong id="infoRutaNombre">—</strong></div>
             <div class="info-caja"><small>Punto más cercano</small><strong id="infoPuntoCercano">—</strong></div>
@@ -372,13 +374,13 @@
             </button>
           </div>
           <div class="aviso-fuente" id="fuenteDatosTexto">
-            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong> sobre la ruta (cada 400 m aprox.). GPS de vehículo municipal: <strong>no conectado</strong>.
+            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong>: de la colonia activa (cada 400 m aprox. sobre su ruta) y de la <strong>red urbana de toda la ciudad</strong> (cada 400 m sobre las calles de OSM). No son contenedores municipales confirmados. GPS de vehículo municipal: <strong>no conectado</strong>.
           </div>
         </div>
 
         <div class="tarjeta">
           <h3 style="font-size:1rem">📍 Puntos de recolección <span class="chip gris" style="margin-left:.3rem">Propuestos por el sistema</span></h3>
-          <p class="seccion-sub">Distribuidos sobre la ruta real cada 400 m aprox. No son contenedores municipales confirmados.</p>
+          <p class="seccion-sub">Distribuidos sobre la ruta real cada 400 m aprox. El mapa muestra además la <strong>red urbana</strong>: puntos cada 400 m sobre las calles de toda la ciudad. Ninguno es un contenedor municipal confirmado.</p>
           <div class="lista-puntos" id="listaPuntos">
             <div class="vacio visible" style="padding:1.2rem"><p style="font-size:.85rem">Carga una ruta para ver sus puntos de recolección.</p></div>
           </div>
