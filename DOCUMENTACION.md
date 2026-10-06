@@ -121,7 +121,7 @@ Este documento es el mapa completo de la aplicación: qué archivos existen, qu�
 | Archivo | Bytes / Líneas | Función |
 |---|---|---|
 | `index.html` | 210 KB · 3 640 líneas | **Toda la aplicación.** HTML + CSS + JS |
-| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v15`, red-primero |
+| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v16`, red-primero |
 | `manifest.webmanifest` | 18 líneas | Metadatos de la PWA instalable |
 | `vercel.json` | 45 líneas | Cabeceras de seguridad y de caché |
 | `supabase-schema.sql` | 228 líneas | Espejo completo del esquema de BD (para replicarlo) |
@@ -620,14 +620,15 @@ const RED_CIUDAD = {
 
 Piezas del módulo:
 
-- **`overpassRedCiudad()`** — una consulta `way["highway"~"^(primary|secondary|tertiary|residential)$"](bbox);out geom;` contra los espejos de Overpass (con reintento del principal). Real: ~1 900 vías → **~884 puntos** en Ciudad Guzmán, el 86 % con nombre de calle.
+- **`overpassRedCiudad()`** — una consulta `way["highway"~"^(primary|secondary|tertiary|residential)$"](bbox);out geom;`. El orden de servidores está medido, no supuesto: **el principal va primero, con un reintento corto de 15 s**, y los espejos comunitarios AL FINAL — medido en producción (octubre 2026), el principal respondía HTTP 200 en ~5 s mientras kumi y private.coffee colgaban más de 75 s, así que el orden viejo (espejos primero) multiplicaba el tiempo de fallo. Real: ~1 900 vías → **~884 puntos** en Ciudad Guzmán, el 86 % con nombre de calle.
+- **El chip rojo es un botón de reintento.** Si todos los servidores fallan, el chip `🔴 Red urbana` queda clicable: un toque reintentan al instante (`cargarRedCiudad(true)`), sin salir del mapa ni esperar el cooldown de 60 s. Al recuperarse, el chip vuelve a verde y deja de ser botón. La prueba lo ejercita de verdad: con un `fetch` falso que primero rechaza siempre y después falla UNA vez (un 504 transitorio) y responde.
 - **`encadenarVias(vias, toleranciaM)`** — OSM parte cada avenida en tramos por cada cruce; sin encadenar, cada tramo reiniciaba la cuenta de metros y las avenidas salían con puntos de más. Une los tramos que se tocan usando cubos espaciales, tolerancia 30 m.
 - **`puntosDesdeCadenas()` / `puntosDesdeVias()`** — reparte cada 400 m (el primero a mitad del primer tramo, igual que `distribuirPuntos`), filtra duplicados a **60 m** — un filtro de 300 m borraba puntos legítimos de calles paralelas de la cuadrícula del centro — y respeta el techo de puntos.
 - **Caché local de 7 días** (`localStorage`) — Overpass tarda y a veces falla; con copia local el mapa no vuelve a pedir nada en cada visita.
 
 En el mapa (Módulo 12) la capa se dibuja con un **renderer `L.canvas`** —cientos de círculos sin un nodo DOM por punto—, el botón `#btnRed` la oculta/muestra y el chip de estado informa honestamente ("copia local de OpenStreetMap" / "consultando OpenStreetMap…"). Cada punto lleva la calle real (`p.via`) y el estado **"Punto propuesto por el sistema"**: nunca se presentan como contenedores confirmados.
 
-**Pruebas:** `tests/red-ciudad.js` — 43 comprobaciones con calles sintéticas de longitud conocida: reparto, encadenado de tramos, calles paralelas, techo, etiquetado honesto y encuadre de la vista.
+**Pruebas:** `tests/red-ciudad.js` — 52 comprobaciones con calles sintéticas de longitud conocida: reparto, encadenado de tramos, calles paralelas, techo, etiquetado honesto, encuadre de la vista y la recuperación completa tras un fallo de Overpass (orden de servidores, chip de reintento, retorno a verde).
 
 ### 5.8c Módulo 11c — Colonias del catálogo en el mapa
 
@@ -1716,7 +1717,7 @@ Cada insignia se evalúa con una **función `cond` sobre un contexto**, así que
 ### 10.2 `sw.js` — estrategia de caché
 
 ```js
-const CACHE = 'bym-v15';
+const CACHE = 'bym-v16';
 const PRECACHE = ['./', './index.html', './estilos.css', './app.js',
                   './manifest.webmanifest', './icon.svg',
                   './icon-192.png', './icon-512.png'];
@@ -1769,7 +1770,7 @@ caches.keys()
   .then(() => self.clients.claim());
 ```
 
-> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14` → `bym-v15`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
+> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14` → `bym-v15` → `bym-v16`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
 
 > **Por qué `Cache-Control: public, max-age=0, must-revalidate` en `/sw.js`** (en `vercel.json`): sin esa cabecera, el navegador puede cachear el propio service worker y seguir ejecutando la versión vieja indefinidamente. Con ella, el service worker siempre se revalida.
 

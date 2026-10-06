@@ -1520,15 +1520,22 @@ function guardarCacheRed(puntos){
   } catch(e){ /* sin espacio: la red se vuelve a pedir la próxima vez */ }
 }
 
-/** Una sola consulta por TODA la ciudad (no 82 por colonia). */
+/** Una sola consulta por TODA la ciudad (no 82 por colonia).
+    Medido en producción: el principal tarda ~5-15 s y los espejos
+    comunitarios a veces cuelgan >75 s, así que el orden es principal
+    primero (con un reintento corto para sus 504 transitorios) y los
+    espejos AL FINAL, cuando el principal está caído de verdad. */
 async function overpassRedCiudad(){
   const q = '[out:json][timeout:60];way["highway"~"^(' + RED_CIUDAD.tags.join('|') +
     ')$"](' + RED_CIUDAD.bbox + ');out geom;';
-  const servidores = SERVIDORES_OVERPASS.concat([SERVIDORES_OVERPASS[0]]);
+  const principal = SERVIDORES_OVERPASS[0];
+  const servidores = [principal, principal].concat(SERVIDORES_OVERPASS.slice(1));
   let ultimoError = null;
-  for (const servidor of servidores){
+  for (let i = 0; i < servidores.length; i++){
     try {
-      const r = await fetchConTimeout(servidor + encodeURIComponent(q), 45000);
+      // El reintento del principal es corto: si el fallo es transitorio
+      // responde en segundos; si cuelga de nuevo, mejor saltar a los espejos.
+      const r = await fetchConTimeout(servidores[i] + encodeURIComponent(q), i === 1 ? 15000 : 45000);
       if (!r.ok) throw new Error('Overpass no respondió (' + r.status + ')');
       const j = await r.json();
       const vias = (j.elements || []).filter(function(e){ return e.type === 'way' && e.geometry && e.geometry.length > 1; });
@@ -1691,7 +1698,7 @@ let rutaActiva = null;     // ruta de la colonia activa
 let puntoSeleccionado = null;
 let capaRed = null, lienzoRed = null;   // red urbana: puntos de toda la ciudad
 let redPuntos = [];                     // puntos de la red urbana (Módulo 11b)
-let redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false;
+let redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false, redUltimoError = 0;
 let capaColonias, coloniasVisible = true, coloniaPorColocar = null, capaSugerencia = null;
 
 function iconoPunto(num, seleccion){
@@ -1793,6 +1800,17 @@ function pintarChipRed(titulo, detalle, fuente){
   const c1 = document.createElement('span');
   c1.className = 'chip ' + (redPuntos.length ? 'verde' : 'ambar');
   c1.textContent = titulo + (detalle ? ': ' + detalle : '');
+  // Si el último intento falló, el chip queda clicable: un toque reintenta
+  // al instante, sin salir del mapa ni esperar el cooldown de 60 s.
+  if (redUltimoError && !redCargando){
+    c1.style.cursor = 'pointer';
+    c1.setAttribute('role', 'button');
+    c1.setAttribute('tabindex', '0');
+    c1.addEventListener('click', function(){
+      redUltimoError = 0;
+      cargarRedCiudad(true);
+    });
+  }
   cont.appendChild(c1);
   if (fuente){
     const c2 = document.createElement('span'); c2.className = 'chip gris'; c2.textContent = fuente;
@@ -2010,13 +2028,20 @@ async function cargarRedCiudad(forzar){
       separacionMinM: RED_CIUDAD.separacionMinM
     });
     guardarCacheRed(redPuntos);
+    redUltimoError = 0;   // éxito: el chip vuelve a ser un estado, no un botón
     pintarRedCiudad();
     pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', vias.length + ' vialidades de OpenStreetMap');
     ajustarVistaRedCiudad();
   } catch(e){
-    pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió; vuelve a entrar al mapa en un minuto para reintentar', '');
+    redUltimoError = Date.now();
   } finally {
     redCargando = false;
+    // El chip se repinta YA terminada la carga (si sigue rojo, sale clicable):
+    // pintarlo dentro del catch dejaría el botón muerto mientras redCargando
+    // todavía era true.
+    if (redUltimoError){
+      pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió; toca este aviso para reintentar (o vuelve a entrar al mapa en un minuto)', '');
+    }
   }
 }
 

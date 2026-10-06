@@ -23,8 +23,11 @@ function comprobar(nombre, cond, detalle){
 
 /* ---------- Se extrae el código real de app.js ---------- */
 function extraer(nombre){
-  const desde = SRC.indexOf('function ' + nombre + '(');
+  let desde = SRC.indexOf('function ' + nombre + '(');
   if (desde < 0) throw new Error('No se encontró ' + nombre + ' en app.js');
+  // Las funciones async se declaran "async function nombre(": el corte debe
+  // incluir el prefijo, o el cuerpo con await no compila.
+  if (SRC.slice(Math.max(0, desde - 6), desde) === 'async ') desde -= 6;
   return SRC.slice(desde).split(/\r?\n\}\r?\n/)[0] + '\n}';
 }
 const RED_SRC = SRC.match(/const RED_CIUDAD = \{[\s\S]*?\n\};/)[0];
@@ -209,5 +212,92 @@ console.log('\n8 · Al abrir el mapa se ve toda la ciudad, no una esquina');
     'llamadas: ' + (SRC.match(/ajustarVistaRedCiudad\(\);/g) || []).length);
 }
 
-console.log('\n' + (fallos ? 'FALLOS: ' + fallos : 'Todo en orden: ') + ok + ' comprobaciones, ' + fallos + ' fallos.');
-process.exit(fallos ? 1 : 0);
+console.log('\n9 · Cuando OpenStreetMap falla, la app se recupera sola');
+(async function(){
+  // Medición real (octubre 2026): overpass-api.de respondió HTTP 200 en ~5 s
+  // mientras kumi.systems y private.coffee colgaban más de 75 s. Con el orden
+  // viejo (espejos primero), un mal rato de los espejos bastaba para el chip
+  // rojo aunque el principal estuviera perfecto.
+  const ordenFuente = extraer('overpassRedCiudad');
+  comprobar('el principal va PRIMERO en la lista de servidores',
+    ordenFuente.includes('[principal, principal].concat(SERVIDORES_OVERPASS.slice(1))'));
+  comprobar('el reintento del principal es corto (15 s): un 504 transitorio no debe costar 45',
+    /i === 1 \? 15000 : 45000/.test(ordenFuente));
+  comprobar('el chip de fallo ofrece reintentar con un toque (no obliga a salir del mapa)',
+    extraer('pintarChipRed').includes('cargarRedCiudad(true)'));
+
+  // Ejecución real con fetch falso: la cadena completa
+  // cargarRedCiudad → overpassRedCiudad → fetchConTimeout → fetch.
+  function falsoElemento(){
+    return {
+      style: {}, listeners: {}, hijos: [], _txt: '', _cn: '',
+      set textContent(v){ this._txt = v; }, get textContent(){ return this._txt; },
+      set className(v){ this._cn = v; }, get className(){ return this._cn; },
+      set innerHTML(v){ if (v === '') this.hijos = []; },
+      setAttribute(){},
+      addEventListener(t, f){ this.listeners[t] = f; },
+      appendChild(c){ this.hijos.push(c); return c; }
+    };
+  }
+  const d = {};
+  d.document = { createElement: function(){ return falsoElemento(); } };
+  // OJO: las const internas del sandbox se evalúan al COMPILAR la Function,
+  // así que sus valores deben estar en d ANTES de invocarla (moverlas después
+  // dejaba RED_CIUDAD undefined y el fetch falso nunca se llamaba).
+  d.SERVIDORES_OVERPASS = ['https://principal.example/api', 'https://espejo.example/api'];
+  d.RED_CIUDAD = RED_CIUDAD;
+  d.puntosFalsos = [{ lat: 19.7, lng: -103.47, via: 'Av. de Prueba' }];
+  d.contenedor = falsoElemento();
+  Function('d',
+    'var fetch = d.fetch;\n' +
+    'let capaRed = {}, redPuntos = [], redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false, redUltimoError = 0;\n' +
+    extraer('fetchConTimeout') + '\n' + extraer('overpassRedCiudad') + '\n' +
+    extraer('pintarChipRed') + '\n' + extraer('cargarRedCiudad') + '\n' +
+    'const SERVIDORES_OVERPASS = d.SERVIDORES_OVERPASS;\n' +
+    'const RED_CIUDAD = d.RED_CIUDAD;\n' +
+    'const document = d.document;\n' +
+    'function $(sel){ return d.contenedor; }\n' +
+    'function pintarRedCiudad(){}\n' +
+    'function ajustarVistaRedCiudad(){}\n' +
+    'function leerCacheRed(){ return null; }\n' +
+    'function guardarCacheRed(p){ d.cacheGuardada = p.length; }\n' +
+    'function puntosDesdeVias(){ return d.puntosFalsos; }\n' +
+    'd.estado = { get puntos(){ return redPuntos; }, get cargando(){ return redCargando; }, get ultimoError(){ return redUltimoError; } };\n' +
+    'd.cargar = function(forzar){ return cargarRedCiudad(forzar); };\n' +
+    'd.usarFetch = function(f){ fetch = f; };'
+  )(d);
+  const viaJson = { elements: [{ type: 'way', geometry: [{ lat: 19.7, lon: -103.47 }, { lat: 19.705, lon: -103.47 }], tags: { name: 'Av. de Prueba' } }] };
+
+  // Paso 1: el servicio caído rechaza SIEMPRE → chip rojo con reintento.
+  d.usarFetch(function(){ return Promise.reject(new Error('sin servicio')); });
+  await d.cargar(true);
+  const chipRojo = d.contenedor.hijos[0];
+  comprobar('con el servicio caído, el chip informa y queda clicable',
+    chipRojo && chipRojo.textContent.indexOf('no respondió') !== -1 && !!chipRojo.listeners.click,
+    'chip: ' + (chipRojo ? chipRojo.textContent : 'ninguno'));
+  comprobar('quedó registrado el fallo para el reintento', d.estado.ultimoError > 0);
+
+  // Paso 2: el toque en el chip reintenta; el principal falla UNA vez y luego
+  // responde (un 504 transitorio de verdad).
+  let intentos = 0;
+  d.usarFetch(function(){
+    intentos++;
+    return intentos === 1 ? Promise.reject(new Error('504'))
+      : Promise.resolve({ ok: true, json: async function(){ return viaJson; } });
+  });
+  chipRojo.listeners.click();
+  await new Promise(function(r){ setTimeout(r, 20); });
+  comprobar('el reintento volvió a intentar el principal (2 llamadas al falso fetch)', intentos >= 2, 'intentos: ' + intentos);
+  comprobar('la red urbana se recuperó: 1 punto cargado y en caché',
+    d.estado.puntos.length === 1 && d.cacheGuardada === 1, 'puntos: ' + d.estado.puntos.length);
+  comprobar('el chip volvió a verde y ya no es un botón',
+    d.contenedor.hijos[0].textContent.indexOf('🟢') !== -1 && !d.contenedor.hijos[0].listeners.click);
+  comprobar('la carga terminó (sin estado colgado)', d.estado.cargando === false);
+})().then(function(){
+  console.log('\n' + (fallos ? 'FALLOS: ' + fallos : 'Todo en orden: ') + ok + ' comprobaciones, ' + fallos + ' fallos.');
+  process.exit(fallos ? 1 : 0);
+}, function(err){
+  console.log('  FALLA la sección 9 no debió lanzar: ' + err.message);
+  console.log('FALLOS: ' + (fallos + 1));
+  process.exit(1);
+});
