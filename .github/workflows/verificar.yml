@@ -59,7 +59,7 @@ jobs:
         run: node --check app.js && node --check sw.js
 
       - name: Sintaxis de la función /api/eco y de sus herramientas
-        run: node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js && node --check tests/red-ciudad.js && node --check tests/colonias-mapa.js && node --check tools/ubicar-colonias.js
+        run:          node --check api/eco.js && node --check tools/dev-server.js && node --check tests/eco-api.js && node --check tests/eco-reglas.js && node --check tests/sw-cache.js && node --check tests/sw-cache-atrapa.js && node --check tests/red-ciudad.js && node --check tests/colonias-mapa.js && node --check tools/ubicar-colonias.js && node --check tools/hornear-red.js
 
       - name: La clave de la IA no está en el repositorio
         run: |
@@ -218,6 +218,15 @@ jobs:
           # como ubicación de la colonia: solo como sugerencia.
           node tests/colonias-mapa.js
           echo "OK: el catálogo de colonias está en el mapa sin inventar datos."
+
+      - name: La red urbana tiene copia de respaldo horneada
+        run: |
+          set -e
+          # Sobrevivir a un mal rato de Overpass: la copia estática
+          # (red-ciudad.json, vías reales con fecha y consulta) existe,
+          # trae suficientes vías y la app sabe usarla cuando todo falla.
+          node tests/red-ciudad.js
+          node -e "const j=JSON.parse(require('fs').readFileSync('red-ciudad.json','utf8')); if(j.vias.length<500) process.exit(1); console.log('OK: copia estática de la red vial con ' + j.vias.length + ' vías (generada ' + j.generado + ').')"
 
       # ── E2E real contra Supabase ───────────────────────────────
       - name: Comprobar el secreto de Supabase

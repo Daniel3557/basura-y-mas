@@ -11,12 +11,13 @@
    · /api/ (Eco con IA): nunca a la caché. Una respuesta del modelo no se
      puede guardar: sería una conversación congelada y además es lo único
      que depende de una clave del servidor. */
-const CACHE = 'bym-v16';
+const CACHE = 'bym-v17';
 const PRECACHE = [
   './',
   './index.html',
   './estilos.css',      // desde P4.16 el CSS vive fuera del HTML
   './app.js',           // y el JS también
+  './red-ciudad.json',  // copia estática de la red vial (respaldo de Overpass)
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',

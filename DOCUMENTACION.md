@@ -121,7 +121,7 @@ Este documento es el mapa completo de la aplicación: qué archivos existen, qu�
 | Archivo | Bytes / Líneas | Función |
 |---|---|---|
 | `index.html` | 210 KB · 3 640 líneas | **Toda la aplicación.** HTML + CSS + JS |
-| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v16`, red-primero |
+| `sw.js` | 82 líneas | Service worker: PWA, caché `bym-v17`, red-primero |
 | `manifest.webmanifest` | 18 líneas | Metadatos de la PWA instalable |
 | `vercel.json` | 45 líneas | Cabeceras de seguridad y de caché |
 | `supabase-schema.sql` | 228 líneas | Espejo completo del esquema de BD (para replicarlo) |
@@ -626,7 +626,9 @@ Piezas del módulo:
 - **`puntosDesdeCadenas()` / `puntosDesdeVias()`** — reparte cada 400 m (el primero a mitad del primer tramo, igual que `distribuirPuntos`), filtra duplicados a **60 m** — un filtro de 300 m borraba puntos legítimos de calles paralelas de la cuadrícula del centro — y respeta el techo de puntos.
 - **Caché local de 7 días** (`localStorage`) — Overpass tarda y a veces falla; con copia local el mapa no vuelve a pedir nada en cada visita.
 
-En el mapa (Módulo 12) la capa se dibuja con un **renderer `L.canvas`** —cientos de círculos sin un nodo DOM por punto—, el botón `#btnRed` la oculta/muestra y el chip de estado informa honestamente ("copia local de OpenStreetMap" / "consultando OpenStreetMap…"). Cada punto lleva la calle real (`p.via`) y el estado **"Punto propuesto por el sistema"**: nunca se presentan como contenedores confirmados.
+En el mapa (Módulo 12) la capa se dibuja con un **renderer `L.canvas`** —cientos de círculos sin un nodo DOM por punto—, el botón `#btnRed` la oculta/muestra y el chip de estado informa honestamente ("copia local de OpenStreetMap" / "consultando OpenStreetMap…" / "copia estática de OpenStreetMap (Overpass no respondió)"). Cada punto lleva la calle real (`p.via`) y el estado **"Punto propuesto por el sistema"**: nunca se presentan como contenedores confirmados.
+
+**Tres capítulos de respaldo** (en orden): caché local de 7 días → Overpass (principal primero, reintento corto, espejos al final) → **copia estática horneada** `red-ciudad.json`, generada con `node tools/hornear-red.js` a partir de la respuesta real de Overpass (1 905 vías, con fecha y consulta exacta dentro del archivo; el SW la precachea). Solo si las tres fallan, el chip rojo queda clicable para reclamar un reintento. Nada inventado: la copia estática es la misma captura de OpenStreetMap, congelada con procedencia.
 
 **Pruebas:** `tests/red-ciudad.js` — 52 comprobaciones con calles sintéticas de longitud conocida: reparto, encadenado de tramos, calles paralelas, techo, etiquetado honesto, encuadre de la vista y la recuperación completa tras un fallo de Overpass (orden de servidores, chip de reintento, retorno a verde).
 
@@ -1717,8 +1719,9 @@ Cada insignia se evalúa con una **función `cond` sobre un contexto**, así que
 ### 10.2 `sw.js` — estrategia de caché
 
 ```js
-const CACHE = 'bym-v16';
+const CACHE = 'bym-v17';
 const PRECACHE = ['./', './index.html', './estilos.css', './app.js',
+                  './red-ciudad.json',
                   './manifest.webmanifest', './icon.svg',
                   './icon-192.png', './icon-512.png'];
 ```
@@ -1770,7 +1773,7 @@ caches.keys()
   .then(() => self.clients.claim());
 ```
 
-> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → `bym-v13` → `bym-v14` → `bym-v15` → `bym-v16`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
+> **Versionado:** cada cambio de estrategia sube el nombre (`bym-v3` → … → `bym-v16` → `bym-v17`). Es la única forma de invalidar la caché de forma determinista. **Regla para el futuro: si cambias `sw.js`, sube `CACHE`.**
 
 > **Por qué `Cache-Control: public, max-age=0, must-revalidate` en `/sw.js`** (en `vercel.json`): sin esa cabecera, el navegador puede cachear el propio service worker y seguir ejecutando la versión vieja indefinidamente. Con ella, el service worker siempre se revalida.
 

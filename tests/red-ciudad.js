@@ -252,6 +252,7 @@ console.log('\n9 · Cuando OpenStreetMap falla, la app se recupera sola');
     'var fetch = d.fetch;\n' +
     'let capaRed = {}, redPuntos = [], redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false, redUltimoError = 0;\n' +
     extraer('fetchConTimeout') + '\n' + extraer('overpassRedCiudad') + '\n' +
+    extraer('redDesdeCopiaHorneada') + '\n' +
     extraer('pintarChipRed') + '\n' + extraer('cargarRedCiudad') + '\n' +
     'const SERVIDORES_OVERPASS = d.SERVIDORES_OVERPASS;\n' +
     'const RED_CIUDAD = d.RED_CIUDAD;\n' +
@@ -293,6 +294,78 @@ console.log('\n9 · Cuando OpenStreetMap falla, la app se recupera sola');
   comprobar('el chip volvió a verde y ya no es un botón',
     d.contenedor.hijos[0].textContent.indexOf('🟢') !== -1 && !d.contenedor.hijos[0].listeners.click);
   comprobar('la carga terminó (sin estado colgado)', d.estado.cargando === false);
+
+  // La última línea de defensa: la copia estática horneada del repositorio
+  // (tools/hornear-red.js). Con Overpass caído, la ciudad sale igual.
+  comprobar('existe el respaldo a la copia estática (redDesdeCopiaHorneada)',
+    SRC.includes('function redDesdeCopiaHorneada') && /red-ciudad\.json/.test(SRC));
+  comprobar('la copia horneada existe y trae vías de verdad',
+    (() => { try { const j = JSON.parse(fs.readFileSync('red-ciudad.json', 'utf8')); return j.fuente === 'OpenStreetMap vía Overpass API' && j.vias.length >= 500 && j.generado; } catch(e){ return false; } })(),
+    'revísala con: node tools/hornear-red.js');
+  comprobar('la copia horneada lleva su procedencia (fecha y consulta)',
+    (() => { try { const j = JSON.parse(fs.readFileSync('red-ciudad.json', 'utf8')); return !!j.generado && /out geom;/.test(j.consulta || ''); } catch(e){ return false; } })());
+  comprobar('el respaldo corre ANTES de declarar el fallo (solo rojo sin copia)',
+    SRC.indexOf('redDesdeCopiaHorneada()') < SRC.indexOf('redUltimoError = Date.now()') || extraer('cargarRedCiudad').indexOf('redDesdeCopiaHorneada()') < extraer('cargarRedCiudad').lastIndexOf('redUltimoError = Date.now()'));
+  comprobar('el service worker precachea la copia estática',
+    fs.readFileSync('sw.js', 'utf8').includes("'./red-ciudad.json'"));
+
+  // Ejecución real del respaldo: Overpass SIEMPRE caído, primero sin copia
+  // y después con la copia horneada del disco (vías reales).
+  const d2 = {};
+  d2.document = { createElement: function(){ return falsoElemento(); } };
+  d2.SERVIDORES_OVERPASS = ['https://principal.example/api', 'https://espejo.example/api'];
+  d2.RED_CIUDAD = RED_CIUDAD;
+  d2.puntosFalsos = [{ lat: 19.7, lng: -103.47, via: 'Calle Horneada' }];
+  d2.contenedor = falsoElemento();
+  Function('d',
+    'var fetch = d.fetch;\n' +
+    'let capaRed = {}, redPuntos = [], redVisible = true, redCargando = false, redUltimoIntento = 0, redAjustada = false, redUltimoError = 0;\n' +
+    extraer('fetchConTimeout') + '\n' + extraer('overpassRedCiudad') + '\n' +
+    extraer('redDesdeCopiaHorneada') + '\n' + extraer('pintarChipRed') + '\n' + extraer('cargarRedCiudad') + '\n' +
+    'const SERVIDORES_OVERPASS = d.SERVIDORES_OVERPASS;\n' +
+    'const RED_CIUDAD = d.RED_CIUDAD;\n' +
+    'const document = d.document;\n' +
+    'function $(sel){ return d.contenedor; }\n' +
+    'function pintarRedCiudad(){}\n' +
+    'function ajustarVistaRedCiudad(){}\n' +
+    'function leerCacheRed(){ return null; }\n' +
+    'function guardarCacheRed(p){ d.cacheGuardada = p.length; }\n' +
+    'function puntosDesdeVias(){ return d.puntosFalsos; }\n' +
+    'd.estado = { get puntos(){ return redPuntos; }, get cargando(){ return redCargando; }, get ultimoError(){ return redUltimoError; } };\n' +
+    'd.cargar = function(forzar){ return cargarRedCiudad(forzar); };\n' +
+    'd.usarFetch = function(f){ fetch = f; };\n'
+  )(d2);
+  const overpassCaido = function(){ return Promise.reject(new Error('Overpass caído de verdad')); };
+  // Paso A: Overpass caído y la copia inalcanzable → rojo clicable, sin puntos.
+  d2.usarFetch(overpassCaido);
+  await d2.cargar(true);
+  comprobar('sin Overpass y sin copia: chip rojo clicable (honesto, sin puntos inventados)',
+    d2.contenedor.hijos.length === 1 &&
+    d2.contenedor.hijos[0].textContent.indexOf('no respondió') !== -1 &&
+    !!d2.contenedor.hijos[0].listeners.click &&
+    d2.estado.puntos.length === 0,
+    'chip: ' + (d2.contenedor.hijos[0] ? d2.contenedor.hijos[0].textContent.slice(0, 40) : 'ninguno'));
+  // Paso B: la copia horneada responde con vías reales del disco → verde.
+  d2.contenedor.hijos = [];
+  let pidioCopia = 0;
+  d2.usarFetch(function(url){
+    if (String(url).indexOf('red-ciudad.json') !== -1){
+      pidioCopia++;
+      return Promise.resolve({ ok: true, json: async function(){
+        const disco = JSON.parse(fs.readFileSync('red-ciudad.json', 'utf8'));
+        return { elements: disco.vias.slice(0, 5) };   // 5 vías reales bastan para la prueba
+      } });
+    }
+    return overpassCaido();
+  });
+  await d2.cargar(true);
+  comprobar('con Overpass caído, la copia horneada levanta la red',
+    d2.estado.puntos.length === 1 && pidioCopia >= 1, 'puntos: ' + d2.estado.puntos.length);
+  comprobar('la copia horneada también entra a la caché local de 7 días', d2.cacheGuardada === 1);
+  comprobar('el chip verde con copia declara su fuente honestamente',
+    d2.contenedor.hijos.length === 2 && d2.contenedor.hijos[1].textContent.indexOf('copia estática') !== -1,
+    'chips: ' + d2.contenedor.hijos.map(function(h){ return h.textContent.slice(0, 40); }).join(' | '));
+  comprobar('el chip verde no quedó clicable tras el éxito', !d2.contenedor.hijos[0].listeners.click);
 })().then(function(){
   console.log('\n' + (fallos ? 'FALLOS: ' + fallos : 'Todo en orden: ') + ok + ' comprobaciones, ' + fallos + ' fallos.');
   process.exit(fallos ? 1 : 0);

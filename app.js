@@ -1546,6 +1546,20 @@ async function overpassRedCiudad(){
   throw ultimoError || new Error('Overpass no disponible');
 }
 
+/** Respaldo cuando Overpass está saturado: la copia estática horneada en
+    el repositorio (tools/hornear-red.js) con las MISMAS calles de verdad,
+    congeladas el día del horneado. Nada inventado: es la captura real de
+    OpenStreetMap, con fecha y consulta dentro del propio archivo. */
+async function redDesdeCopiaHorneada(){
+  try {
+    const r = await fetchConTimeout('red-ciudad.json', 10000);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const vias = (j.elements || j.vias || []).filter(function(e){ return e.type === 'way' && e.geometry && e.geometry.length > 1; });
+    return vias.length ? vias : null;
+  } catch(e){ return null; }
+}
+
 /** Encadena vías que se tocan (en OSM una avenida larga viene partida en
     tramos por cada cruce) para que la cuenta de metros siga por la calle
     en vez de reiniciarse en cada tramo. Devuelve CADENAS: listas de
@@ -2033,7 +2047,21 @@ async function cargarRedCiudad(forzar){
     pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', vias.length + ' vialidades de OpenStreetMap');
     ajustarVistaRedCiudad();
   } catch(e){
-    redUltimoError = Date.now();
+    // Overpass falló (o colgó): antes de rendirse, la copia horneada.
+    const vias = await redDesdeCopiaHorneada();
+    if (vias){
+      redPuntos = puntosDesdeVias(vias, {
+        intervaloM: RED_CIUDAD.intervaloM, maxPuntos: RED_CIUDAD.maxPuntos,
+        separacionMinM: RED_CIUDAD.separacionMinM
+      });
+      guardarCacheRed(redPuntos);
+      redUltimoError = 0;
+      pintarRedCiudad();
+      pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', 'copia estática de OpenStreetMap (Overpass no respondió)');
+      ajustarVistaRedCiudad();
+    } else {
+      redUltimoError = Date.now();
+    }
   } finally {
     redCargando = false;
     // El chip se repinta YA terminada la carga (si sigue rojo, sale clicable):
