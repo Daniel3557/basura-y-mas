@@ -38,6 +38,7 @@ function extraer(nombre){
 const COLONIAS = Function('"use strict"; return ' + SRC.match(/const COLONIAS = (\[[\s\S]*?\]);/)[1])();
 const ZONAS = Function('"use strict"; return ' + SRC.match(/const ZONAS = (\{[\s\S]*?\n\});/)[1])();
 const UBICACION = Function('"use strict"; return ' + SRC.match(/const UBICACION_COLONIAS = (\[[\s\S]*?\]);/)[1])();
+const EQUIPO = Function('"use strict"; return ' + SRC.match(/const UBICACIONES_EQUIPO_HORNEADAS = (\{[\s\S]*?\n\});/)[1])();
 
 /* localStorage de prueba para las funciones que lo leen */
 const almacenPrueba = {};
@@ -55,6 +56,7 @@ Function('d',
   /* la constante va DECLARADA en el sandbox: las funciones la leen como
      variable libre, y una propiedad de `d` no es alcance léxico real */
   'const CLAVE_UBICACIONES_EQUIPO = "' + CLAVE + '";' +
+  'const UBICACIONES_EQUIPO_HORNEADAS = ' + JSON.stringify(EQUIPO) + ';' +
   extraer('leerUbicacionesEquipo') + '\n' + extraer('coloniasPendientes') + '\n' +
   extraer('centroDeZona') +
   '; d.leerUbicacionesEquipo = leerUbicacionesEquipo; d.coloniasPendientes = coloniasPendientes;' +
@@ -90,6 +92,14 @@ console.log('\n1 · Los datos horneados son verificados, no inventados');
     lugares.length === 13 && calles.length === 18, 'lugar: ' + lugares.length + ', calle: ' + calles.length);
   comprobar('ninguna colonia de ZONAS se duplica en UBICACION_COLONIAS (usa su polígono)',
     UBICACION.every(u => Object.keys(ZONAS).every(k => ZONAS[k].nombre !== u[0])));
+  comprobar('las ubicaciones horneadas del equipo son colonias del catálogo y caen en la ciudad',
+    Object.keys(EQUIPO).length > 0 &&
+    Object.keys(EQUIPO).every(n => nombresCatalogo.indexOf(n) !== -1) &&
+    Object.keys(EQUIPO).every(n => { const [la, ln] = EQUIPO[n]; return la > BBOX.latS && la < BBOX.latN && ln > BBOX.lngO && ln < BBOX.lngE; }),
+    Object.keys(EQUIPO).filter(n => nombresCatalogo.indexOf(n) === -1).join('|'));
+  comprobar('ninguna colonia de ZONAS se duplica en las horneadas del equipo (usa su polígono)',
+    Object.keys(EQUIPO).every(n => Object.keys(ZONAS).every(k => ZONAS[k].nombre !== n)),
+    Object.keys(EQUIPO).filter(n => Object.keys(ZONAS).some(k => ZONAS[k].nombre === n)).join('|'));
   comprobar('el generador queda en el repositorio (procedencia reproducible)',
     fs.existsSync('tools/ubicar-colonias.js'));
 }
@@ -106,17 +116,22 @@ console.log('\n2 · La calle con el mismo nombre NO es la colonia');
     /x\[2\] === 'calle'/.test(extraer('mostrarSugerencia')));
 }
 
-console.log('\n3 · Quedan 63 colonias por ubicar y el flujo las guarda');
+console.log('\n3 · Catálogo completo: 0 colonias por ubicar y el flujo de guardado sigue sano');
 {
-  comprobar('quedan 63 colonias sin ubicar (77 - 13 sólidas - Centro con polígono)',
-    coloniasPendientes().length === 63, 'salieron ' + coloniasPendientes().length);
-  comprobar('ninguna pendiente tiene ya un lugar en OSM',
-    coloniasPendientes().every(n => !UBICACION.some(u => u[0] === n && u[2] === 'lugar')));
-  const antes = coloniasPendientes();
-  guardadoConStub(antes[0], { lat: 19.712345, lng: -103.461234 });
-  const despues = coloniasPendientes();
-  comprobar('guardarUbicacionEquipo saca la colonia de pendientes', despues.length === antes.length - 1);
-  const u = leerUbicacionesEquipo()[antes[0]];
+  comprobar('quedan 0 colonias sin ubicar (catálogo completo: 5 últimas del equipo Valle-Villas)',
+    coloniasPendientes().length === 0, 'salieron ' + coloniasPendientes().length + ': ' + coloniasPendientes().join('|'));
+  const enZonas = Object.keys(ZONAS).map(k => ZONAS[k].nombre);
+  const enOsm = UBICACION.filter(u => u[2] === 'lugar').map(u => u[0]);
+  const enEquipo = Object.keys(EQUIPO);
+  const faltan = COLONIAS.filter(n => enZonas.indexOf(n) === -1 && enOsm.indexOf(n) === -1 && enEquipo.indexOf(n) === -1);
+  comprobar('el catálogo completo está en el mapa (77 = ZONAS + OSM + equipo, sin huecos)',
+    faltan.length === 0, 'faltan: ' + faltan.join('|'));
+  /* Con el catálogo completo ya no hay pendientes que sacar: se verifica
+     el round-trip re-guardando una colonia horneada (sobrescribe su punto). */
+  const objetivo = coloniasPendientes()[0] || 'Valle de Zapotlán';
+  guardadoConStub(objetivo, { lat: 19.712345, lng: -103.461234 });
+  comprobar('guardarUbicacionEquipo deja la colonia fuera de pendientes', coloniasPendientes().length === 0);
+  const u = leerUbicacionesEquipo()[objetivo];
   comprobar('la ubicación del equipo queda redondeada a 6 decimales',
     u && u[0] === 19.712345 && u[1] === -103.461234, JSON.stringify(u));
   comprobar('el punto del equipo entra al mapa (pintarCapaColonias lee el storage)',

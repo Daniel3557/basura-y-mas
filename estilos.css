@@ -298,6 +298,10 @@ main{padding:calc(var(--header-h) + var(--s4)) .9rem calc(var(--nav-h) + var(--s
 .btn-borde:hover:not(:disabled){color:var(--primary);border-color:var(--g-300);background:color-mix(in srgb,var(--g-100) 26%,transparent);transform:translateY(-2px)}
 .btn-peligro:hover:not(:disabled){filter:brightness(.92);transform:translateY(-2px)}
 .btn-chico{padding:.4rem .75rem;min-height:34px;font-size:var(--t-small);border-radius:var(--radius-sm)}
+.btn-quitar{margin-top:.75rem;background:transparent;border:1.5px solid var(--danger);color:var(--danger);border-radius:var(--radius);padding:.5rem .8rem;font-weight:700;font-size:var(--t-small);cursor:pointer}
+.btn-quitar:hover{background:var(--danger);color:#fff}
+.btn-quitar:focus-visible{outline:2px solid var(--danger);outline-offset:2px}
+.pz-popup .btn-quitar{display:block;width:100%;text-align:center;max-width:240px}
 .btn-bloque{width:100%}
 .btn-enlace{background:none;border:none;color:var(--primary);font:inherit;font-size:var(--t-small);font-weight:600;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--primary) 40%,transparent);text-underline-offset:3px;cursor:pointer;padding:.2rem 0;transition:color .18s ease,text-decoration-color .18s ease}
 .btn-enlace:hover:not(:disabled){color:var(--g-800);text-decoration-color:currentColor}

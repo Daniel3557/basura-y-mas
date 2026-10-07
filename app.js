@@ -1858,11 +1858,111 @@ function alternarRedCiudad(){
 /* ---------- Colonias del catálogo: etiquetas en el mapa ---------- */
 const CLAVE_UBICACIONES_EQUIPO = 'bym.colonias.ubicaciones.v1';
 
+/* Ubicaciones aportadas por el equipo (lista oficial con Código Plus,
+   horneadas al repositorio para que no dependan del localStorage).
+   Notas de la lista original: '1 de Mayo' y '1ro de Agosto' comparten
+   un solo punto; 'El Pastor' y 'Colinas del Sur' también (venían juntos
+   como 'El Pastor / Colinas del Sur'); el catálogo une a C.N.O.P.
+   (19.7032, -103.4801) con CTM (19.7025, -103.4812) como 'C.N.O.P.CTM',
+   así que se usa el punto   medio de los dos. Centro se omite: ya tiene
+   polígono propio en ZONAS.   'El Retiro' y 'El Tinaco' comparten punto
+   (venían juntos como 'El Retiro / El Tinaco'); Fovissste venía como
+   'Fovissste (José Clemente Orozco)' y San Antonio como
+   'San Antonio (Unidad Habitacional)'. El deshacer guarda null (lápida)
+   para anular también la copia horneada. */
+const UBICACIONES_EQUIPO_HORNEADAS = {
+  '1 de Mayo': [19.6923, -103.4681],
+  '1ro de Agosto': [19.6923, -103.4681],
+  '5 de Febrero': [19.7041, -103.4782],
+  '16 de Septiembre': [19.7085, -103.4752],
+  'Álamo': [19.7152, -103.4621],
+  'Azaleas': [19.7183, -103.4675],
+  'Benefactores': [19.7121, -103.4610],
+  'Campamento Ferrocarrilero': [19.6982, -103.4581],
+  'Cañadas': [19.7145, -103.4720],
+  'C.N.O.P.CTM': [19.70285, -103.48065],
+  'Chuluapan': [19.7161, -103.4712],
+  'Compositores': [19.7192, -103.4541],
+  'Conjunto Calderón': [19.7175, -103.4552],
+  'Conjunto Hidalgo': [19.7210, -103.4530],
+  'Conjunto Modernidad': [19.7112, -103.4481],
+  'Cumbres Residencial': [19.7130, -103.4425],
+  'El Jazmín': [19.7241, -103.4810],
+  'El Nogal': [19.6890, -103.4712],
+  'El Pastor': [19.6881, -103.4642],
+  'Colinas del Sur': [19.6881, -103.4642],
+  'El Portón Azul': [19.7118, -103.4701],
+  'El Retiro': [19.7074, -103.4763],
+  'El Tinaco': [19.7074, -103.4763],
+  'Emiliano Zapata': [19.7151, -103.4792],
+  'Empleados Municipales': [19.7188, -103.4560],
+  'Escritores': [19.7225, -103.4612],
+  'Esquipulas': [19.6912, -103.4590],
+  'Fovissste': [19.7061, -103.4740],
+  'Francisco I. Madero': [19.6872, -103.4621],
+  'Francisco Villalvazo Rolón': [19.7018, -103.4770],
+  'Gante': [19.7055, -103.4632],
+  'Gordiano Guzmán': [19.7030, -103.4651],
+  'Hijos Ilustres': [19.7011, -103.4790],
+  'Insurgentes': [19.7050, -103.4795],
+  'Jardines de Zapotlán': [19.7125, -103.4680],
+  'Jesús Reyes Heroles': [19.7160, -103.4780],
+  'Juan Rulfo': [19.7215, -103.4630],
+  'La Cantera San José': [19.6961, -103.4731],
+  'La Cebada': [19.7091, -103.4771],
+  'La Nueva Luz': [19.6930, -103.4561],
+  'La Paz': [19.7100, -103.4690],
+  'Las Américas': [19.6980, -103.4710],
+  'Las Lomas': [19.6950, -103.4750],
+  'Lázaro Cárdenas': [19.7140, -103.4650],
+  'Lic. A. Gándara Estrada': [19.7038, -103.4760],
+  'Loma Bonita': [19.7132, -103.4695],
+  'Lomas de San Cayetano': [19.7080, -103.4470],
+  'Los Bomberos': [19.7155, -103.4730],
+  'Los Camichines': [19.7110, -103.4625],
+  'Los Doctores': [19.7190, -103.4660],
+  'Los Olivos': [19.7088, -103.4710],
+  'Mansiones del Real': [19.7260, -103.4580],
+  'Mariano Otero': [19.6970, -103.4720],
+  'Miguel Hidalgo II': [19.6860, -103.4610],
+  'Morelos': [19.6990, -103.4740],
+  'Pablo Luis Juan': [19.7201, -103.4682],
+  'Paseos del Real': [19.7271, -103.4565],
+  'Pintores': [19.7231, -103.4625],
+  'Rancho Quemado': [19.7120, -103.4520],
+  'Revolución': [19.7045, -103.4805],
+  'Rinconada Hidalgo': [19.7060, -103.4600],
+  'San Antonio': [19.7230, -103.4750],
+  'San Cayetano': [19.7065, -103.4490],
+  'San José': [19.6955, -103.4725],
+  'Santa Cecilia': [19.7178, -103.4688],
+  'Senderos San Miguel': [19.7250, -103.4780],
+  'Teocali': [19.7210, -103.4735],
+  'Tlayolan': [19.7165, -103.4535],
+  'Unión de Colonos Independencia': [19.7265, -103.4830],
+  'Unión de Colonos Organizados de Cd. Guzmán': [19.7142, -103.4800],
+  'Universitaria': [19.7280, -103.4815],
+  'Valle de Zapotlán': [19.7180, -103.4520],
+  'Valle del Sol': [19.7255, -103.4820],
+  'Villa Norte': [19.7290, -103.4800],
+  'Villas de Calderón': [19.7168, -103.4560],
+  'Villas de San Isidro': [19.7028, -103.4755]
+};
+
 function leerUbicacionesEquipo(){
+  const u = {};
+  Object.keys(UBICACIONES_EQUIPO_HORNEADAS).forEach(function(n){
+    u[n] = UBICACIONES_EQUIPO_HORNEADAS[n].slice();
+  });
   try {
-    const u = JSON.parse(localStorage.getItem(CLAVE_UBICACIONES_EQUIPO));
-    return (u && typeof u === 'object') ? u : {};
-  } catch(e){ return {}; }
+    const g = JSON.parse(localStorage.getItem(CLAVE_UBICACIONES_EQUIPO));
+    if (g && typeof g === 'object'){
+      Object.keys(g).forEach(function(n){
+        if (g[n] === null) delete u[n]; else u[n] = g[n];
+      });
+    }
+  } catch(e){ /* copia corrupta: quedan las horneadas */ }
+  return u;
 }
 
 function centroDeZona(z){
@@ -1918,7 +2018,16 @@ function pintarCapaColonias(){
         const t = document.createElement('strong'); t.textContent = '🏘️ Colonia ' + nombre;
         const d = document.createElement('div'); d.style.fontSize = '.78rem'; d.style.marginTop = '.3rem';
         d.textContent = 'Ubicación: ' + f.fuente + '. Ninguna colonia del catálogo tiene límites oficiales públicos: el punto es orientativo, no una delimitación.';
-        cont.append(t, d);
+        const detallesCont = document.createElement('div');
+        detallesCont.style.fontSize = '.78rem'; detallesCont.style.marginTop = '.3rem';
+        detallesCont.appendChild(d);
+        const btnQuitar = document.createElement('button');
+        btnQuitar.type = 'button';
+        btnQuitar.className = 'btn-quitar';
+        btnQuitar.textContent = '🗑️ Quitar del mapa';
+        btnQuitar.addEventListener('click', function(){ deshacerUbicacionColonia(nombre); mapa.closePopup(); });
+        detallesCont.appendChild(btnQuitar);
+        cont.append(t, detallesCont);
         return cont;
       }, { className: 'pz-popup' });
   });
@@ -1993,9 +2102,13 @@ function limpiarSugerencia(){
 }
 
 function guardarUbicacionEquipo(nombre, latlng){
-  const u = leerUbicacionesEquipo();
-  u[nombre] = [Number(latlng.lat.toFixed(6)), Number(latlng.lng.toFixed(6))];
-  try { localStorage.setItem(CLAVE_UBICACIONES_EQUIPO, JSON.stringify(u)); } catch(e){ /* sin espacio: se puede repetir */ }
+  let g = {};
+  try {
+    const p = JSON.parse(localStorage.getItem(CLAVE_UBICACIONES_EQUIPO));
+    if (p && typeof p === 'object') g = p;
+  } catch(e){ /* copia corrupta: se empieza de nuevo */ }
+  g[nombre] = [Number(latlng.lat.toFixed(6)), Number(latlng.lng.toFixed(6))];
+  try { localStorage.setItem(CLAVE_UBICACIONES_EQUIPO, JSON.stringify(g)); } catch(e){ /* sin espacio: se puede repetir */ }
   coloniaPorColocar = null;
   estado.modoElegirMapa = null;
   limpiarSugerencia();
@@ -2003,6 +2116,23 @@ function guardarUbicacionEquipo(nombre, latlng){
   llenarSelectColocar();
   const falta = coloniasPendientes().length;
   toast('📍 Colonia ' + nombre + ' guardada.' + (falta ? ' Faltan ' + falta + '.' : ' ¡Catálogo completo en el mapa!'), 'exito', 3800);
+}
+
+/** Quita una colonia colocada por el equipo (borra su entrada del
+    almacenamiento local y repinta la capa). Las de ZONAS/OSM no se tocan. */
+function deshacerUbicacionColonia(nombre){
+  const u = leerUbicacionesEquipo();
+  if (!(nombre in u)){ toast('La colonia ' + nombre + ' no fue colocada por el equipo: no se puede quitar.', 'info', 3600); return; }
+  let g = {};
+  try {
+    const p = JSON.parse(localStorage.getItem(CLAVE_UBICACIONES_EQUIPO));
+    if (p && typeof p === 'object') g = p;
+  } catch(e){ /* copia corrupta: se empieza de nuevo */ }
+  g[nombre] = null; // lápida: anula también la copia horneada
+  try { localStorage.setItem(CLAVE_UBICACIONES_EQUIPO, JSON.stringify(g)); } catch(e){ /* sin espacio: se puede repetir */ }
+  pintarCapaColonias();
+  llenarSelectColocar();
+  toast('🗑️ Colonia ' + nombre + ' quitada del mapa. Vuelve a colocarla cuando quieras.', 'info', 4200);
 }
 
 /** Las ubicaciones colocadas a mano viven solo en este navegador;
