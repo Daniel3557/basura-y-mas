@@ -2635,27 +2635,58 @@ function activarTab(cat){
 }
 
 const RESIDUOS = [
+  /* ---- Orgánicos ---- */
   { n:'Plátano', cl:['platano','banana','guineo'], cat:'organicos', e:'🍌', c:'Orgánico: compóstalo o bótalo en la bolsa verde.' },
   { n:'Restos de comida', cl:['comida','sobras','sobra','tortilla','arroz','frijoles'], cat:'organicos', e:'🍎', c:'Orgánico: al contenedor con tapa; ideal para composta.' },
-  { n:'Cáscaras de fruta', cl:['cascara','naranja','manzana','mango','limon','papaya'], cat:'organicos', e:'🍊', c:'Orgánico: perfecto para la composta casera.' },
-  { n:'Hojas y jardín', cl:['hoja','hojas','jardin','pasto','hierba','poda'], cat:'organicos', e:'🍂', c:'Orgánico: sepáralo del resto para poder compostarlo.' },
+  { n:'Cáscaras de fruta', cl:['cascara','naranja','manzana','mango','limon','papaya','sandia','melon','uva'], cat:'organicos', e:'🍊', c:'Orgánico: perfecto para la composta casera.' },
+  { n:'Frutas y verduras en mal estado', cl:['podrida','podrido','marchita','verdura','lechuga','tomate','papa','zanahoria'], cat:'organicos', e:'🥕', c:'Orgánico: sin bolsa plástica, directo al contenedor verde.' },
   { n:'Cascarón de huevo', cl:['huevo','casaron','cascaron'], cat:'organicos', e:'🥚', c:'Orgánico: se degrada rápido, aplánalo antes.' },
   { n:'Café y filtros', cl:['cafe','filtro','posos'], cat:'organicos', e:'☕', c:'Orgánico: excelente abono para plantas.' },
+  { n:'Bolsitas de té', cl:['te','bolsita','infusion','manzanilla','tila'], cat:'organicos', e:'🫖', c:'Orgánico: la bolsita de papel puede ir a la composta.' },
+  { n:'Pan y tortilla viejos', cl:['pan','pan viejo','tortillas echadas','tortilla dura'], cat:'organicos', e:'🍞', c:'Orgánico: se descompone rápido; mejor aún si lo compostas.' },
+  { n:'Huesos y restos de carne', cl:['hueso','huesos','carne','pollo','pescado espinas'], cat:'organicos', e:'🍖', c:'Orgánico: al contenedor verde con tapa; NO a la composta casera (atrae fauna y tarda años).' },
+  { n:'Hojas y jardín', cl:['hoja','hojas','jardin','pasto','hierba','poda','ramas'], cat:'organicos', e:'🍂', c:'Orgánico: sepáralo del resto para poder compostarlo.' },
+  /* ---- Inorgánicos reciclables ---- */
   { n:'Botella PET', cl:['pet','botella','envase','garrafon'], cat:'reciclables', e:'🧴', c:'Reciclable: enjuágala, aplástala y deposítala separada.' },
+  { n:'Envases de limpieza y higiene', cl:['shampoo','jabon','detergente','cloro','suavizante'], cat:'reciclables', e:'🧼', c:'Reciclable: enjuágalo bien antes de entregarlo.' },
+  { n:'Bolsas de plástico', cl:['bolsa','bolsas','camelina','bolsa de super'], cat:'reciclables', e:'🛍️', c:'Reciclable si está limpia y seca; muchas tiendas las reciben. Mejor aún: reúsala.' },
   { n:'Cartón', cl:['carton','caja','cajas'], cat:'reciclables', e:'📦', c:'Reciclable: dóblalo y mantenlo seco.' },
-  { n:'Papel', cl:['papel','periodico','revista','cuaderno'], cat:'reciclables', e:'📄', c:'Reciclable: limpio y seco.' },
+  { n:'Papel', cl:['papel','periodico','revista','cuaderno','hoja impresa','sobre'], cat:'reciclables', e:'📄', c:'Reciclable: limpio y seco.' },
+  { n:'Envases Tetra Pak', cl:['tetrapak','brik','jugo en caja','caja de leche','leche clavel'], cat:'reciclables', e:'🥛', c:'Reciclable multilaminado: enjuágalo, sécalo y aplástalo; entrégalo donde acepten Tetra Pak.' },
   { n:'Lata', cl:['lata','latas','aluminio','atun','refresco'], cat:'reciclables', e:'🥫', c:'Reciclable: enjuaga y aplasta.' },
-  { n:'Vidrio', cl:['vidrio','frasco','tarro','botella de vidrio'], cat:'reciclables', e:'🫙', c:'Reciclable: enjuaga y entrégalo sin tapa. Si está roto, envuélvelo.' },
-  { n:'Plástico duro', cl:['plastico','cubeta','tupper','silla'], cat:'reciclables', e:'🪣', c:'Reciclable si está limpio: busca el símbolo de reciclaje.' },
+  { n:'Papel aluminio', cl:['papel aluminio','papel aluminio limpio'], cat:'reciclables', e:'🧻', c:'Reciclable si está limpio: hazlo bola para que se recicle mejor.' },
+  { n:'Chatarra metálica', cl:['chatarra','metal','clavo','tuberia','llave vieja','tornillo'], cat:'reciclables', e:'🔩', c:'Reciclable: los centros de acopio de metal la reciben por peso.' },
+  { n:'Vidrio', cl:['vidrio','frasco','tarro','botella de vidrio','mason'], cat:'reciclables', e:'🫙', c:'Reciclable: enjuaga y entrégalo sin tapa. Si está roto, envuélvelo.' },
+  { n:'Plástico duro', cl:['plastico','cubeta','tupper','silla','olleta'], cat:'reciclables', e:'🪣', c:'Reciclable si está limpio: busca el símbolo de reciclaje.' },
+  /* ---- Inorgánicos no reciclables ---- */
   { n:'Colillas y papel sanitario', cl:['colilla','cigarro','papel higienico','sanitario'], cat:'noreciclables', e:'🚬', c:'No reciclable: bolsa cerrada a la basura común.' },
-  { n:'Pañales', cl:['panal','panales'], cat:'noreciclables', e:'🍼', c:'No reciclable: bolsa bien cerrada.' },
+  { n:'Servilletas y pañuelos usados', cl:['servilleta','servilletas','pañuelo','panuelo','klenex','tissue'], cat:'noreciclables', e:'🧻', c:'No reciclable aunque esté limpio: la fibra es demasiado corta.' },
+  { n:'Pañales', cl:['panal','panales','toallitas','toallitas humedas'], cat:'noreciclables', e:'🍼', c:'No reciclable: bolsa bien cerrada.' },
+  { n:'Toallas femeninas y tampones', cl:['toalla femenina','toalla sanitaria','tampon','tampax','curita','vendaje'], cat:'noreciclables', e:'🩹', c:'No reciclable ni compostable: bolsa bien cerrada a la basura común.' },
+  { n:'Cubrebocas y mascarillas', cl:['cubrebocas','mascarilla','tapabocas','careta','mascaras'], cat:'noreciclables', e:'😷', c:'No reciclable: bótalo en bolsa cerrada; corta las ligas para proteger la fauna.' },
+  { n:'Unicel y poliestireno', cl:['unicel','poliestireno','foam','vaso de unicel','hielo seco'], cat:'noreciclables', e:'🥤', c:'No reciclable en casa: reúsalo o bótalo; solo campañas especiales lo aceptan.' },
+  { n:'Popotes y cubiertos plásticos', cl:['popote','pajilla','cuchara plastica','tenedor plastico','cubiertos de plastico'], cat:'noreciclables', e:'🥢', c:'No reciclable: son demasiado pequeños y ligeros para las plantas. Mejor usa versiones reutilizables.' },
+  { n:'Espejos y vidrio plano', cl:['espejo','cristal','ventana','puerta de vidrio'], cat:'noreciclables', e:'🪞', c:'No se recicla con el vidrio de envases: envuelve bien los fragmentos y márcalos.' },
+  { n:'Chicle', cl:['chicle','goma de mascar','chicles'], cat:'noreciclables', e:'🍬', c:'No reciclable: envuélvelo en papel antes de botarlo, se pega a todo.' },
+  { n:'Polvo y residuo de barrer', cl:['polvo','basura de barrer','barrida','pelusa'], cat:'noreciclables', e:'🧹', c:'No reciclable: bolsa cerrada; si tiene vidrio o metal, envuélvelo aparte.' },
   { n:'Empaques metalizados', cl:['metalizado','papita','dulce','snack'], cat:'noreciclables', e:'🍪', c:'No reciclable normalmente: bótalo cerrado.' },
   { n:'Plástico sucio', cl:['sucio','graso','contaminado'], cat:'noreciclables', e:'🥡', c:'No reciclable si está contaminado con comida.' },
-  { n:'Pilas', cl:['pila','pilas','bateria','baterias'], cat:'especiales', e:'🔋', c:'Especial: punto de acopio, nunca a la basura común.' },
-  { n:'Focos', cl:['foco','focos','bombilla','tubo','lampara'], cat:'especiales', e:'💡', c:'Especial: contiene materiales peligrosos.' },
-  { n:'Medicamentos', cl:['medicamento','medicina','pastilla','jarabe'], cat:'especiales', e:'💊', c:'Especial: entrégalo en farmacias con programa de acopio.' },
-  { n:'Electrónicos', cl:['electronico','celular','cable','audifonos','cargador','raee'], cat:'especiales', e:'📱', c:'Especial: campañas de reciclaje electrónico (RAEE).' },
-  { n:'Aceite de cocina', cl:['aceite','grasa'], cat:'especiales', e:'🛢️', c:'Especial: guárdalo en frasco y llévalo a un punto de acopio.' }
+  /* ---- Residuos de manejo especial ---- */
+  { n:'Pilas', cl:['pila','pilas','bateria','baterias alcalinas','doble a','doble aa'], cat:'especiales', e:'🔋', c:'Especial: punto de acopio, nunca a la basura común.' },
+  { n:'Batería de auto', cl:['bateria de carro','bateria automotriz','acumulador'], cat:'especiales', e:'🚗', c:'Especial: el vendedor está obligado a recibir la vieja al comprar una nueva.' },
+  { n:'Focos', cl:['foco','focos','bombilla','tubo','lampara','ahorrador','fluorescente','foco led'], cat:'especiales', e:'💡', c:'Especial: contiene materiales peligrosos.' },
+  { n:'Termómetros y mercurio', cl:['termometro','mercurio'], cat:'especiales', e:'🌡️', c:'Especial: no lo rompas ni lo limpies tú; a punto de acopio o campaña de salud.' },
+  { n:'Medicamentos', cl:['medicamento','medicina','pastilla','jarabe','syringe vial'], cat:'especiales', e:'💊', c:'Especial: entrégalo en farmacias con programa de acopio; nunca al drenaje.' },
+  { n:'Jeringas y punzocortantes', cl:['jeringa','aguja','lanceta','punzocortante'], cat:'especiales', e:'💉', c:'Especial: guárdalos en frasco rígido con tapa y llévalos a un centro de salud; nunca sueltos.' },
+  { n:'Electrónicos', cl:['electronico','celular','cable','audifonos','cargador','raee','television','pantalla','computadora','laptop','impresora','consola','cd','dvd'], cat:'especiales', e:'📱', c:'Especial: campañas de reciclaje electrónico (RAEE).' },
+  { n:'Tóner y cartuchos', cl:['toner','cartucho','tinta de impresora','inkjet'], cat:'especiales', e:'🖨️', c:'Especial: programas de recarga y acopio; nunca a la basura común.' },
+  { n:'Aceite de cocina', cl:['aceite','grasa','aceite vegetal','manteca'], cat:'especiales', e:'🛢️', c:'Especial: guárdalo en frasco y llévalo a un punto de acopio; 1 litro contamina miles de litros de agua.' },
+  { n:'Aceite de motor', cl:['aceite de motor','lubricante','aceite usado del carro'], cat:'especiales', e:'🛠️', c:'Especial: taller o punto de acopio de aceite usado; nunca al drenaje ni al suelo.' },
+  { n:'Pinturas y solventes', cl:['pintura','solvente','thinner','aguarras','laca','barniz'], cat:'especiales', e:'🎨', c:'Especial: los restos pequeños déjalos secar al sol antes de botar; latas cerradas a acopio.' },
+  { n:'Aerosoles y sprays', cl:['aerosol','spray','desodorante en spray','insecticida en spray'], cat:'especiales', e:'🧯', c:'Especial: úsalos por completo; la lata vacía va a acopio de metal donde lo acepten.' },
+  { n:'Plaguicidas y venenos', cl:['plaguicida','insecticida','raticida','herbicida','veneno'], cat:'especiales', e:'🐀', c:'Especial peligroso: envase con triple lavado o a acopio; nunca al drenaje ni al composta.' },
+  { n:'Llantas', cl:['llanta','llantas','neumatico'], cat:'especiales', e:'🛞', c:'Especial: llanteras y centros de acopio las reciben; nunca a la barranca ni quemadas.' },
+  { n:'Ropa y textiles', cl:['ropa','textil','pantalón','pantalon','camisa','tenis viejos'], cat:'especiales', e:'👕', c:'Reúso: dónalo si sirve; solo el textil irrecuperable va a la basura común.' }
 ];
 const CATS_INFO = {
   organicos:   { t:'🟢 Orgánicos', cls:'verde' },
@@ -2663,7 +2694,12 @@ const CATS_INFO = {
   noreciclables:{ t:'⚫ Inorgánicos no reciclables', cls:'gris' },
   especiales:  { t:'🔴 Residuos especiales', cls:'ambar' }
 };
-function tokensDe(t){ return normalizar(t).split(/[^a-z0-9ñ]+/).filter(Boolean); }
+/* Palabras concretas para el buscador; sin vacías ("de", "la"…), que
+   emparejaban cualquier consulta con nombres que las contienen. */
+function tokensDe(t){
+  const vacias = ['de','la','el','los','las','y','en','con','por','para','un','una','del','al'];
+  return normalizar(t).split(/[^a-z0-9ñ]+/).filter(Boolean).filter(function(x){ return vacias.indexOf(x) === -1; });
+}
 const inputResiduo = $('#inputResiduo');
 let tOutBusq = null;
 inputResiduo.addEventListener('input', function(){
@@ -2679,16 +2715,24 @@ inputResiduo.addEventListener('input', function(){
 function buscarResiduo(consulta){
   const tq = tokensDe(consulta);
   const qn = normalizar(consulta);
-  const hallados = RESIDUOS.filter(function(r){
+  /* Con relevancia: exacto (0) > frase (1) > palabra suelta (2).
+     Así "aceite de motor" gana a "aceite de cocina" aunque venga después. */
+  const hallados = RESIDUOS.map(function(r){
     const grupos = r.cl.concat([r.n]);
-    return grupos.some(function(clave){
+    let s = 99;
+    grupos.forEach(function(clave){
       const cn = normalizar(clave);
-      if (cn === qn) return true;
-      return tokensDe(clave).some(function(tc){
+      if (cn === qn) s = Math.min(s, 0);
+      else if (qn && (cn.indexOf(qn) === 0 || qn.indexOf(cn) === 0)) s = Math.min(s, 1);
+      else if (tokensDe(clave).some(function(tc){
         return tq.some(function(x){ return tc === x || (x.length >= 3 && tc.indexOf(x) === 0) || (tc.length >= 4 && x.indexOf(tc) === 0); });
-      });
+      })) s = Math.min(s, 2);
     });
-  }).slice(0, 6);
+    return { r: r, s: s };
+  }).filter(function(x){ return x.s < 99; })
+    .sort(function(a, b){ return a.s - b.s; })
+    .slice(0, 6)
+    .map(function(x){ return x.r; });
   const cont = $('#resultadosResiduo');
   cont.innerHTML = '';
   if (!hallados.length){
