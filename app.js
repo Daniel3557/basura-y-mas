@@ -2040,8 +2040,10 @@ function alternarColonias(){
   if (capaColonias){
     if (coloniasVisible) capaColonias.addTo(mapa); else mapa.removeLayer(capaColonias);
   }
-  const bloque = $('#bloqueColocar');
-  if (bloque) bloque.hidden = !coloniasVisible;
+  /* Con el catálogo completo el bloque de colocación estorba: se deja
+     decidir a llenarSelectColocar, que lo oculta cuando no hay
+     pendientes (y lo regresa si el equipo quita una colonia). */
+  llenarSelectColocar();
   toast(coloniasVisible
     ? '🏘️ Colonias visibles: el catálogo completo sobre el mapa.'
     : 'Colonias ocultas.', 'info', 2600);

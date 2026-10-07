@@ -1040,6 +1040,9 @@ footer .institucion{font-size:.78rem;color:#B9D8BC}
   flex-direction:column;
   gap:.35rem;
 }
+/* display:flex anulaba el atributo hidden: sin esto el bloque de
+   colocación nunca desaparecía aunque el JS lo ocultara. */
+.colocar-colonias[hidden]{display:none}
 .colocar-colonias label{font-weight:700;color:var(--primary)}
 .fila-colocar{display:flex;gap:.4rem;align-items:center}
 .fila-colocar select{flex:1}
