@@ -649,7 +649,7 @@ function ssyncReportes(){
       return Promise.all(localesNuevas.map(function(x){
         return upsertNube('reportes', x).then(function(ok){
           x._sinc = ok;
-          if (ok){ x._pendiente = false; x.estado_sync = 'Sincronizado con la nube'; }
+          if (ok){ x._pendiente = false; x.estado_sync = 'Sincronizado con la nube'; dejarDeSerEjemplo(x); }
           else { x.estado_sync = 'Registrado localmente (copia local)'; marcarIntento(x); }
         });
       }))
@@ -659,7 +659,9 @@ function ssyncReportes(){
         });
     })
     .then(function(todas){
-      reportesLocales = podarLista(todas, function(){ return false; });
+      // Los reportes de ejemplo nunca se suben ni se podan: igual que las
+      // publicaciones de ejemplo, viven solo en este navegador.
+      reportesLocales = podarLista(todas, function(x){ return !!x.ejemplo; });
       estado.reportes = reportesLocales;
       almacen.datos.reportes = reportesLocales; guardar();
       nubeCargadaRep = true; renderReportes();
@@ -958,13 +960,15 @@ function marcarIndicadores(hash){
   Object.assign(estado._indicadores, hash);
 }
 function verificarInsignias(){
+  // Los reportes de ejemplo no cuentan: nadie gana insignias sin actuar.
+  const reales = (estado.reportes || []).filter(function(r){ return !r.ejemplo; });
   const ctx = {
     puntos: estado.puntos,
     acciones: estado.acciones,
     diasAccion: estado.diasAccion,
-    numReportes: (estado.reportes || []).length,
+    numReportes: reales.length,
     numPublicaciones: contarPublicacionesPropias(),
-    reporteConFoto: (estado.reportes || []).some(function(r){ return !!r.foto; }),
+    reporteConFoto: reales.some(function(r){ return !!r.foto; }),
     usoUbicacion: estado._usoUbicacion || false,
     consultaRuta: estado._consultaRuta || false
   };
@@ -1018,7 +1022,7 @@ function renderPerfil(){
   $('#barraProgresoFill').style.width = avanzado + '%';
   $('#progresoNivelTxt').textContent = 'Nivel ' + n.nivel;
   $('#progresoFaltaTxt').textContent = 'Faltan ' + Math.max(0, n.sig - estado.puntos) + ' puntos para el nivel ' + (n.nivel + 1);
-  $('#statReportes').textContent = (estado.reportes || []).length;
+  $('#statReportes').textContent = (estado.reportes || []).filter(function(r){ return !r.ejemplo; }).length;
   $('#statParticipaciones').textContent = contarPublicacionesPropias() + (estado._numComentarios || 0);
   $('#statAcciones').textContent = estado.acciones.length;
   renderInsignias();
@@ -1851,8 +1855,8 @@ function alternarRedCiudad(){
     if (redVisible) capaRed.addTo(mapa); else mapa.removeLayer(capaRed);
   }
   toast(redVisible
-    ? '🟢 Red urbana visible' + (redPuntos.length ? ': ' + redPuntos.length + ' puntos en toda la ciudad.' : '.')
-    : 'Red urbana oculta.', 'info', 3000);
+    ? '🟢 ' + 'Puntos de recolección en toda la ciudad: ' + (redPuntos.length ? redPuntos.length + ' puntos.' : '.')
+    : '🔴 Puntos en toda la ciudad: no disponibles ahora.', 'info', 3000);
 }
 
 /* ---------- Colonias del catálogo: etiquetas en el mapa ---------- */
@@ -2158,7 +2162,7 @@ async function cargarRedCiudad(forzar){
     if (c){
       redPuntos = c.puntos;
       pintarRedCiudad();
-      pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', 'copia local de OpenStreetMap');
+      pintarChipRed('🟢 Puntos en toda la ciudad', redPuntos.length + ' puntos', 'copia local del proyecto');
       ajustarVistaRedCiudad();
       return;
     }
@@ -2166,7 +2170,7 @@ async function cargarRedCiudad(forzar){
   if (!forzar && Date.now() - redUltimoIntento < 60000) return;  // no insistir en cada visita
   redUltimoIntento = Date.now();
   redCargando = true;
-  pintarChipRed('⏳ Red urbana', 'consultando OpenStreetMap…', '');
+  pintarChipRed('⏳ Puntos en toda la ciudad', 'cargando…', '');
   try {
     const vias = await overpassRedCiudad();
     redPuntos = puntosDesdeVias(vias, {
@@ -2175,8 +2179,7 @@ async function cargarRedCiudad(forzar){
     });
     guardarCacheRed(redPuntos);
     redUltimoError = 0;   // éxito: el chip vuelve a ser un estado, no un botón
-    pintarRedCiudad();
-    pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', vias.length + ' vialidades de OpenStreetMap');
+    pintarRedCiudad();      pintarChipRed('🟢 Puntos en toda la ciudad', redPuntos.length + ' puntos', 'vialidades de OpenStreetMap');
     ajustarVistaRedCiudad();
   } catch(e){
     // Overpass falló (o colgó): antes de rendirse, la copia horneada.
@@ -2189,7 +2192,7 @@ async function cargarRedCiudad(forzar){
       guardarCacheRed(redPuntos);
       redUltimoError = 0;
       pintarRedCiudad();
-      pintarChipRed('🟢 Red urbana', redPuntos.length + ' puntos', 'copia estática de OpenStreetMap (Overpass no respondió)');
+      pintarChipRed('🟢 Puntos en toda la ciudad', redPuntos.length + ' puntos', 'copia estática guardada por la app (el servicio no respondió)');
       ajustarVistaRedCiudad();
     } else {
       redUltimoError = Date.now();
@@ -2200,7 +2203,7 @@ async function cargarRedCiudad(forzar){
     // pintarlo dentro del catch dejaría el botón muerto mientras redCargando
     // todavía era true.
     if (redUltimoError){
-      pintarChipRed('🔴 Red urbana', 'OpenStreetMap no respondió; toca este aviso para reintentar (o vuelve a entrar al mapa en un minuto)', '');
+      pintarChipRed('🔴 Puntos en toda la ciudad', 'el servidor de OpenStreetMap no respondió; toca este aviso para reintentar', '');
     }
   }
 }
@@ -2759,11 +2762,25 @@ function buscarResiduo(consulta){
 /* ============================================================
    MÓDULO 18 · REPORTES CIUDADANOS
    ============================================================ */
-let reportesLocales = Array.isArray(almacen.datos.reportes) ? almacen.datos.reportes : [];
+let reportesLocales = Array.isArray(almacen.datos.reportes) ? almacen.datos.reportes : semillasReportes();
 let publicaciones = Array.isArray(almacen.datos.publicaciones) ? almacen.datos.publicaciones : semillasPublicaciones();
 // Sincroniza el estado global con los arrays vivos (perfil, insignias y contexto)
 estado.reportes = reportesLocales;
 estado.publicaciones = publicaciones;
+
+/* Cuando la nube acepta un reporte de ejemplo (al sincronizar con sesión) se
+   deja de considerar ejemplo y pasa a ser contenido real; así los ejemplos
+   no se acumulan para siempre en la nube. */
+function dejarDeSerEjemplo(r){ delete r.ejemplo; }
+
+function semillasReportes(){
+  const ahora = Date.now();
+  return [
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'Centro', tipo: 'Contenedor lleno', texto: 'El contenedor de la聘用 del mercado ya está lleno desde ayer en la tarde.', estado_sync: 'copia local', estado: 'recibido', ts: ahora - 48*60000, _pendiente: false },
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'La Floresta', tipo: 'Basura en la calle', texto: 'Hay bolsas de basura acumuladas junto al parque; huele fuerte al mediodía.', estado_sync: 'copia local', estado: 'recibido', ts: ahora - 26*3600000, _pendiente: false },
+    { id: uid(), ejemplo: true, nombre: 'Cuenta de ejemplo', colonia: 'El Agustín', tipo: 'Camión no pasó', texto: 'Hoy el camión no pasó por la calle principal; dejamos la basura lista y sigue ahí.', estado_sync: 'copia local', estado: 'recibido', ts: ahora - 20*3600000, _pendiente: false }
+  ];
+}
 
 function semillasPublicaciones(){
   const ahora = Date.now();
@@ -2866,6 +2883,8 @@ function limpiarError(id){ $('#' + id).classList.remove('visible'); }
 
 $('#formReporte').addEventListener('submit', function(e){
   e.preventDefault();
+  // Honeypot: si el campo trampa trae algo, es un bot. Se descarta sin avisarle.
+  if ($('#hpReporte').value){ $('#formReporte').reset(); return; }
   let ok = true;
   const nombre = $('#repNombre').value.trim();
   if (nombre.length > 40){ marcarError('errRepNombre','Máximo 40 caracteres.'); ok = false; } else limpiarError('errRepNombre');
@@ -2915,6 +2934,12 @@ function renderReportes(){
     meta.append(st, sm);
     const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = r.tipo;
     cab.append(av, meta, chip);
+    // Reportes de ejemplo: se marcan con un chip visible para que nadie
+    // los confunda con contenido real de la comunidad.
+    if (r.ejemplo){
+      const chE = document.createElement('span'); chE.className = 'chip gris'; chE.textContent = 'Ejemplo';
+      cab.appendChild(chE);
+    }
     const txt = document.createElement('p'); txt.className = 'txt-reporte'; txt.textContent = r.texto;
     art.append(cab, txt);
     if (r.foto){
@@ -2925,8 +2950,10 @@ function renderReportes(){
       art.appendChild(im);
     }
     const pie = document.createElement('div'); pie.className = 'pie-reporte';
-    const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + (r.estado_sync || 'copia local');
-    pie.appendChild(est);
+    if (!r.ejemplo){
+      const est = document.createElement('span'); est.className = 'chip gris'; est.textContent = (estado._nube ? '☁️ ' : '💾 ') + (r.estado_sync || 'copia local');
+      pie.appendChild(est);
+    }
     // Estado de seguimiento: lo cambia la moderación, no quien reportó.
     const info = ESTADOS_REPORTE[r.estado] || ESTADOS_REPORTE.recibido;
     const seg = document.createElement('span'); seg.className = 'chip ' + info.chip;
@@ -2949,22 +2976,25 @@ function renderReportes(){
     const us = document.createElementNS('http://www.w3.org/2000/svg','use'); us.setAttribute('href','#i-basura');
     sv.appendChild(us); bDel.appendChild(sv);
     bDel.addEventListener('click', function(){
+      const esEjemplo = !!r.ejemplo;
       const esMio = !!(sesion.usuario && r.usuario_id && r.usuario_id === sesion.usuario.id);
       confirmarAccion(
         '¿Eliminar reporte?',
-        esMio
+        esEjemplo ? 'Es un reporte de ejemplo: solo desaparece de este dispositivo.'
+        : esMio
           ? 'Se borrará de este dispositivo y de la nube. Esta acción no se puede deshacer.'
           : 'No publicaste este reporte con tu cuenta, así que solo se borrará de este dispositivo: seguirá visible para el resto de la comunidad. Puedes pedir a la moderación que lo oculte.',
         'Sí, eliminar'
       ).then(function(okDel){
         if (!okDel) return;
-        borrarEnNube('reportes', r).then(function(res){
+        (esEjemplo ? Promise.resolve({ ok: true }) : borrarEnNube('reportes', r)).then(function(res){
           reportesLocales = reportesLocales.filter(function(x){ return x.id !== r.id; });
           estado.reportes = reportesLocales; // mantiene la referencia sincronizada tras el filtro
           estado.eliminadosRep.push(r.id); almacen.datos.eliminadosRep = estado.eliminadosRep;
           almacen.datos.reportes = reportesLocales; guardar();
           renderReportes(); verificarInsignias();
-          if (res.ok) toast('🗑️ Reporte eliminado de este dispositivo y de la nube.', 'info');
+          if (esEjemplo) toast('🗑️ Reporte de ejemplo eliminado de este dispositivo.', 'info');
+          else if (res.ok) toast('🗑️ Reporte eliminado de este dispositivo y de la nube.', 'info');
           else if (res.motivo === 'sin-conexion') toast('💾 Eliminado aquí, pero sin conexión no se pudo borrar en la nube.', 'alerta', 5000);
           else if (res.motivo === 'sin-cuenta') toast('💾 Eliminado solo de este dispositivo (sigue visible en la nube).', 'alerta', 5000);
           else toast('💾 Eliminado de este dispositivo. La nube no lo confirmó.', 'alerta', 5000);
@@ -2986,6 +3016,8 @@ $('#postTipo').addEventListener('change', function(){ if (this.value) limpiarErr
 
 $('#formPost').addEventListener('submit', function(e){
   e.preventDefault();
+  // Honeypot: si el campo trampa trae algo, es un bot. Se descarta sin avisarle.
+  if ($('#hpPost').value){ $('#formPost').reset(); return; }
   let ok = true;
   const nombre = $('#postNombre').value.trim();
   if (nombre.length > 40){ marcarError('errPostNombre','Máximo 40 caracteres.'); ok = false; } else limpiarError('errPostNombre');
@@ -3337,9 +3369,11 @@ function mostrarAcerca(){
   mostrarInfo('Acerca del proyecto', [
     '<strong>BASURA Y MÁS</strong> es una plataforma cívica y ecológica desarrollada como proyecto de <strong>Filosofía II (FILOSOFARTE)</strong> por <strong>Daniel Alvarez</strong> para el <strong>CBTis 226</strong>.',
     'Propone una forma de conectar a la ciudadanía de <strong>Ciudad Guzmán, Jalisco</strong> con la información de recolección, la separación de residuos y la participación comunitaria.',
-    'Fuentes de datos: mapa y vialidades de <strong>OpenStreetMap</strong>, rutas calculadas con <strong>OSRM</strong>, geocodificación con <strong>Nominatim</strong>. Los puntos de recolección son <strong>generados por el sistema</strong> sobre las calles reales de toda la ciudad y sobre la ruta de cada colonia (cada 400 m aprox.); no son contenedores municipales confirmados, y el GPS de vehículos <strong>no está conectado</strong>; cuando exista una fuente municipal, la app está preparada para integrarla.',
+    'Fuentes de datos: el mapa y las calles son de <strong>OpenStreetMap</strong>, un mapa libre hecho por voluntarios de todo el mundo. Sobre esas calles reales, la app propone puntos de recolección cada 400 m aprox.; <strong>no son contenedores municipales confirmados</strong>, y el GPS de vehículos <strong>no está conectado</strong>. Cuando exista una fuente municipal, la app está preparada para integrarla.',
     '<strong>Lo que NO hace:</strong> no está conectada a ningún sistema del municipio, no manda correos ni notificaciones automáticas, y no recoge datos personales de terceros. No inventa horarios ni tarifas que no estén en las fuentes citadas.',
     '<strong>Código abierto:</strong> todo el proyecto está en <a href="https://github.com/Daniel3557/basura-y-mas" target="_blank" rel="noopener noreferrer">GitHub</a>.',
+    '<strong>Colaboradores:</strong> Daniel Alvarez y Mario Ruezga.',
+    '<strong>Contacto:</strong> [aquí va el correo o WhatsApp del equipo del proyecto — el dato exacto lo escribe el equipo; nunca se inventa].',
     '“El progreso sin conciencia no es progresión.”'
   ]);
 }
@@ -3354,7 +3388,7 @@ function mostrarPrivacidad(){
     '<strong>Eco y la IA:</strong> si preguntas algo que las reglas de la app no saben, tu pregunta y los datos que la app ya te enseña (colonias, guía de residuos, tus puntos y el nombre del punto más cercano) se mandan al servidor de la aplicación, que los pasa a un modelo de lenguaje de NVIDIA para redactar la respuesta. <strong>Nunca</strong> se envían tu nombre, tu correo ni tus coordenadas. La clave de ese servicio está en el servidor y no se puede leer desde el navegador. Si el servidor no está disponible, Eco contesta solo con las reglas de la app.',
     '<strong>Cuando preguntas por tu actividad:</strong> si escribes algo como "¿en qué colonia he reportado más?", Eco puede consultar tus propios reportes y publicaciones, tus acciones y tus insignias. Solo se consulta en ese caso: preguntar por un residuo o por un horario no manda nada tuyo. Lo que vuelve al servidor son resúmenes ya contados (por ejemplo "por colonia: Centro 3, La Floresta 1") y, si se necesitan, hasta 110 caracteres del texto de tus últimos reportes. <strong>No</strong> sale tu nombre de perfil, tu correo ni las coordenadas. Cuando esto ocurre, el chat lo escribe debajo de la respuesta.',
     '<strong>Errores de la app:</strong> si el proyecto activa <span title="Sentry, servicio de seguimiento de errores">Sentry</span> para detectar fallos técnicos, se envían solo el tipo de error y el navegador. <strong>Nunca</strong> se envía tu nombre, tu correo ni el texto de lo que escribes. Ahora mismo está <strong>desactivado</strong>: no se envía nada a ningún servicio de ese tipo.',
-    '<strong>Consejo:</strong> comparte responsablemente; no publiques datos sensibles de otras personas. Si ves algo que no debería estar publicado, dilo por el enlace de contacto y lo ocultamos.'
+    '<strong>Errores o contenido inapropiado:</strong> si ves algo que no debería estar publicado, dilo al correo del equipo del proyecto (ver «Acerca del proyecto») y lo ocultamos.'
   ]);
 }
 $('#btnAcerca').addEventListener('click', function(){ cerrarModal('modalConfig'); mostrarAcerca(); });
@@ -3557,9 +3591,10 @@ $('#btnContacto').addEventListener('click', function(){
     '<strong>1. Exportar CSV.</strong> Desde el panel de moderación, el botón <em>Exportar CSV</em> descarga todos los reportes en una hoja de cálculo lista para Excel (separador ";", UTF-8). Es la vía que funciona hoy y no depende de ningún servicio de correo.',
     '<strong>2. Copiar el resumen.</strong> El botón de abajo pone en el portapapeles un resumen de los reportes pendientes, para pegarlo en un correo o en un mensaje al área correspondiente.',
     '<strong>3. Correo automático.</strong> Requiere desplegar la función de borde <code>supabase/functions/resumen-reportes</code> y configurar el remitente con Resend. Está escrito en el repositorio pero <strong>no está desplegado ni verificado</strong>.',
-    '<strong>Destinatario:</strong> ' + (DESTINO.correo
+    '<strong>Destinatario municipal:</strong> ' + (DESTINO.correo
       ? 'los reportes se envían a <strong>' + DESTINO.correo + '</strong> (' + DESTINO.area + ').'
       : '<strong>pendiente de configurar.</strong> El equipo del proyecto aún no ha confirmado la dirección oficial, y la app no la inventa. Hasta que se rellene, usa el CSV o el resumen copiado.'),
+    '<strong>Contacto del proyecto (no el municipio):</strong> [aquí va el correo o WhatsApp del equipo del proyecto, el dato exacto lo escribe el equipo; nunca se inventa].',
     '<strong>Importante:</strong> esta app <strong>no está conectada a ningún sistema municipal</strong>. Los reportes los ve el equipo del proyecto; llegar al área de Servicios Públicos depende de que alguien los entregue.'
   ];
   mostrarInfo('Contacto y envío al municipio', cuerpo);
@@ -4551,11 +4586,11 @@ function ecoPintarEstadoIA(){
   const e = $('#ecoEstado');
   if (!e) return;
   e.className = 'eco-estado ' + (ecoHayIA ? 'con-ia' : 'sin-ia');
+  // Texto para personas, no para técnicos: el detalle de qué datos van al
+  // servidor sigue completo en «Política de privacidad».
   e.textContent = ecoHayIA
-    ? 'IA disponible: lo que no esté en mis reglas lo redacta un modelo de lenguaje en el servidor de la app. ' +
-      'De aquí salen tu pregunta y datos que ya están a la vista (colonias, guía de residuos, tus puntos y el nombre del punto más cercano). Nunca tu nombre, tu correo ni tu ubicación. ' +
-      'Y si le preguntas algo sobre tu propia actividad ("¿en qué colonia he reportado más?"), puede consultar tus reportes y publicaciones: solo en ese caso, y te aviso debajo de la respuesta.'
-    : 'Sin IA en el servidor: contesto solo con las reglas de esta app, sin conexión. Si una regla no entiende tu pregunta, te lo digo en vez de inventar.';
+    ? 'Cuando una pregunta no la entiende ninguna regla de esta app, la paso a un asistente con IA. Nunca se envían tu nombre, tu correo ni tu ubicación. Las respuestas de guías, rutas y reportes salen de las reglas y no necesitan internet.'
+    : 'Ahora contesto solo con las reglas de esta app, sin conexión con el asistente. Si una regla no entiende tu pregunta, te lo digo en vez de inventar.';
 }
 
 /** Llamada a /api/eco. Nunca lanza: devuelve {ok, respuesta|error} o
@@ -4691,7 +4726,8 @@ function ecoContar(lista, campo){
     .map(function(k){ return k + ': ' + c[k]; }).join(', ');
 }
 function ecoMisReportes(){
-  const todos = (estado.reportes || []).filter(function(r){ return !r.oculto; });
+  // Los reportes de ejemplo no son actividad del usuario: no se cuentan.
+  const todos = (estado.reportes || []).filter(function(r){ return !r.oculto && !r.ejemplo; });
   if (sesion.usuario){
     return todos.filter(function(r){ return r.usuario_id && r.usuario_id === sesion.usuario.id; });
   }
@@ -5148,6 +5184,20 @@ else iniciar();
 if ('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('./sw.js').catch(function(){ /* sin service worker la app funciona igual */ });
+  });
+}
+
+/* Vercel Analytics: solo carga en producción (dominio *.vercel.app) y solo
+   envía datos cuando se activa en el dashboard del proyecto (Vercel →
+   Analytics). Aquí no se activa nada: sin activar, Vercel no sirve el
+   script y la app sigue igual. El CSP no permite scripts inline, por eso
+   va aquí y no en el HTML. */
+if (/(^|\.)vercel\.app$/.test(location.hostname)){
+  window.addEventListener('load', function(){
+    const s = document.createElement('script');
+    s.src = '/_vercel/insights/script.js';
+    s.defer = true;
+    document.head.appendChild(s);
   });
 }
 

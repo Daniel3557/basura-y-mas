@@ -355,8 +355,8 @@
             </div>
           </div>
 
-          <div class="estado-ruta" id="estadoRutaChip"><span class="chip gris">Estado: sin ruta cargada</span></div>
-          <div class="estado-ruta" id="estadoRedChip"><span class="chip gris">Red urbana: se carga al abrir el mapa</span></div>
+          <div class="estado-ruta" id="estadoRutaChip"><span class="chip ambar">⏳ Cargando ruta de la colonia…</span></div>
+          <div class="estado-ruta" id="estadoRedChip"><span class="chip gris">📍 Puntos en toda la ciudad: al abrir el mapa</span></div>
 
           <div class="colocar-colonias" id="bloqueColocar" hidden>
             <label for="coloniaColocar">🏘️ Ubicar colonias del catálogo</label>
@@ -387,7 +387,7 @@
             </button>
           </div>
           <div class="aviso-fuente" id="fuenteDatosTexto">
-            🛰️ Fuentes: mapa y vialidades de <strong>OpenStreetMap</strong>; rutas sobre calle real calculadas con <strong>Mapbox Directions</strong> (si está configurado) o <strong>OSRM</strong>; puntos de recolección <strong>generados por el sistema</strong>: de la colonia activa (cada 400 m aprox. sobre su ruta) y de la <strong>red urbana de toda la ciudad</strong> (cada 400 m sobre las calles de OSM). No son contenedores municipales confirmados. Las etiquetas 🏘️ de colonias son ubicaciones aproximadas (OpenStreetMap o el equipo del proyecto), no límites oficiales. GPS de vehículo municipal: <strong>no conectado</strong>.
+            ℹ️ El mapa y las calles son de <strong>OpenStreetMap</strong>. Los puntos de recolección son <strong>propuestas de la app</strong>, cada 400 m sobre las calles reales: no son contenedores oficiales confirmados. Las etiquetas 🏘️ de colonias son ubicaciones aproximadas (OpenStreetMap o el equipo del proyecto), no límites oficiales. GPS de vehículo municipal: <strong>no conectado</strong>.
           </div>
         </div>
 
@@ -577,6 +577,12 @@
             <p class="error-msg" id="errRepFoto" role="alert" style="margin-top:.4rem"></p>
           </div>
 
+          <!-- Honeypot anti-spam: invisible para las personas; los bots lo rellenan y el envío se descarta -->
+          <div class="hp-campo" aria-hidden="true" style="position:absolute;left:-9999px;height:0;overflow:hidden">
+            <label for="hpReporte">No escribas aquí</label>
+            <input type="text" id="hpReporte" name="sitio_web" tabindex="-1" autocomplete="off">
+          </div>
+
           <button type="submit" class="btn btn-primario btn-bloque"><svg class="icono"><use href="#i-altavoz"/></svg>Enviar reporte</button>
         </div>
       </form>
@@ -625,6 +631,12 @@
               <div class="progreso-texto"><span></span><span id="contadorPost">0 / 500</span></div>
               <p class="error-msg" id="errPostTexto" role="alert"></p>
             </div>
+            <!-- Honeypot anti-spam: invisible para las personas; los bots lo rellenan y el envío se descarta -->
+            <div class="hp-campo" aria-hidden="true" style="position:absolute;left:-9999px;height:0;overflow:hidden">
+              <label for="hpPost">No escribas aquí</label>
+              <input type="text" id="hpPost" name="sitio_web" tabindex="-1" autocomplete="off">
+            </div>
+
             <button type="submit" class="btn btn-primario btn-bloque">🤝 Publicar en la comunidad</button>
           </div>
         </form>
@@ -764,7 +776,7 @@
 <footer class="app-footer">
   <p class="footer-proy">Proyecto FILOSOFARTE — Filosofía II</p>
   <h3>🌿 BASURA Y MÁS</h3>
-  <p class="autores">Desarrollado por <strong>Daniel Alvarez</strong></p>
+  <p class="autores">Desarrollado por <strong>Daniel Alvarez</strong> y <strong>Mario Ruezga</strong></p>
   <p class="institucion">Centro de Bachillerato Tecnológico Industrial y de Servicios No. 226</p>
   <div class="footer-filo">
     <p><strong>Basura y Más</strong> busca demostrar que la tecnología puede convertirse en una herramienta de participación, conciencia y cuidado del entorno. Desde la <strong>ética</strong>: usar la tecnología de manera responsable para reducir el impacto ambiental. Desde la <strong>política</strong>: organizarnos, reportar y dialogar como ciudadanos para mejorar los servicios de nuestra comunidad.</p>
@@ -1005,11 +1017,11 @@
     </div>
     <p class="eco-aviso">
       Eco contesta primero con las reglas de esta app: guías, rutas, reportes, puntos e insignias.
-      Esas respuestas <strong>no necesitan internet</strong> y no pueden fallar. Si una pregunta no la
-      entiende ninguna regla, se la reescribe el servidor de la app. Sin conexión, se queda en las reglas:
-      no puede inventar horarios ni datos, así que si no lo sabe, te lo dice.
+      Esas respuestas <strong>no necesitan internet</strong>. Si una pregunta es muy especial, la ayuda
+      con más información de este proyecto. Sin conexión, contesta con las reglas: si no lo sabe, te lo dice
+      en vez de inventar horarios ni datos.
     </p>
-    <p class="eco-estado sin-ia" id="ecoEstado" role="status">Comprobando si el servidor tiene IA…</p>
+    <p class="eco-estado sin-ia" id="ecoEstado" role="status">Empieza a preguntar: Eco contesta con las reglas de esta app.</p>
     <div class="eco-chat" id="ecoChat" role="log" aria-live="polite" aria-label="Conversación con Eco"></div>
     <div class="eco-chips" id="ecoChips" aria-label="Preguntas sugeridas"></div>
     <form class="eco-form" id="ecoForm" novalidate>
@@ -1027,7 +1039,7 @@
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script src="./app.js" defer></script>
 </body>
 </html>
