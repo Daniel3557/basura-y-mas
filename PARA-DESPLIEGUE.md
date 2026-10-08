@@ -1,5 +1,10 @@
 # Qué falta por hacer en Supabase · 8 de octubre de 2026
 
+> **ACTUALIZACIÓN (P5.20):** si ya corriste el SQL original de este archivo
+> (el de la primera versión), corre también el **SQL CORRECTIVO** del final.
+> Es corto, cierra un error del SQL anterior que dejaba los "Me importa"
+> sin funcionar. Ve directo a la sección **"SQL CORRECTIVO"** abajo.
+
 Esta guía es para copiar y pegar. Solo hay **una cosa técnica obligatoria** (el SQL
 del paso 1) y dos ajustes de paneles web. Si algo sale con error, cópiame el
 mensaje exacto y lo reviso.
@@ -118,3 +123,63 @@ where proname in ('proteger_publicacion','limpiar_texto','difuminar_ubicacion','
 ```
 
 Cualquier cosa que no entienda del resultado, pégamela y la leo contigo.
+
+---
+
+## ⚠️ SQL CORRECTIVO (P5.20) — si ya corriste el SQL de arriba, corre este también
+
+El SQL original tenía un error que la prueba automática detectó en
+producción: congelaba la fila **de más** y aplastaba el +1 del like, así
+que los "Me importa" dejaban de aumentar. Este bloque lo corrige dejando
+pasar únicamente el like legítimo. Es seguro correrlo aunque el original
+ya esté aplicado.
+
+1. **SQL Editor** → botón **+** (New query).
+2. Pega todo el bloque y dale **Run**.
+3. Debe decir `Success. No rows returned`.
+
+```sql
+begin;
+
+create or replace function public.proteger_publicacion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Campos que nadie cambia nunca por UPDATE directo.
+  new.id          := old.id;
+  new.ts          := old.ts;
+  new.usuario_id  := old.usuario_id;
+  new.comentarios := old.comentarios;
+  new.oculto      := old.oculto;
+  new.oculto_motivo := old.oculto_motivo;
+  new.likes       := case
+                       when current_setting('bym.marca_interna', true) = 'like'
+                            and new.likes = old.likes + 1 then new.likes
+                       else old.likes
+                     end;
+
+  -- El dueño puede corregir su publicación (nunca likes ni comentarios).
+  if auth.uid() is not null and old.usuario_id is not null
+     and auth.uid() = old.usuario_id then
+    return new;
+  end if;
+
+  -- Quien no es dueño: el contenido y la huella vuelven a como estaban,
+  -- pero se conserva el like ya aplicado (el +1 de dar_like()).
+  new.nombre  := old.nombre;
+  new.colonia := old.colonia;
+  new.tipo    := old.tipo;
+  new.texto   := old.texto;
+  new.huella  := old.huella;
+  return new;
+end;
+$$;
+
+commit;
+```
+
+Después de correrlo, avísame y yo vuelvo a pasar las pruebas automáticas
+para confirmar que los likes volvieron a funcionar.

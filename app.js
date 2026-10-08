@@ -3373,7 +3373,7 @@ function mostrarAcerca(){
     '<strong>Lo que NO hace:</strong> no está conectada a ningún sistema del municipio, no manda correos ni notificaciones automáticas, y no recoge datos personales de terceros. No inventa horarios ni tarifas que no estén en las fuentes citadas.',
     '<strong>Código abierto:</strong> todo el proyecto está en <a href="https://github.com/Daniel3557/basura-y-mas" target="_blank" rel="noopener noreferrer">GitHub</a>.',
     '<strong>Colaboradores:</strong> Daniel Alvarez y Mario Ruezga.',
-    '<strong>Contacto:</strong> [aquí va el correo o WhatsApp del equipo del proyecto — el dato exacto lo escribe el equipo; nunca se inventa].',
+    '<strong>Contacto:</strong> <a href="mailto:danielalvarezavina2010@gmail.com">danielalvarezavina2010@gmail.com</a> (correo del proyecto, atendido por Daniel Alvarez).',
     '“El progreso sin conciencia no es progresión.”'
   ]);
 }
@@ -3594,7 +3594,7 @@ $('#btnContacto').addEventListener('click', function(){
     '<strong>Destinatario municipal:</strong> ' + (DESTINO.correo
       ? 'los reportes se envían a <strong>' + DESTINO.correo + '</strong> (' + DESTINO.area + ').'
       : '<strong>pendiente de configurar.</strong> El equipo del proyecto aún no ha confirmado la dirección oficial, y la app no la inventa. Hasta que se rellene, usa el CSV o el resumen copiado.'),
-    '<strong>Contacto del proyecto (no el municipio):</strong> [aquí va el correo o WhatsApp del equipo del proyecto, el dato exacto lo escribe el equipo; nunca se inventa].',
+    '<strong>Contacto del proyecto (no el municipio):</strong> <a href="mailto:danielalvarezavina2010@gmail.com">danielalvarezavina2010@gmail.com</a> (correo del proyecto, atendido por Daniel Alvarez).',
     '<strong>Importante:</strong> esta app <strong>no está conectada a ningún sistema municipal</strong>. Los reportes los ve el equipo del proyecto; llegar al área de Servicios Públicos depende de que alguien los entregue.'
   ];
   mostrarInfo('Contacto y envío al municipio', cuerpo);
