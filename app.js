@@ -367,6 +367,25 @@ function cerrarSesion(){
 /* ---------- Llamadas a funciones de la base de datos (RPC) ----------
    Seguridad: los límites de seguridad viven en SQL, no aquí. Esta función
    solo traduce la respuesta para poder mostrar un mensaje claro. */
+/* ---------- Contador de visitas (propio, gratis, sin Vercel Analytics) ----------
+   Vercel cambió su Web Analytics a plan de pago, así que la app usa una
+   alternativa propia: un RPC en Supabase que suma +1 por visita. Solo se
+   registra una vez por sesión del navegador (sessionStorage) para que
+   las recargas no inflen el número. Falla en silencio: si la nube no
+   responde, simplemente no hay contador esta vez. */
+function contarVisita(){
+  try {
+    if (sessionStorage.getItem('bym.visita.contada')) return;
+    sessionStorage.setItem('bym.visita.contada', '1');
+  } catch(e){ /* modo privado: cuenta cada vez, sin drama */ }
+  rpcNube('registrar_visita', {}).then(function(r){
+    if (r.ok && Array.isArray(r.data) && typeof r.data[0] === 'number'){
+      const el = $('#contadorVisitas');
+      if (el) el.textContent = new Intl.NumberFormat('es-MX').format(r.data[0]);
+    }
+  });
+}
+
 function rpcNube(nombre, cuerpo){
   return fetch(NUBE.url + 'rpc/' + nombre, {
     method: 'POST', headers: cabecerasNube(), body: JSON.stringify(cuerpo || {})
@@ -3730,6 +3749,7 @@ window.addEventListener('unhandledrejection', function(e){
    MÓDULO 22 · INICIALIZACIÓN
    ============================================================ */
 function iniciar(){
+  contarVisita();
   aplicarTema(estado.tema);
   pintarSelectColonias();
   iniciarObservabilidad();   // no hace nada mientras la DSN esté vacía
