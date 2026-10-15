@@ -3772,10 +3772,16 @@ function iniciar(){
     $('#listaPuntos').innerHTML = '<div class="vacio visible" style="padding:1.1rem"><p style="font-size:.85rem">El mapa no pudo cargarse sin conexión. Con internet, recarga la página para activarlo.</p></div>';
     toast('Sin conexión: el mapa no está disponible ahora.', 'error', 6000);
   } else {
-    initMapa();
     $('#rutaSelect').value = estado.coloniaId;
-    // Precarga de la ruta de la colonia guardada (en segundo plano)
-    cargarRutaColonia(false);
+    // El mapa se construye cuando el hilo principal queda libre: la vista
+    // Inicio no lo muestra, así que esperar 1.5 s no cambia nada visible
+    // pero permite que la pantalla inicial pinte mucho más rápido
+    // (Lighthouse móvil: el arranque deja de competir con Leaflet, el
+    // tile del mapa y la capa de 77 colonias).
+    setTimeout(function(){
+      initMapa();
+      cargarRutaColonia(false);
+    }, 1500);
   }
 
   // Reloj de tiempos relativos
