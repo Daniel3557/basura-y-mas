@@ -11,7 +11,9 @@
    · /api/ (Eco con IA): nunca a la caché. Una respuesta del modelo no se
      puede guardar: sería una conversación congelada y además es lo único
      que depende de una clave del servidor. */
-const CACHE = 'bym-v17';
+const CACHE = 'bym-v18';
+// P4.16b: Leaflet y las fuentes viven ahora en este mismo origen (ya no
+// desde unpkg ni Google Fonts), así que entran a la lista de precarga.
 const PRECACHE = [
   './',
   './index.html',
@@ -21,7 +23,10 @@ const PRECACHE = [
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './leaflet.css',
+  './leaflet.js',
+  './fuentes.css'
 ];
 
 self.addEventListener('install', function (e) {
